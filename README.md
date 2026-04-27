@@ -1,10 +1,10 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/04/27 10:48:03.565778 )
-[//]: # (+ Revised: 	2026/04/27 13:54:51.381902 )
+[//]: # (+ Revised: 	2026/04/27 13:58:16.162721 )
 [//]: # ( ---------------------------------------------------------------------- )
 
-# <img src="media/icon.png" width="96" alt="Vitralis icon" /><br/> Vitralis
+# <img src="https://raw.githubusercontent.com/Ran-n/vitralis/master/media/icon.png" width="96" alt="Vitralis icon" /><br/> Vitralis
 
 > *Vitralis* — from Latin *vitreus*, of glass. A surface that is there without being in the way.
 
