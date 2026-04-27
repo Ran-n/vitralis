@@ -1,10 +1,10 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/04/27 10:48:03.565778 )
-[//]: # (+ Revised: 	2026/04/27 13:59:05.143617 )
+[//]: # (+ Revised: 	2026/04/27 13:59:36.929009 )
 [//]: # ( ---------------------------------------------------------------------- )
 
-![Vitralis icon](https://raw.githubusercontent.com/Ran-n/vitralis/master/media/icon.png)
+![Vitralis icon](media/icon.png)
 
 # Vitralis
 
