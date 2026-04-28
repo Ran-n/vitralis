@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/27 10:51:18.086867
-Revised: 2026/04/28 14:22:05.485962
+Revised: 2026/04/28 14:59:53.677128
 """
 
 # /// script
@@ -326,11 +326,9 @@ class Canvas(QWidget):
             pts = stroke.points
             for j in range(len(pts)):
                 x0, y0 = pts[j]
-                # distance to vertex
                 d = math.hypot(x0 - px, y0 - py)
                 if d < best_dist:
                     best_dist, best_idx = d, i
-                # distance to segment to the next point
                 if j + 1 < len(pts):
                     x1, y1 = pts[j + 1]
                     dx, dy = x1 - x0, y1 - y0
@@ -679,7 +677,7 @@ class Toolbar(QWidget):
 
         self._pan_btn = QPushButton(_svg_icon("pan", 14), "Pan")
         self._pan_btn.setCheckable(True)
-        self._pan_btn.setToolTip("Drag to shift all drawings on the overlay")
+        self._pan_btn.setToolTip("Drag to shift all drawings on the overlay  [G]")
         self._pan_btn.setFixedHeight(28)
         self._pan_btn.setStyleSheet(_muted_btn())
         self._pan_btn.clicked.connect(self._toggle_pan)
@@ -687,7 +685,7 @@ class Toolbar(QWidget):
 
         self._del_btn = QPushButton(_svg_icon("delete", 14), "Delete")
         self._del_btn.setCheckable(True)
-        self._del_btn.setToolTip("Click near any stroke to remove it")
+        self._del_btn.setToolTip("Click near any stroke to remove it  [X]")
         self._del_btn.setFixedHeight(28)
         self._del_btn.setStyleSheet(_muted_btn())
         self._del_btn.clicked.connect(self._toggle_delete)
@@ -765,7 +763,7 @@ class Toolbar(QWidget):
 
         minus_btn = QPushButton(_svg_icon("minus", 12), "")
         minus_btn.setFixedSize(24, 22)
-        minus_btn.setToolTip("Decrease stroke size")
+        minus_btn.setToolTip("Decrease stroke size  [[]")
         minus_btn.setStyleSheet(_muted_btn())
         minus_btn.clicked.connect(self._size_down)
 
@@ -777,7 +775,7 @@ class Toolbar(QWidget):
 
         plus_btn = QPushButton(_svg_icon("plus", 12), "")
         plus_btn.setFixedSize(24, 22)
-        plus_btn.setToolTip("Increase stroke size")
+        plus_btn.setToolTip("Increase stroke size  []]")
         plus_btn.setStyleSheet(_muted_btn())
         plus_btn.clicked.connect(self._size_up)
 
@@ -845,6 +843,8 @@ class Toolbar(QWidget):
             s.setContext(Qt.ShortcutContext.ApplicationShortcut)
 
         sc("D", lambda: self._toggle_drawing(not self._drawing_active))
+        sc("G", lambda: self._toggle_pan(not self._pan_active))
+        sc("X", lambda: self._toggle_delete(not self._delete_active))
         sc("Z", self._undo)
         sc("Delete", self._clear)
         sc("H", lambda: self._toggle_visibility(not self._vis_btn.isChecked()))
@@ -856,6 +856,8 @@ class Toolbar(QWidget):
         sc("A", lambda: self._select_tool(Tool.ARROW))
         sc("R", lambda: self._select_tool(Tool.RECT))
         sc("O", lambda: self._select_tool(Tool.ELLIPSE))
+        sc("[", self._size_down)
+        sc("]", self._size_up)
 
     # ------------------------------------------------------------------
     # Swatch styling

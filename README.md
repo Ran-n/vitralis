@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/04/27 10:48:03.565778 )
-[//]: # (+ Revised: 	2026/04/28 14:22:05.550361 )
+[//]: # (+ Revised: 	2026/04/28 14:59:53.612479 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 ![Vitralis icon](media/icon_title.png)
@@ -52,6 +52,8 @@ uv run python vitralis.py
 | Key | Action |
 |---|---|
 | `D` | Toggle draw mode |
+| `G` | Toggle pan mode |
+| `X` | Toggle delete mode |
 | `Z` | Undo last stroke |
 | `Del` | Clear all |
 | `H` | Hide/show overlay |
@@ -61,6 +63,7 @@ uv run python vitralis.py
 | `A` | Arrow |
 | `R` | Rectangle |
 | `O` | Ellipse |
+| `[` / `]` | Decrease / increase stroke size |
 | `Right-click` | Exit draw/pan/delete mode |
 | `Esc` | Exit current mode; quit if idle |
 | `Ctrl+Q` | Quit |
