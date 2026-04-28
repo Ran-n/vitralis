@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/04/27 10:48:03.565778 )
-[//]: # (+ Revised: 	2026/04/27 14:01:23.682807 )
+[//]: # (+ Revised: 	2026/04/28 14:22:05.550361 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 ![Vitralis icon](media/icon_title.png)
@@ -41,22 +41,29 @@ uv run python vitralis.py
 
 ## Keyboard shortcuts
 
+### Global (work from any app)
+
 | Key | Action |
 |---|---|
-| `D` | Toggle draw mode on/off |
-| `Right-click` | Exit draw/pan/delete mode |
+| `F8` | Focus/unfocus Vitralis toolbar — restores previous window on unfocus |
+
+### Local (when Vitralis is focused)
+
+| Key | Action |
+|---|---|
+| `D` | Toggle draw mode |
+| `Z` | Undo last stroke |
+| `Del` | Clear all |
+| `H` | Hide/show overlay |
 | `P` | Pen |
 | `E` | Eraser |
 | `L` | Line |
 | `A` | Arrow |
 | `R` | Rectangle |
 | `O` | Ellipse |
-| `Ctrl+Z` | Undo last stroke |
-| `Ctrl+Shift+Del` | Clear all |
-| `Ctrl+H` | Hide/show overlay |
-| `Esc` | Quit |
-
-> Shortcuts require the toolbar to be focused. Click the toolbar once if they don't respond.
+| `Right-click` | Exit draw/pan/delete mode |
+| `Esc` | Exit current mode; quit if idle |
+| `Ctrl+Q` | Quit |
 
 ## TODO
 

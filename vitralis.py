@@ -2,13 +2,14 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/27 10:51:18.086867
-Revised: 2026/04/27 14:16:05.809321
+Revised: 2026/04/28 14:22:05.485962
 """
 
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
 #   "PyQt6>=6.6",
+#   "keyboard>=0.13",
 # ]
 # ///
 """
@@ -29,12 +30,16 @@ from dataclasses import dataclass
 from enum import Enum, auto
 from pathlib import Path
 
+import keyboard
 from PyQt6.QtCore import (
+    QObject,
     QPoint,
     QPointF,
     QRect,
     QRectF,
     Qt,
+    QThread,
+    pyqtSignal,
 )
 from PyQt6.QtGui import (
     QColor,
@@ -446,6 +451,35 @@ class DrawCapture(QWidget):
 
 
 # ---------------------------------------------------------------------------
+# Global hotkeys
+# ---------------------------------------------------------------------------
+
+
+class _HotkeySignals(QObject):
+    toggle_focus = pyqtSignal()
+
+
+class GlobalHotkeyThread(QThread):
+    """Registers global hotkeys and polls until stop() is called."""
+
+    def __init__(self, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self.signals = _HotkeySignals()
+        self._running = False
+
+    def run(self) -> None:
+        keyboard.add_hotkey("f8", self.signals.toggle_focus.emit)
+        self._running = True
+        while self._running:
+            self.msleep(50)
+        keyboard.unhook_all()
+
+    def stop(self) -> None:
+        self._running = False
+        self.wait()
+
+
+# ---------------------------------------------------------------------------
 # Toolbar
 # ---------------------------------------------------------------------------
 
@@ -458,21 +492,26 @@ TOOL_ICONS = {
     Tool.ELLIPSE: ("ellipse", "Ellipse  [O]"),
 }
 
-SIZES = [2, 4, 6, 10, 16, 24]
+SIZES = list(range(2, 25))
 
 PALETTE = [
     "#ff3b3b",  # red
     "#ff6b00",  # orange
+    "#ffa726",  # amber
     "#ffd600",  # yellow
+    "#aed581",  # sage
     "#00c853",  # green
+    "#4db6ac",  # teal
     "#00bcd4",  # cyan
     "#2196f3",  # blue
     "#7c4dff",  # violet
     "#e040fb",  # magenta
     "#ff4081",  # hot pink
+    "#ef9a9a",  # salmon
     "#795548",  # brown
     "#ffffff",  # white
     "#b0bec5",  # light grey
+    "#90a4ae",  # blue-grey
     "#607d8b",  # grey
     "#263238",  # near-black
     "#000000",  # black
@@ -552,7 +591,8 @@ class Toolbar(QWidget):
         self._drawing_active = False
         self._pan_active = False
         self._delete_active = False
-        self._size_index = 1  # index into SIZES
+        self._size_index = 3  # index into SIZES → size 5
+        self._prev_hwnd: int | None = None
 
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -560,6 +600,39 @@ class Toolbar(QWidget):
 
         self._build_ui()
         self.resize(self.sizeHint())
+        self.setFixedWidth(self.width())
+        self._start_global_hotkeys()
+
+    def _start_global_hotkeys(self) -> None:
+        self._hotkey_thread = GlobalHotkeyThread(self)
+        self._hotkey_thread.signals.toggle_focus.connect(self._toggle_focus)
+        self._hotkey_thread.start()
+
+    def _is_vitralis_focused(self) -> bool:
+        fg = ctypes.windll.user32.GetForegroundWindow()
+        our_hwnds = {int(self.winId())} | {int(c.winId()) for c in self.captures}
+        return fg in our_hwnds
+
+    def _toggle_focus(self) -> None:
+        if self._is_vitralis_focused():
+            self.hide()
+            for cap in self.captures:
+                cap.hide()
+            if self._prev_hwnd:
+                ctypes.windll.user32.SetForegroundWindow(self._prev_hwnd)
+                self._prev_hwnd = None
+        else:
+            self._prev_hwnd = ctypes.windll.user32.GetForegroundWindow()
+            self.show()
+            self.raise_()
+            self.activateWindow()
+            hwnd = int(self.winId())
+            user32 = ctypes.windll.user32
+            fg_thread = user32.GetWindowThreadProcessId(self._prev_hwnd, None)
+            cur_thread = ctypes.windll.kernel32.GetCurrentThreadId()
+            user32.AttachThreadInput(fg_thread, cur_thread, True)
+            user32.SetForegroundWindow(hwnd)
+            user32.AttachThreadInput(fg_thread, cur_thread, False)
 
     # ------------------------------------------------------------------
     # UI construction
@@ -570,26 +643,39 @@ class Toolbar(QWidget):
         root.setContentsMargins(8, 8, 8, 8)
         root.setSpacing(5)
 
-        # ── drag handle ──────────────────────────────────────────────
+        # ── drag handle + quit ────────────────────────────────────────
         _base = Path(sys._MEIPASS) if getattr(sys, "frozen", False) else Path(__file__).parent
         handle = _DragHandle("itralis", self, icon_path=_base / "media" / "icon.png")
         handle.setCursor(Qt.CursorShape.SizeAllCursor)
-        root.addWidget(handle)
+
+        quit_btn = QPushButton(_svg_icon("quit", 14), "")
+        quit_btn.setToolTip("Quit  [Esc / Ctrl+Q]")
+        quit_btn.setFixedSize(22, 22)
+        quit_btn.setStyleSheet(_danger_btn())
+        quit_btn.clicked.connect(self._quit)
+
+        title_row = QHBoxLayout()
+        title_row.setContentsMargins(0, 0, 0, 0)
+        title_row.setSpacing(4)
+        spacer = QWidget()
+        spacer.setFixedSize(22, 22)
+        spacer.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        title_row.addWidget(spacer)
+        title_row.addWidget(handle, stretch=1)
+        title_row.addWidget(quit_btn)
+        root.addLayout(title_row)
 
         root.addWidget(_Divider())
 
         # ── draw / pan / delete ───────────────────────────────────────
         self._draw_btn = QPushButton(_svg_icon("draw", 16), "Draw")
         self._draw_btn.setCheckable(True)
-        self._draw_btn.setToolTip("Activate drawing mode  [D]")
+        self._draw_btn.setToolTip("Activate drawing mode  [D]  ·  Focus: F8")
         self._draw_btn.setFixedHeight(34)
         self._draw_btn.setIconSize(self._draw_btn.sizeHint())
         self._draw_btn.setStyleSheet(_accent_btn())
         self._draw_btn.clicked.connect(self._toggle_drawing)
         root.addWidget(self._draw_btn)
-
-        mode_row = QHBoxLayout()
-        mode_row.setSpacing(3)
 
         self._pan_btn = QPushButton(_svg_icon("pan", 14), "Pan")
         self._pan_btn.setCheckable(True)
@@ -597,6 +683,7 @@ class Toolbar(QWidget):
         self._pan_btn.setFixedHeight(28)
         self._pan_btn.setStyleSheet(_muted_btn())
         self._pan_btn.clicked.connect(self._toggle_pan)
+        root.addWidget(self._pan_btn)
 
         self._del_btn = QPushButton(_svg_icon("delete", 14), "Delete")
         self._del_btn.setCheckable(True)
@@ -604,10 +691,7 @@ class Toolbar(QWidget):
         self._del_btn.setFixedHeight(28)
         self._del_btn.setStyleSheet(_muted_btn())
         self._del_btn.clicked.connect(self._toggle_delete)
-
-        mode_row.addWidget(self._pan_btn)
-        mode_row.addWidget(self._del_btn)
-        root.addLayout(mode_row)
+        root.addWidget(self._del_btn)
 
         root.addWidget(_Divider())
 
@@ -631,7 +715,7 @@ class Toolbar(QWidget):
 
         root.addWidget(_Divider())
 
-        # ── color swatches (3 rows × 5 + custom) ─────────────────────
+        # ── color swatches (4 rows × 5 + custom row) ─────────────────
         self._color = PALETTE[0]
         self._swatch_btns: list[QPushButton] = []
         for row_start in range(0, len(PALETTE), 5):
@@ -647,21 +731,26 @@ class Toolbar(QWidget):
                 btn.clicked.connect(lambda _, c=hex_color, b=btn: self._select_color(c, b))
                 self._swatch_btns.append(btn)
                 swatch_row.addWidget(btn)
-            if row_start + 5 >= len(PALETTE):
-                self._custom_btn = QPushButton()
-                self._custom_btn.setFixedSize(18, 18)
-                self._custom_btn.setToolTip("Custom color…")
-                self._custom_btn.setStyleSheet(
-                    "QPushButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,"
-                    "stop:0 #f00, stop:0.17 #ff0, stop:0.33 #0f0,"
-                    "stop:0.5 #0ff, stop:0.67 #00f, stop:0.83 #f0f, stop:1 #f00);"
-                    "border: none; border-radius: 3px; }"
-                    "QPushButton:hover { border: 1px solid white; }"
-                )
-                self._custom_btn.setIcon(_svg_icon("plus", 10))
-                self._custom_btn.clicked.connect(self._pick_custom_color)
-                swatch_row.addWidget(self._custom_btn)
             root.addLayout(swatch_row)
+
+        custom_row = QHBoxLayout()
+        custom_row.setSpacing(3)
+        self._custom_btn = QPushButton()
+        self._custom_btn.setFixedSize(18, 18)
+        self._custom_btn.setToolTip("Custom color…")
+        self._custom_btn.setStyleSheet(
+            "QPushButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,"
+            "stop:0 #f00, stop:0.17 #ff0, stop:0.33 #0f0,"
+            "stop:0.5 #0ff, stop:0.67 #00f, stop:0.83 #f0f, stop:1 #f00);"
+            "border: none; border-radius: 3px; }"
+            "QPushButton:hover { border: 1px solid white; }"
+        )
+        self._custom_btn.setIcon(_svg_icon("plus", 10))
+        self._custom_btn.clicked.connect(self._pick_custom_color)
+        custom_row.addStretch()
+        custom_row.addWidget(self._custom_btn)
+        custom_row.addStretch()
+        root.addLayout(custom_row)
 
         root.addWidget(_Divider())
 
@@ -704,31 +793,25 @@ class Toolbar(QWidget):
         act_row.setSpacing(3)
 
         undo_btn = QPushButton(_svg_icon("undo", 16), "")
-        undo_btn.setToolTip("Undo  [Ctrl+Z]")
+        undo_btn.setToolTip("Undo  [Z]")
         undo_btn.setFixedSize(36, 28)
         undo_btn.setStyleSheet(_muted_btn())
         undo_btn.clicked.connect(self._undo)
 
         self._vis_btn = QPushButton(_svg_icon("hide", 16), "")
         self._vis_btn.setCheckable(True)
-        self._vis_btn.setToolTip("Hide overlay  [Ctrl+H]")
+        self._vis_btn.setToolTip("Hide overlay  [H]")
         self._vis_btn.setFixedSize(36, 28)
         self._vis_btn.setStyleSheet(_muted_btn())
         self._vis_btn.clicked.connect(self._toggle_visibility)
 
         clear_btn = QPushButton(_svg_icon("clear", 16), "")
-        clear_btn.setToolTip("Clear all  [Ctrl+Shift+Del]")
+        clear_btn.setToolTip("Clear all  [Del]")
         clear_btn.setFixedSize(36, 28)
         clear_btn.setStyleSheet(_muted_btn())
         clear_btn.clicked.connect(self._clear)
 
-        quit_btn = QPushButton(_svg_icon("quit", 16), "")
-        quit_btn.setToolTip("Quit  [Esc]")
-        quit_btn.setFixedSize(36, 28)
-        quit_btn.setStyleSheet(_danger_btn())
-        quit_btn.clicked.connect(QApplication.instance().quit)
-
-        for b in (undo_btn, self._vis_btn, clear_btn, quit_btn):
+        for b in (undo_btn, self._vis_btn, clear_btn):
             act_row.addWidget(b)
         root.addLayout(act_row)
 
@@ -758,13 +841,15 @@ class Toolbar(QWidget):
 
     def _setup_shortcuts(self) -> None:
         def sc(key, fn):
-            QShortcut(QKeySequence(key), self, activated=fn)
+            s = QShortcut(QKeySequence(key), self, activated=fn)
+            s.setContext(Qt.ShortcutContext.ApplicationShortcut)
 
         sc("D", lambda: self._toggle_drawing(not self._drawing_active))
-        sc("Ctrl+Z", self._undo)
-        sc("Ctrl+Shift+Delete", self._clear)
-        sc("Ctrl+H", lambda: self._toggle_visibility(not self._vis_btn.isChecked()))
-        sc("Escape", QApplication.instance().quit)
+        sc("Z", self._undo)
+        sc("Delete", self._clear)
+        sc("H", lambda: self._toggle_visibility(not self._vis_btn.isChecked()))
+        QShortcut(QKeySequence("Escape"), self, activated=self._quit)
+        sc("Ctrl+Q", self._quit)
         sc("P", lambda: self._select_tool(Tool.PEN))
         sc("E", lambda: self._select_tool(Tool.ERASER))
         sc("L", lambda: self._select_tool(Tool.LINE))
@@ -778,9 +863,14 @@ class Toolbar(QWidget):
 
     @staticmethod
     def _swatch_style(color: str, selected: bool) -> str:
-        border = "2px solid white" if selected else "1px solid rgba(255,255,255,40)"
+        if selected:
+            return (
+                f"QPushButton {{ background: {color}; border: 2px solid white;"
+                f"border-radius: 3px; outline: none; }}"
+                f"QPushButton:hover {{ border: 2px solid white; }}"
+            )
         return (
-            f"QPushButton {{ background: {color}; border: {border};"
+            f"QPushButton {{ background: {color}; border: 1px solid rgba(255,255,255,40);"
             f"border-radius: 3px; }}"
             f"QPushButton:hover {{ border: 2px solid rgba(255,255,255,180); }}"
         )
@@ -802,8 +892,10 @@ class Toolbar(QWidget):
     def _select_color(self, color: str, source_btn: QPushButton) -> None:
         self._color = color
         for i, btn in enumerate(self._swatch_btns):
-            btn.setChecked(btn is source_btn)
-            btn.setStyleSheet(self._swatch_style(PALETTE[i], btn is source_btn))
+            selected = btn is source_btn
+            btn.setChecked(selected)
+            btn.setFixedSize(20 if selected else 18, 20 if selected else 18)
+            btn.setStyleSheet(self._swatch_style(PALETTE[i], selected))
         for canvas in self.canvases:
             canvas.active_color = color
 
@@ -813,6 +905,7 @@ class Toolbar(QWidget):
             self._color = color.name()
             for i, btn in enumerate(self._swatch_btns):
                 btn.setChecked(False)
+                btn.setFixedSize(18, 18)
                 btn.setStyleSheet(self._swatch_style(PALETTE[i], False))
             for canvas in self.canvases:
                 canvas.active_color = self._color
@@ -939,7 +1032,7 @@ class Toolbar(QWidget):
             checked = self._vis_btn.isChecked()
         self._vis_btn.setChecked(checked)
         self._vis_btn.setIcon(_svg_icon("show" if checked else "hide", 16))
-        self._vis_btn.setToolTip("Show overlay  [Ctrl+H]" if checked else "Hide overlay  [Ctrl+H]")
+        self._vis_btn.setToolTip("Show overlay  [H]" if checked else "Hide overlay  [H]")
         for canvas in self.canvases:
             if checked:
                 canvas.hide()
@@ -951,8 +1044,15 @@ class Toolbar(QWidget):
     # Panel background painting (rounded corners)
     # ------------------------------------------------------------------
 
-    def closeEvent(self, event) -> None:
+    def _quit(self) -> None:
+        if not self._hotkey_thread.isRunning():
+            return
+        self._hotkey_thread.stop()
         QApplication.instance().quit()
+
+    def closeEvent(self, event) -> None:
+        self._hotkey_thread.stop()
+        event.accept()
 
     def paintEvent(self, event) -> None:
         painter = QPainter(self)
@@ -1060,7 +1160,7 @@ def make_tray_icon(app: QApplication, toolbar: Toolbar) -> QSystemTrayIcon:
 
     show_action.triggered.connect(toolbar.show)
     hide_action.triggered.connect(toolbar.hide)
-    quit_action.triggered.connect(app.quit)
+    quit_action.triggered.connect(toolbar._quit)
 
     tray.setContextMenu(menu)
     tray.activated.connect(
@@ -1122,6 +1222,7 @@ def main() -> None:
 
     _tray = make_tray_icon(app, toolbar)  # noqa: F841 — must stay alive
 
+    app.aboutToQuit.connect(toolbar._hotkey_thread.stop)
     sys.exit(app.exec())
 
 
