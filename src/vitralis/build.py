@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
 """
 Authors: Ran# <ran.hash@proton.me>
-Created: 2026/04/27 13:43:24.591252
-Revised: 2026/04/28 16:05:31.507282
-"""
-
-"""
-Build vitralis.exe — run once to produce build/dist/vitralis-<version>.exe
+Created: 2026/04/28 16:06:25.762869
+Revised: 2026/04/28 16:22:10.695643
 """
 
 import os
@@ -58,26 +54,29 @@ def png_to_ico(png_path: str, ico_path: str) -> None:
 
 
 def main() -> None:
+    # project root = src/vitralis/../../..
     here = os.path.dirname(os.path.abspath(__file__))
+    root = os.path.dirname(os.path.dirname(here))
 
-    with open(os.path.join(here, "pyproject.toml"), "rb") as f:
+    with open(os.path.join(root, "pyproject.toml"), "rb") as f:
         version = tomllib.load(f)["project"]["version"]
 
     exe_name = f"vitralis-{version}"
-    script   = os.path.join(here, "src", "vitralis", "__main__.py")
-    build    = os.path.join(here, "build", "temp")
-    dist     = os.path.join(here, "build", "dist")
+    script   = os.path.join(here, "__main__.py")
+    build    = os.path.join(root, "build")
+    dist     = os.path.join(root, "dist")
     ico      = os.path.join(build, "vitralis.ico")
-    png      = os.path.join(here, "media", "icon.png")
+    png      = os.path.join(here, "media", "logo", "icon.png")
 
     os.makedirs(build, exist_ok=True)
-    os.makedirs(dist,  exist_ok=True)
+    os.makedirs(dist, exist_ok=True)
 
     png_to_ico(png, ico)
 
-    sep = ";" if sys.platform == "win32" else ":"
+    sep       = ";" if sys.platform == "win32" else ":"
+    logo_dir  = os.path.join(here, "media", "logo")
     icons_dir = os.path.join(here, "media", "icons")
-    src_dir = os.path.join(here, "src")
+    src_dir   = os.path.join(root, "src")
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--onefile",
@@ -88,7 +87,7 @@ def main() -> None:
         f"--workpath={build}",
         f"--specpath={build}",
         f"--paths={src_dir}",
-        f"--add-data={png}{sep}media",
+        f"--add-data={logo_dir}{sep}media/logo",
         f"--add-data={icons_dir}{sep}media/icons",
         script,
     ]
@@ -96,7 +95,7 @@ def main() -> None:
     print("Running PyInstaller...")
     result = subprocess.run(cmd)
     if result.returncode == 0:
-        print(f"\nDone ->  {dist}\\{exe_name}.exe")
+        print(f"\nDone -> {dist}\\{exe_name}.exe")
     else:
         print("\nBuild failed.")
         sys.exit(result.returncode)

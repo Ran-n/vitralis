@@ -1,10 +1,10 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/04/27 10:48:03.565778 )
-[//]: # (+ Revised: 	2026/04/28 14:59:53.612479 )
+[//]: # (+ Revised: 	2026/04/28 16:24:47.243999 )
 [//]: # ( ---------------------------------------------------------------------- )
 
-![Vitralis icon](media/icon_title.png)
+![Vitralis icon](src/vitralis/media/logo/icon_title.png)
 
 # Vitralis
 
@@ -36,7 +36,13 @@ uv sync
 ## Usage
 
 ```
-uv run python vitralis.py
+uv run vitralis
+```
+
+Or directly:
+
+```
+uv run python -m vitralis
 ```
 
 ## Keyboard shortcuts
@@ -49,28 +55,21 @@ uv run python vitralis.py
 
 ### Local (when Vitralis is focused)
 
-| Key | Action |
-|---|---|
-| `D` | Toggle draw mode |
-| `G` | Toggle pan mode |
-| `X` | Toggle delete mode |
-| `Z` | Undo last stroke |
-| `Del` | Clear all |
-| `H` | Hide/show overlay |
-| `P` | Pen |
-| `E` | Eraser |
-| `L` | Line |
-| `A` | Arrow |
-| `R` | Rectangle |
-| `O` | Ellipse |
-| `[` / `]` | Decrease / increase stroke size |
-| `Right-click` | Exit draw/pan/delete mode |
-| `Esc` | Exit current mode; quit if idle |
-| `Ctrl+Q` | Quit |
+| Key | Action | Key | Action |
+|---|---|---|---|
+| `D` | Toggle draw mode | `P` | Pen |
+| `G` | Toggle pan mode | `E` | Eraser |
+| `X` | Toggle delete mode | `L` | Line |
+| `Z` | Undo last stroke | `A` | Arrow |
+| `Del` | Clear all | `R` | Rectangle |
+| `H` | Hide/show overlay | `O` | Ellipse |
+| `[` / `]` | Decrease / increase size | `Right-click` | Exit active mode |
+| `Esc` | Quit if idle | `Ctrl+Q` | Quit |
 
 ## TODO
 
 - Save and load named overlay snapshots (export/import stroke sets by name)
+- Settings window (accessible from toolbar): custom keyboard shortcuts and UI language
 
 ## License
 
