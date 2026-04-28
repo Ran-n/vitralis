@@ -9,4 +9,3 @@ build/
 *.spec
 .ruff_cache/
 uv.lock
-.claude/

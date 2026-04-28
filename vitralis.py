@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/27 10:51:18.086867
-Revised: 2026/04/27 13:51:27.254682
+Revised: 2026/04/27 14:16:05.809321
 """
 
 # /// script
@@ -450,27 +450,56 @@ class DrawCapture(QWidget):
 # ---------------------------------------------------------------------------
 
 TOOL_ICONS = {
-    Tool.PEN: ("✏", "Pen  [P]"),
-    Tool.ERASER: ("⌫", "Eraser  [E]"),
-    Tool.LINE: ("╱", "Line  [L]"),
-    Tool.ARROW: ("→", "Arrow  [A]"),
-    Tool.RECT: ("▭", "Rectangle  [R]"),
-    Tool.ELLIPSE: ("◯", "Ellipse  [O]"),
+    Tool.PEN: ("pen", "Pen  [P]"),
+    Tool.ERASER: ("eraser", "Eraser  [E]"),
+    Tool.LINE: ("line", "Line  [L]"),
+    Tool.ARROW: ("arrow", "Arrow  [A]"),
+    Tool.RECT: ("rect", "Rectangle  [R]"),
+    Tool.ELLIPSE: ("ellipse", "Ellipse  [O]"),
 }
 
 SIZES = [2, 4, 6, 10, 16, 24]
 
 PALETTE = [
     "#ff3b3b",  # red
-    "#ff8c00",  # orange
+    "#ff6b00",  # orange
     "#ffd600",  # yellow
-    "#4caf50",  # green
+    "#00c853",  # green
     "#00bcd4",  # cyan
     "#2196f3",  # blue
+    "#7c4dff",  # violet
     "#e040fb",  # magenta
+    "#ff4081",  # hot pink
+    "#795548",  # brown
     "#ffffff",  # white
+    "#b0bec5",  # light grey
+    "#607d8b",  # grey
+    "#263238",  # near-black
     "#000000",  # black
 ]
+
+# ---------------------------------------------------------------------------
+# Icon helpers
+# ---------------------------------------------------------------------------
+
+_ICONS_DIR: Path | None = None
+
+
+def _init_icons_dir() -> None:
+    global _ICONS_DIR
+    base = Path(sys._MEIPASS) if getattr(sys, "frozen", False) else Path(__file__).parent
+    _ICONS_DIR = base / "media" / "icons"
+
+
+def _svg_icon(name: str, size: int = 20) -> QIcon:
+    path = _ICONS_DIR / f"{name}.svg"
+    px = QPixmap(str(path))
+    if not px.isNull():
+        px = px.scaled(size, size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+    icon = QIcon()
+    icon.addPixmap(px)
+    return icon
+
 
 # ---------------------------------------------------------------------------
 # Shared stylesheet constants
@@ -539,76 +568,100 @@ class Toolbar(QWidget):
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(8, 8, 8, 8)
-        root.setSpacing(6)
+        root.setSpacing(5)
 
         # ── drag handle ──────────────────────────────────────────────
-        handle = _DragHandle("⠿  Vitralis", self)
-        handle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        _base = Path(sys._MEIPASS) if getattr(sys, "frozen", False) else Path(__file__).parent
+        handle = _DragHandle("itralis", self, icon_path=_base / "media" / "icon.png")
         handle.setCursor(Qt.CursorShape.SizeAllCursor)
-        handle.setStyleSheet(
-            "color: rgba(255,255,255,160); font-size: 11px; font-weight: 600;"
-            "letter-spacing: 1.5px; text-transform: uppercase;"
-        )
         root.addWidget(handle)
 
-        # ── tool grid (2 × 3) ─────────────────────────────────────────
-        tools_grid = QVBoxLayout()
-        tools_grid.setSpacing(3)
+        root.addWidget(_Divider())
+
+        # ── draw / pan / delete ───────────────────────────────────────
+        self._draw_btn = QPushButton(_svg_icon("draw", 16), "Draw")
+        self._draw_btn.setCheckable(True)
+        self._draw_btn.setToolTip("Activate drawing mode  [D]")
+        self._draw_btn.setFixedHeight(34)
+        self._draw_btn.setIconSize(self._draw_btn.sizeHint())
+        self._draw_btn.setStyleSheet(_accent_btn())
+        self._draw_btn.clicked.connect(self._toggle_drawing)
+        root.addWidget(self._draw_btn)
+
+        mode_row = QHBoxLayout()
+        mode_row.setSpacing(3)
+
+        self._pan_btn = QPushButton(_svg_icon("pan", 14), "Pan")
+        self._pan_btn.setCheckable(True)
+        self._pan_btn.setToolTip("Drag to shift all drawings on the overlay")
+        self._pan_btn.setFixedHeight(28)
+        self._pan_btn.setStyleSheet(_muted_btn())
+        self._pan_btn.clicked.connect(self._toggle_pan)
+
+        self._del_btn = QPushButton(_svg_icon("delete", 14), "Delete")
+        self._del_btn.setCheckable(True)
+        self._del_btn.setToolTip("Click near any stroke to remove it")
+        self._del_btn.setFixedHeight(28)
+        self._del_btn.setStyleSheet(_muted_btn())
+        self._del_btn.clicked.connect(self._toggle_delete)
+
+        mode_row.addWidget(self._pan_btn)
+        mode_row.addWidget(self._del_btn)
+        root.addLayout(mode_row)
+
+        root.addWidget(_Divider())
+
+        # ── tool grid (3 × 2) ─────────────────────────────────────────
         self._tool_btns: dict[Tool, QPushButton] = {}
         tool_list = list(TOOL_ICONS.items())
         for row in range(3):
             row_layout = QHBoxLayout()
             row_layout.setSpacing(3)
             for col in range(2):
-                idx = row * 2 + col
-                tool, (icon, tip) = tool_list[idx]
-                btn = QPushButton(icon)
+                tool, (icon_name, tip) = tool_list[row * 2 + col]
+                btn = QPushButton(_svg_icon(icon_name, 18), "")
                 btn.setToolTip(tip)
-                btn.setFixedSize(36, 36)
+                btn.setFixedSize(36, 32)
                 btn.setCheckable(True)
                 btn.setStyleSheet(_base_btn())
                 btn.clicked.connect(lambda checked, t=tool: self._select_tool(t))
                 row_layout.addWidget(btn)
                 self._tool_btns[tool] = btn
-            tools_grid.addLayout(row_layout)
-        root.addLayout(tools_grid)
+            root.addLayout(row_layout)
 
         root.addWidget(_Divider())
 
-        # ── color swatches ────────────────────────────────────────────
+        # ── color swatches (3 rows × 5 + custom) ─────────────────────
         self._color = PALETTE[0]
         self._swatch_btns: list[QPushButton] = []
-        swatch_row1 = QHBoxLayout()
-        swatch_row1.setSpacing(3)
-        swatch_row2 = QHBoxLayout()
-        swatch_row2.setSpacing(3)
-        for i, hex_color in enumerate(PALETTE):
-            btn = QPushButton()
-            btn.setFixedSize(18, 18)
-            btn.setToolTip(hex_color)
-            btn.setCheckable(True)
-            btn.setStyleSheet(self._swatch_style(hex_color, False))
-            btn.clicked.connect(lambda _, c=hex_color, b=btn: self._select_color(c, b))
-            self._swatch_btns.append(btn)
-            (swatch_row1 if i < 5 else swatch_row2).addWidget(btn)
-
-        # custom color picker as last button in row 2
-        self._custom_btn = QPushButton("+")
-        self._custom_btn.setFixedSize(18, 18)
-        self._custom_btn.setToolTip("Custom color…")
-        self._custom_btn.setStyleSheet(
-            "QPushButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,"
-            "stop:0 #f00, stop:0.17 #ff0, stop:0.33 #0f0,"
-            "stop:0.5 #0ff, stop:0.67 #00f, stop:0.83 #f0f, stop:1 #f00);"
-            "color: white; font-weight: bold; font-size: 11px;"
-            "border: none; border-radius: 3px; }"
-            "QPushButton:hover { border: 1px solid white; }"
-        )
-        self._custom_btn.clicked.connect(self._pick_custom_color)
-        swatch_row2.addWidget(self._custom_btn)
-
-        root.addLayout(swatch_row1)
-        root.addLayout(swatch_row2)
+        for row_start in range(0, len(PALETTE), 5):
+            swatch_row = QHBoxLayout()
+            swatch_row.setSpacing(3)
+            for i in range(row_start, min(row_start + 5, len(PALETTE))):
+                hex_color = PALETTE[i]
+                btn = QPushButton()
+                btn.setFixedSize(18, 18)
+                btn.setToolTip(hex_color)
+                btn.setCheckable(True)
+                btn.setStyleSheet(self._swatch_style(hex_color, False))
+                btn.clicked.connect(lambda _, c=hex_color, b=btn: self._select_color(c, b))
+                self._swatch_btns.append(btn)
+                swatch_row.addWidget(btn)
+            if row_start + 5 >= len(PALETTE):
+                self._custom_btn = QPushButton()
+                self._custom_btn.setFixedSize(18, 18)
+                self._custom_btn.setToolTip("Custom color…")
+                self._custom_btn.setStyleSheet(
+                    "QPushButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,"
+                    "stop:0 #f00, stop:0.17 #ff0, stop:0.33 #0f0,"
+                    "stop:0.5 #0ff, stop:0.67 #00f, stop:0.83 #f0f, stop:1 #f00);"
+                    "border: none; border-radius: 3px; }"
+                    "QPushButton:hover { border: 1px solid white; }"
+                )
+                self._custom_btn.setIcon(_svg_icon("plus", 10))
+                self._custom_btn.clicked.connect(self._pick_custom_color)
+                swatch_row.addWidget(self._custom_btn)
+            root.addLayout(swatch_row)
 
         root.addWidget(_Divider())
 
@@ -617,12 +670,12 @@ class Toolbar(QWidget):
         size_row.setSpacing(4)
 
         size_lbl = QLabel("Size")
-        size_lbl.setStyleSheet("color: rgba(255,255,255,120); font-size: 10px;")
+        size_lbl.setStyleSheet("color: rgba(255,255,255,110); font-size: 10px;")
         size_row.addWidget(size_lbl)
         size_row.addStretch()
 
-        minus_btn = QPushButton("−")
-        minus_btn.setFixedSize(24, 24)
+        minus_btn = QPushButton(_svg_icon("minus", 12), "")
+        minus_btn.setFixedSize(24, 22)
         minus_btn.setToolTip("Decrease stroke size")
         minus_btn.setStyleSheet(_muted_btn())
         minus_btn.clicked.connect(self._size_down)
@@ -630,11 +683,11 @@ class Toolbar(QWidget):
         self._size_lbl = QLabel(str(SIZES[self._size_index]))
         self._size_lbl.setFixedWidth(24)
         self._size_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._size_lbl.setStyleSheet("color: white; font-size: 13px; font-weight: 600;")
+        self._size_lbl.setStyleSheet("color: white; font-size: 12px; font-weight: 600;")
         self._size_lbl.setToolTip("Current stroke size (px)")
 
-        plus_btn = QPushButton("+")
-        plus_btn.setFixedSize(24, 24)
+        plus_btn = QPushButton(_svg_icon("plus", 12), "")
+        plus_btn.setFixedSize(24, 22)
         plus_btn.setToolTip("Increase stroke size")
         plus_btn.setStyleSheet(_muted_btn())
         plus_btn.clicked.connect(self._size_up)
@@ -646,62 +699,36 @@ class Toolbar(QWidget):
 
         root.addWidget(_Divider())
 
-        # ── draw toggle ───────────────────────────────────────────────
-        self._draw_btn = QPushButton("✏  Draw")
-        self._draw_btn.setCheckable(True)
-        self._draw_btn.setToolTip("Activate drawing mode  [D]")
-        self._draw_btn.setFixedHeight(36)
-        self._draw_btn.setStyleSheet(_accent_btn())
-        self._draw_btn.clicked.connect(self._toggle_drawing)
-        root.addWidget(self._draw_btn)
-
-        self._pan_btn = QPushButton("✥  Pan")
-        self._pan_btn.setCheckable(True)
-        self._pan_btn.setToolTip("Drag to shift all drawings on the overlay")
-        self._pan_btn.setFixedHeight(32)
-        self._pan_btn.setStyleSheet(_muted_btn())
-        self._pan_btn.clicked.connect(self._toggle_pan)
-        root.addWidget(self._pan_btn)
-
-        self._del_btn = QPushButton("⌦  Delete stroke")
-        self._del_btn.setCheckable(True)
-        self._del_btn.setToolTip("Click near any stroke to remove it")
-        self._del_btn.setFixedHeight(32)
-        self._del_btn.setStyleSheet(_muted_btn())
-        self._del_btn.clicked.connect(self._toggle_delete)
-        root.addWidget(self._del_btn)
-
         # ── secondary actions ─────────────────────────────────────────
         act_row = QHBoxLayout()
         act_row.setSpacing(3)
 
-        undo_btn = QPushButton("↩")
+        undo_btn = QPushButton(_svg_icon("undo", 16), "")
         undo_btn.setToolTip("Undo  [Ctrl+Z]")
-        undo_btn.setFixedSize(36, 30)
+        undo_btn.setFixedSize(36, 28)
         undo_btn.setStyleSheet(_muted_btn())
         undo_btn.clicked.connect(self._undo)
 
-        vis_btn = QPushButton("👁")
-        vis_btn.setCheckable(True)
-        vis_btn.setToolTip("Hide overlay  [Ctrl+H]")
-        vis_btn.setFixedSize(36, 30)
-        vis_btn.setStyleSheet(_muted_btn())
-        vis_btn.clicked.connect(self._toggle_visibility)
-        self._vis_btn = vis_btn
+        self._vis_btn = QPushButton(_svg_icon("hide", 16), "")
+        self._vis_btn.setCheckable(True)
+        self._vis_btn.setToolTip("Hide overlay  [Ctrl+H]")
+        self._vis_btn.setFixedSize(36, 28)
+        self._vis_btn.setStyleSheet(_muted_btn())
+        self._vis_btn.clicked.connect(self._toggle_visibility)
 
-        clear_btn = QPushButton("🗑")
+        clear_btn = QPushButton(_svg_icon("clear", 16), "")
         clear_btn.setToolTip("Clear all  [Ctrl+Shift+Del]")
-        clear_btn.setFixedSize(36, 30)
+        clear_btn.setFixedSize(36, 28)
         clear_btn.setStyleSheet(_muted_btn())
         clear_btn.clicked.connect(self._clear)
 
-        quit_btn = QPushButton("✕")
+        quit_btn = QPushButton(_svg_icon("quit", 16), "")
         quit_btn.setToolTip("Quit  [Esc]")
-        quit_btn.setFixedSize(36, 30)
+        quit_btn.setFixedSize(36, 28)
         quit_btn.setStyleSheet(_danger_btn())
         quit_btn.clicked.connect(QApplication.instance().quit)
 
-        for b in (undo_btn, vis_btn, clear_btn, quit_btn):
+        for b in (undo_btn, self._vis_btn, clear_btn, quit_btn):
             act_row.addWidget(b)
         root.addLayout(act_row)
 
@@ -823,10 +850,10 @@ class Toolbar(QWidget):
         self._drawing_active = checked
         self._draw_btn.setChecked(checked)
         if checked:
-            self._draw_btn.setText("◉  Drawing…")
+            self._draw_btn.setText("Drawing…")
             self._draw_btn.setStyleSheet(_base_btn(bg="#e07020", hover="#f08030", checked="#e07020"))
         else:
-            self._draw_btn.setText("✏  Draw")
+            self._draw_btn.setText("Draw")
             self._draw_btn.setStyleSheet(_accent_btn())
         self._set_panel_style(active=checked)
         for cap in self.captures:
@@ -850,10 +877,10 @@ class Toolbar(QWidget):
         self._pan_active = checked
         self._pan_btn.setChecked(checked)
         if checked:
-            self._pan_btn.setText("✥  Panning…")
+            self._pan_btn.setText("Panning…")
             self._pan_btn.setStyleSheet(_base_btn(bg="#357a50", hover="#47a368", checked="#357a50"))
         else:
-            self._pan_btn.setText("✥  Pan")
+            self._pan_btn.setText("Pan")
             self._pan_btn.setStyleSheet(_muted_btn())
         for cap in self.captures:
             cap.pan_mode = checked
@@ -877,10 +904,10 @@ class Toolbar(QWidget):
         self._delete_active = checked
         self._del_btn.setChecked(checked)
         if checked:
-            self._del_btn.setText("⌦  Deleting…")
+            self._del_btn.setText("Deleting…")
             self._del_btn.setStyleSheet(_base_btn(bg="#7a1a1a", hover="#b02020", checked="#7a1a1a"))
         else:
-            self._del_btn.setText("⌦  Delete stroke")
+            self._del_btn.setText("Delete")
             self._del_btn.setStyleSheet(_muted_btn())
         for cap in self.captures:
             cap.delete_mode = checked
@@ -911,6 +938,7 @@ class Toolbar(QWidget):
         if checked is None:
             checked = self._vis_btn.isChecked()
         self._vis_btn.setChecked(checked)
+        self._vis_btn.setIcon(_svg_icon("show" if checked else "hide", 16))
         self._vis_btn.setToolTip("Show overlay  [Ctrl+H]" if checked else "Hide overlay  [Ctrl+H]")
         for canvas in self.canvases:
             if checked:
@@ -949,14 +977,37 @@ class _Divider(QWidget):
         self.setStyleSheet("background: rgba(255,255,255,20);")
 
 
-class _DragHandle(QLabel):
-    """Label that delegates mouse press/move/release to the parent window for dragging."""
+class _DragHandle(QWidget):
+    """Widget with icon + label that delegates mouse events to the parent window for dragging."""
 
-    def __init__(self, text: str, parent: QWidget) -> None:
-        super().__init__(text, parent)
+    def __init__(self, text: str, parent: QWidget, icon_path: Path | None = None) -> None:
+        super().__init__(parent)
         self._window = parent
         self._dragging = False
         self._drag_pos = QPoint()
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        if icon_path and icon_path.exists():
+            px = QPixmap(str(icon_path)).scaled(
+                14, 14, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+            )
+            icon_lbl = QLabel()
+            icon_lbl.setPixmap(px)
+            icon_lbl.setFixedSize(14, 14)
+            icon_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+            layout.addWidget(icon_lbl)
+
+        text_lbl = QLabel(text)
+        text_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        text_lbl.setStyleSheet(
+            "color: rgba(255,255,255,160); font-size: 11px; font-weight: 600;"
+            "letter-spacing: 1.5px; background: transparent;"
+        )
+        layout.addWidget(text_lbl)
+        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -1028,6 +1079,7 @@ def main() -> None:
     with contextlib.suppress(Exception):
         ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("ran.vitralis")
 
+    _init_icons_dir()
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     app.setStyleSheet(

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/27 13:43:24.591252
-Revised: 2026/04/27 13:51:27.190400
+Revised: 2026/04/27 15:22:43.455490
 """
 
 """
@@ -76,6 +76,7 @@ if __name__ == "__main__":
     png_to_ico(png, ico)
 
     sep = ";" if sys.platform == "win32" else ":"
+    icons_dir = os.path.join(here, "media", "icons")
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--onefile",
@@ -86,6 +87,7 @@ if __name__ == "__main__":
         f"--workpath={build}",
         f"--specpath={build}",
         f"--add-data={png}{sep}media",
+        f"--add-data={icons_dir}{sep}media/icons",
         script,
     ]
 
