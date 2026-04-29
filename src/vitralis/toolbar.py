@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.341523
-Revised: 2026/04/29 08:34:42.829416
+Revised: 2026/04/29 09:31:05.366026
 """
 
 import ctypes
@@ -420,6 +420,7 @@ class Toolbar(QWidget):
             self._settings_win.shortcuts_changed.connect(self._restart_global_hotkey)
             self._settings_win.language_changed.connect(self._on_language_changed)
             self._settings_win.activation_changed.connect(self._on_settings_activation)
+            self._settings_win.closed.connect(self._on_settings_closed)
             geo = self.frameGeometry()
             self._settings_win.move(geo.right() + 8, geo.top())
             self._settings_win.show()
@@ -432,6 +433,10 @@ class Toolbar(QWidget):
 
     def _on_settings_activation(self, active: bool) -> None:
         self._update_focus_dot(self._is_our_window_active())
+
+    def _on_settings_closed(self) -> None:
+        self._settings_win = None
+        self._update_focus_dot(self.isActiveWindow())
 
     def retranslate(self) -> None:
         self._settings_btn.setToolTip(t("Settings"))
@@ -626,7 +631,12 @@ class Toolbar(QWidget):
         QApplication.instance().quit()
 
     def _is_our_window_active(self) -> bool:
-        return self.isActiveWindow() or (self._settings_win is not None and self._settings_win.isActiveWindow())
+        settings_active = (
+            self._settings_win is not None
+            and self._settings_win.isVisible()
+            and self._settings_win.isActiveWindow()
+        )
+        return self.isActiveWindow() or settings_active
 
     def changeEvent(self, event) -> None:
         if event.type() == QEvent.Type.ActivationChange:

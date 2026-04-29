@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 07:52:06.389478
-Revised: 2026/04/29 08:34:24.002456
+Revised: 2026/04/29 09:31:05.436794
 """
 
 import json
@@ -178,6 +178,7 @@ class SettingsWindow(QWidget):
     shortcuts_changed = pyqtSignal(dict)
     language_changed = pyqtSignal(str)
     activation_changed = pyqtSignal(bool)
+    closed = pyqtSignal()
 
     def __init__(self, manager: SettingsManager, parent: QWidget | None = None) -> None:
         super().__init__(parent, Qt.WindowType.Window | Qt.WindowType.WindowStaysOnTopHint)
@@ -377,6 +378,11 @@ class SettingsWindow(QWidget):
         if event.type() == QEvent.Type.ActivationChange:
             self.activation_changed.emit(self.isActiveWindow())
         super().changeEvent(event)
+
+    def closeEvent(self, event) -> None:
+        self.activation_changed.emit(False)
+        self.closed.emit()
+        super().closeEvent(event)
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
