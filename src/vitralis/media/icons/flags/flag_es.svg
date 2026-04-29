@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480">
+  <!-- Spanish Republican flag: red (top), yellow (middle), purple (bottom) -->
+  <rect width="640" height="480" fill="#6B0091"/>
+  <rect width="640" height="320" fill="#F1BF00"/>
+  <rect width="640" height="160" fill="#C60B1E"/>
+</svg>

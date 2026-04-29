@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/04/27 10:48:03.565778 )
-[//]: # (+ Revised: 	2026/04/28 16:39:05.094211 )
+[//]: # (+ Revised: 	2026/04/29 07:20:32.795173 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 ![Vitralis icon](src/vitralis/media/logo/icon_title.png)
@@ -70,6 +70,7 @@ uv run python -m vitralis
 
 - Save and load named overlay snapshots (export/import stroke sets by name)
 - Settings window (accessible from toolbar): custom keyboard shortcuts and UI language
+- Focus indicator: toolbar shows a visual toggle/light indicating whether Vitralis currently has OS focus
 
 ## License
 

@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480">
+  <!-- Suebi/Swabian Kingdom of Gallaecia flag: gold field, green dragon and red lion rampant confrontant -->
+  <rect width="640" height="480" fill="#FFD700"/>
+
+  <!-- Green dragon (rampant, facing right) on left half -->
+  <g fill="#2E8B00" transform="translate(110,60) scale(0.78)">
+    <!-- body -->
+    <ellipse cx="120" cy="240" rx="52" ry="110" transform="rotate(-15,120,240)"/>
+    <!-- neck -->
+    <ellipse cx="120" cy="130" rx="30" ry="60" transform="rotate(-10,120,130)"/>
+    <!-- head -->
+    <ellipse cx="130" cy="80" rx="38" ry="28"/>
+    <!-- snout -->
+    <ellipse cx="162" cy="78" rx="22" ry="14"/>
+    <!-- eye -->
+    <circle cx="148" cy="68" r="7" fill="#FFD700"/>
+    <circle cx="148" cy="68" r="3" fill="#111"/>
+    <!-- jaw open -->
+    <path d="M142,88 Q162,100 178,88" stroke="#8B0000" stroke-width="3" fill="none"/>
+    <!-- tongue -->
+    <path d="M165,94 Q172,105 168,112 M172,105 Q179,115 175,122" stroke="#CC0000" stroke-width="3" fill="none" stroke-linecap="round"/>
+    <!-- raised right foreleg -->
+    <path d="M150,200 Q185,175 195,145 Q200,130 192,118" stroke="#2E8B00" stroke-width="18" fill="none" stroke-linecap="round"/>
+    <!-- claws right foreleg -->
+    <path d="M188,120 Q198,108 205,115 M188,120 Q195,105 204,108 M188,120 Q193,103 202,102" stroke="#1a5a00" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <!-- left foreleg down -->
+    <path d="M100,210 Q80,240 75,270" stroke="#2E8B00" stroke-width="16" fill="none" stroke-linecap="round"/>
+    <!-- claws left foreleg -->
+    <path d="M75,270 Q65,285 58,280 M75,270 Q68,287 60,285 M75,270 Q72,288 64,288" stroke="#1a5a00" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <!-- tail -->
+    <path d="M100,330 Q60,370 40,360 Q20,350 30,330 Q40,310 70,330" stroke="#2E8B00" stroke-width="14" fill="none" stroke-linecap="round"/>
+    <!-- tail tip spade -->
+    <polygon points="30,330 14,318 16,338 4,328" fill="#2E8B00"/>
+    <!-- hind right leg -->
+    <path d="M150,310 Q170,345 165,375" stroke="#2E8B00" stroke-width="16" fill="none" stroke-linecap="round"/>
+    <path d="M165,375 Q175,390 168,396 M165,375 Q178,388 174,396 M165,375 Q180,385 178,393" stroke="#1a5a00" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <!-- hind left leg -->
+    <path d="M100,320 Q85,355 88,385" stroke="#2E8B00" stroke-width="16" fill="none" stroke-linecap="round"/>
+    <path d="M88,385 Q82,400 74,396 M88,385 Q85,402 76,401 M88,385 Q88,403 79,404" stroke="#1a5a00" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <!-- wing upper -->
+    <path d="M115,160 Q80,110 30,90 Q60,130 55,175 Q85,145 115,160Z" fill="#2E8B00"/>
+    <!-- wing membrane lines -->
+    <path d="M115,160 Q72,120 30,90" stroke="#1a5a00" stroke-width="2" fill="none"/>
+    <path d="M115,160 Q78,138 55,175" stroke="#1a5a00" stroke-width="2" fill="none"/>
+    <!-- horn -->
+    <path d="M118,55 Q112,30 120,10" stroke="#2E8B00" stroke-width="6" fill="none" stroke-linecap="round"/>
+    <!-- spines on back -->
+    <path d="M120,140 Q110,125 115,110 M120,160 Q108,145 114,128 M120,180 Q107,165 112,148" stroke="#1a5a00" stroke-width="4" fill="none" stroke-linecap="round"/>
+  </g>
+
+  <!-- Red lion (rampant, facing left / mirrored) on right half -->
+  <g fill="#CC0000" transform="translate(530,60) scale(-0.78,0.78)">
+    <!-- body -->
+    <ellipse cx="120" cy="240" rx="52" ry="110" transform="rotate(-15,120,240)"/>
+    <!-- neck -->
+    <ellipse cx="120" cy="130" rx="30" ry="60" transform="rotate(-10,120,130)"/>
+    <!-- mane -->
+    <circle cx="128" cy="88" r="50" fill="#AA0000"/>
+    <circle cx="128" cy="88" r="38" fill="#CC0000"/>
+    <!-- head -->
+    <ellipse cx="130" cy="80" rx="34" ry="28"/>
+    <!-- snout -->
+    <ellipse cx="158" cy="82" rx="18" ry="13"/>
+    <!-- eye -->
+    <circle cx="145" cy="70" r="7" fill="#FFD700"/>
+    <circle cx="145" cy="70" r="3" fill="#111"/>
+    <!-- nose -->
+    <ellipse cx="162" cy="84" rx="5" ry="3" fill="#880000"/>
+    <!-- mouth -->
+    <path d="M148,90 Q158,98 170,92" stroke="#880000" stroke-width="3" fill="none"/>
+    <!-- tongue -->
+    <path d="M158,96 Q162,108 158,116" stroke="#880000" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <!-- raised right foreleg -->
+    <path d="M150,200 Q185,175 195,145 Q200,130 192,118" stroke="#CC0000" stroke-width="18" fill="none" stroke-linecap="round"/>
+    <!-- claws right foreleg -->
+    <path d="M188,120 Q198,108 205,115 M188,120 Q195,105 204,108 M188,120 Q193,103 202,102" stroke="#880000" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <!-- left foreleg down -->
+    <path d="M100,210 Q80,240 75,270" stroke="#CC0000" stroke-width="16" fill="none" stroke-linecap="round"/>
+    <!-- claws left foreleg -->
+    <path d="M75,270 Q65,285 58,280 M75,270 Q68,287 60,285 M75,270 Q72,288 64,288" stroke="#880000" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <!-- tail -->
+    <path d="M100,330 Q60,370 40,350 Q20,335 35,318 Q50,305 75,322" stroke="#CC0000" stroke-width="12" fill="none" stroke-linecap="round"/>
+    <!-- tail tip tuft -->
+    <ellipse cx="22" cy="328" rx="12" ry="16" transform="rotate(-20,22,328)" fill="#CC0000"/>
+    <!-- hind right leg -->
+    <path d="M150,310 Q170,345 165,375" stroke="#CC0000" stroke-width="16" fill="none" stroke-linecap="round"/>
+    <path d="M165,375 Q175,390 168,396 M165,375 Q178,388 174,396 M165,375 Q180,385 178,393" stroke="#880000" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <!-- hind left leg -->
+    <path d="M100,320 Q85,355 88,385" stroke="#CC0000" stroke-width="16" fill="none" stroke-linecap="round"/>
+    <path d="M88,385 Q82,400 74,396 M88,385 Q85,402 76,401 M88,385 Q88,403 79,404" stroke="#880000" stroke-width="4" fill="none" stroke-linecap="round"/>
+    <!-- ear -->
+    <path d="M108,52 Q100,32 112,22 Q122,32 118,52Z" fill="#CC0000"/>
+    <!-- fur tufts on elbows -->
+    <ellipse cx="192" cy="140" rx="10" ry="6" transform="rotate(30,192,140)" fill="#AA0000"/>
+  </g>
+</svg>

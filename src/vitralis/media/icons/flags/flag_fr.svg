@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480">
+  <!-- France: blue, white, red vertical tricolor -->
+  <rect width="640" height="480" fill="#ED2939"/>
+  <rect width="426" height="480" fill="white"/>
+  <rect width="213" height="480" fill="#002395"/>
+</svg>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480">
+  <!-- Germany: black (top), red (middle), gold (bottom) -->
+  <rect width="640" height="480" fill="#FFCE00"/>
+  <rect width="640" height="320" fill="#DD0000"/>
+  <rect width="640" height="160" fill="#000000"/>
+</svg>

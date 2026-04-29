@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480">
+  <!-- Japan: white field, red disc centered -->
+  <rect width="640" height="480" fill="white"/>
+  <circle cx="320" cy="240" r="143" fill="#BC002D"/>
+</svg>

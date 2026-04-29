@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480">
+  <!-- England: white field, red St George's cross -->
+  <rect width="640" height="480" fill="white"/>
+  <rect x="256" width="128" height="480" fill="#CF142B"/>
+  <rect y="171" width="640" height="137" fill="#CF142B"/>
+</svg>

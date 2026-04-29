@@ -2,12 +2,12 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.341523
-Revised: 2026/04/28 16:22:10.765917
+Revised: 2026/04/29 08:34:42.829416
 """
 
 import ctypes
 
-from PyQt6.QtCore import QPoint, Qt
+from PyQt6.QtCore import QEvent, QPoint, Qt
 from PyQt6.QtGui import QColor, QKeySequence, QPainter, QPen, QPixmap, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
@@ -23,6 +23,7 @@ from vitralis.canvas import Canvas, DrawCapture
 from vitralis.hotkeys import GlobalHotkeyThread
 from vitralis.icons import media_base, svg_icon
 from vitralis.models import Tool
+from vitralis.settings import SettingsManager, SettingsWindow
 from vitralis.styles import (
     PALETTE,
     PANEL_BORDER,
@@ -34,6 +35,7 @@ from vitralis.styles import (
     muted_btn,
     swatch_style,
 )
+from vitralis.translations import set_language, t
 
 
 class _Divider(QWidget):
@@ -44,7 +46,7 @@ class _Divider(QWidget):
 
 
 class _DragHandle(QWidget):
-    def __init__(self, text: str, parent: QWidget, icon_path=None) -> None:
+    def __init__(self, text: str, parent: QWidget, icon_path=None, dot: QLabel | None = None) -> None:
         super().__init__(parent)
         self._window = parent
         self._dragging = False
@@ -71,6 +73,11 @@ class _DragHandle(QWidget):
             "letter-spacing: 1.5px; background: transparent;"
         )
         layout.addWidget(text_lbl)
+
+        if dot is not None:
+            layout.addSpacing(6)
+            layout.addWidget(dot)
+
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
     def mousePressEvent(self, event) -> None:
@@ -96,6 +103,11 @@ class Toolbar(QWidget):
         self._delete_active = False
         self._size_index = 3
         self._prev_hwnd: int | None = None
+        self._settings_manager = SettingsManager()
+        self._settings_win: SettingsWindow | None = None
+        self._shortcuts: list[QShortcut] = []
+
+        set_language(self._settings_manager.language())
 
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -111,9 +123,17 @@ class Toolbar(QWidget):
     # ------------------------------------------------------------------
 
     def _start_global_hotkeys(self) -> None:
-        self._hotkey_thread = GlobalHotkeyThread(self)
+        sc = self._settings_manager.shortcuts()
+        self._hotkey_thread = GlobalHotkeyThread(self, hotkey=sc.get("focus_toggle", "f8"))
         self._hotkey_thread.signals.toggle_focus.connect(self._toggle_focus)
         self._hotkey_thread.start()
+
+    def _restart_global_hotkey(self, shortcuts: dict) -> None:
+        self._hotkey_thread.stop()
+        self._hotkey_thread = GlobalHotkeyThread(self, hotkey=shortcuts.get("focus_toggle", "f8"))
+        self._hotkey_thread.signals.toggle_focus.connect(self._toggle_focus)
+        self._hotkey_thread.start()
+        self._apply_shortcuts(shortcuts)
 
     def _is_vitralis_focused(self) -> bool:
         fg = ctypes.windll.user32.GetForegroundWindow()
@@ -147,7 +167,7 @@ class Toolbar(QWidget):
 
     def _build_ui(self) -> None:
         root = QVBoxLayout(self)
-        root.setContentsMargins(8, 8, 8, 8)
+        root.setContentsMargins(14, 10, 14, 10)
         root.setSpacing(5)
 
         self._add_title_row(root)
@@ -169,48 +189,56 @@ class Toolbar(QWidget):
 
     def _add_title_row(self, root: QVBoxLayout) -> None:
         base = media_base()
-        handle = _DragHandle("itralis", self, icon_path=base / "media" / "logo" / "icon.png")
+
+        self._focus_dot = QLabel()
+        self._focus_dot.setFixedSize(10, 10)
+        self._focus_dot.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._update_focus_dot(False)
+
+        handle = _DragHandle("itralis", self, icon_path=base / "media" / "logo" / "icon.png", dot=self._focus_dot)
         handle.setCursor(Qt.CursorShape.SizeAllCursor)
 
-        quit_btn = QPushButton(svg_icon("quit", 14), "")
-        quit_btn.setToolTip("Quit  [Esc / Ctrl+Q]")
-        quit_btn.setFixedSize(22, 22)
-        quit_btn.setStyleSheet(danger_btn())
-        quit_btn.clicked.connect(self._quit)
+        self._settings_btn = QPushButton(svg_icon("settings", 14), "")
+        self._settings_btn.setToolTip(t("Settings"))
+        self._settings_btn.setFixedSize(26, 26)
+        self._settings_btn.setStyleSheet(muted_btn())
+        self._settings_btn.clicked.connect(self._open_settings)
 
-        spacer = QWidget()
-        spacer.setFixedSize(22, 22)
-        spacer.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self._quit_btn = QPushButton(svg_icon("quit", 14), "")
+        self._quit_btn.setToolTip(t("Quit  [Esc / Ctrl+Q]"))
+        self._quit_btn.setFixedSize(26, 26)
+        self._quit_btn.setStyleSheet(danger_btn())
+        self._quit_btn.clicked.connect(self._quit)
 
         title_row = QHBoxLayout()
         title_row.setContentsMargins(0, 0, 0, 0)
-        title_row.setSpacing(4)
-        title_row.addWidget(spacer)
+        title_row.setSpacing(8)
+        title_row.addWidget(self._settings_btn)
         title_row.addWidget(handle, stretch=1)
-        title_row.addWidget(quit_btn)
+        title_row.addWidget(self._quit_btn)
         root.addLayout(title_row)
 
     def _add_mode_buttons(self, root: QVBoxLayout) -> None:
-        self._draw_btn = QPushButton(svg_icon("draw", 16), "Draw")
+        self._draw_btn = QPushButton(svg_icon("draw", 16), t("Draw"))
         self._draw_btn.setCheckable(True)
-        self._draw_btn.setToolTip("Activate drawing mode  [D]  ·  Focus: F8")
+        self._draw_btn.setToolTip(t("Activate drawing mode  [D]  ·  Focus: F8"))
         self._draw_btn.setFixedHeight(34)
         self._draw_btn.setIconSize(self._draw_btn.sizeHint())
         self._draw_btn.setStyleSheet(accent_btn())
         self._draw_btn.clicked.connect(self._toggle_drawing)
         root.addWidget(self._draw_btn)
 
-        self._pan_btn = QPushButton(svg_icon("pan", 14), "Pan")
+        self._pan_btn = QPushButton(svg_icon("pan", 14), t("Pan"))
         self._pan_btn.setCheckable(True)
-        self._pan_btn.setToolTip("Drag to shift all drawings on the overlay  [G]")
+        self._pan_btn.setToolTip(t("Drag to shift all drawings on the overlay  [G]"))
         self._pan_btn.setFixedHeight(28)
         self._pan_btn.setStyleSheet(muted_btn())
         self._pan_btn.clicked.connect(self._toggle_pan)
         root.addWidget(self._pan_btn)
 
-        self._del_btn = QPushButton(svg_icon("delete", 14), "Delete")
+        self._del_btn = QPushButton(svg_icon("delete", 14), t("Delete"))
         self._del_btn.setCheckable(True)
-        self._del_btn.setToolTip("Click near any stroke to remove it  [X]")
+        self._del_btn.setToolTip(t("Click near any stroke to remove it  [X]"))
         self._del_btn.setFixedHeight(28)
         self._del_btn.setStyleSheet(muted_btn())
         self._del_btn.clicked.connect(self._toggle_delete)
@@ -225,11 +253,11 @@ class Toolbar(QWidget):
             for col in range(2):
                 tool, (icon_name, tip) = tool_list[row * 2 + col]
                 btn = QPushButton(svg_icon(icon_name, 18), "")
-                btn.setToolTip(tip)
+                btn.setToolTip(t(tip))
                 btn.setFixedSize(36, 32)
                 btn.setCheckable(True)
                 btn.setStyleSheet(base_btn())
-                btn.clicked.connect(lambda checked, t=tool: self._select_tool(t))
+                btn.clicked.connect(lambda checked, tool=tool: self._select_tool(tool))
                 row_layout.addWidget(btn)
                 self._tool_btns[tool] = btn
             root.addLayout(row_layout)
@@ -256,7 +284,7 @@ class Toolbar(QWidget):
         custom_row.setSpacing(3)
         self._custom_btn = QPushButton()
         self._custom_btn.setFixedSize(18, 18)
-        self._custom_btn.setToolTip("Custom color…")
+        self._custom_btn.setToolTip(t("Custom color…"))
         self._custom_btn.setStyleSheet(
             "QPushButton { background: qlineargradient(x1:0,y1:0,x2:1,y2:1,"
             "stop:0 #f00, stop:0.17 #ff0, stop:0.33 #0f0,"
@@ -275,60 +303,72 @@ class Toolbar(QWidget):
         size_row = QHBoxLayout()
         size_row.setSpacing(4)
 
-        size_lbl = QLabel("Size")
-        size_lbl.setStyleSheet("color: rgba(255,255,255,110); font-size: 10px;")
-        size_row.addWidget(size_lbl)
+        self._size_text_lbl = QLabel(t("Size"))
+        self._size_text_lbl.setStyleSheet("color: rgba(255,255,255,110); font-size: 10px;")
+        size_row.addWidget(self._size_text_lbl)
         size_row.addStretch()
 
-        minus_btn = QPushButton(svg_icon("minus", 12), "")
-        minus_btn.setFixedSize(24, 22)
-        minus_btn.setToolTip("Decrease stroke size  [[]")
-        minus_btn.setStyleSheet(muted_btn())
-        minus_btn.clicked.connect(self._size_down)
+        self._minus_btn = QPushButton(svg_icon("minus", 12), "")
+        self._minus_btn.setFixedSize(24, 22)
+        self._minus_btn.setToolTip(t("Decrease stroke size  [[]"))
+        self._minus_btn.setStyleSheet(muted_btn())
+        self._minus_btn.clicked.connect(self._size_down)
 
         self._size_lbl = QLabel(str(SIZES[self._size_index]))
         self._size_lbl.setFixedWidth(24)
         self._size_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._size_lbl.setStyleSheet("color: white; font-size: 12px; font-weight: 600;")
-        self._size_lbl.setToolTip("Current stroke size (px)")
+        self._size_lbl.setToolTip(t("Current stroke size (px)"))
 
-        plus_btn = QPushButton(svg_icon("plus", 12), "")
-        plus_btn.setFixedSize(24, 22)
-        plus_btn.setToolTip("Increase stroke size  []]")
-        plus_btn.setStyleSheet(muted_btn())
-        plus_btn.clicked.connect(self._size_up)
+        self._plus_btn = QPushButton(svg_icon("plus", 12), "")
+        self._plus_btn.setFixedSize(24, 22)
+        self._plus_btn.setToolTip(t("Increase stroke size  []]"))
+        self._plus_btn.setStyleSheet(muted_btn())
+        self._plus_btn.clicked.connect(self._size_up)
 
-        size_row.addWidget(minus_btn)
+        size_row.addWidget(self._minus_btn)
         size_row.addWidget(self._size_lbl)
-        size_row.addWidget(plus_btn)
+        size_row.addWidget(self._plus_btn)
         root.addLayout(size_row)
 
     def _add_action_row(self, root: QVBoxLayout) -> None:
         act_row = QHBoxLayout()
         act_row.setSpacing(3)
 
-        undo_btn = QPushButton(svg_icon("undo", 16), "")
-        undo_btn.setToolTip("Undo  [Z]")
-        undo_btn.setFixedSize(36, 28)
-        undo_btn.setStyleSheet(muted_btn())
-        undo_btn.clicked.connect(self._undo)
+        self._undo_btn = QPushButton(svg_icon("undo", 16), "")
+        self._undo_btn.setToolTip(t("Undo  [Z]"))
+        self._undo_btn.setFixedSize(36, 28)
+        self._undo_btn.setStyleSheet(muted_btn())
+        self._undo_btn.clicked.connect(self._undo)
 
         self._vis_btn = QPushButton(svg_icon("hide", 16), "")
         self._vis_btn.setCheckable(True)
-        self._vis_btn.setToolTip("Hide overlay  [H]")
+        self._vis_btn.setToolTip(t("Hide overlay  [H]"))
         self._vis_btn.setFixedSize(36, 28)
         self._vis_btn.setStyleSheet(muted_btn())
         self._vis_btn.clicked.connect(self._toggle_visibility)
 
-        clear_btn = QPushButton(svg_icon("clear", 16), "")
-        clear_btn.setToolTip("Clear all  [Del]")
-        clear_btn.setFixedSize(36, 28)
-        clear_btn.setStyleSheet(muted_btn())
-        clear_btn.clicked.connect(self._clear)
+        self._clear_btn = QPushButton(svg_icon("clear", 16), "")
+        self._clear_btn.setToolTip(t("Clear all  [Del]"))
+        self._clear_btn.setFixedSize(36, 28)
+        self._clear_btn.setStyleSheet(muted_btn())
+        self._clear_btn.clicked.connect(self._clear)
 
-        for b in (undo_btn, self._vis_btn, clear_btn):
+        for b in (self._undo_btn, self._vis_btn, self._clear_btn):
             act_row.addWidget(b)
         root.addLayout(act_row)
+
+    def _update_focus_dot(self, focused: bool) -> None:
+        if focused:
+            color, glow = "#44dd88", "rgba(68,221,136,120)"
+            tip_key = "Focused"
+        else:
+            color, glow = "#e07020", "rgba(224,112,32,120)"
+            tip_key = "Unfocused  ·  F8 to focus"
+        self._focus_dot.setToolTip(t(tip_key))
+        self._focus_dot.setStyleSheet(
+            f"QLabel {{ background: {color}; border-radius: 5px; border: 1px solid {glow}; }}"
+        )
 
     def _set_panel_style(self, active: bool) -> None:
         border_color = "#e07020" if active else PANEL_BORDER
@@ -342,34 +382,89 @@ class Toolbar(QWidget):
         )
 
     def _setup_shortcuts(self) -> None:
-        def sc(key, fn):
+        QShortcut(QKeySequence("Escape"), self, activated=self._quit)
+        self._apply_shortcuts(self._settings_manager.shortcuts())
+
+    def _apply_shortcuts(self, sc_map: dict) -> None:
+        for s in self._shortcuts:
+            s.setEnabled(False)
+            s.deleteLater()
+        self._shortcuts.clear()
+
+        def sc(key: str, fn) -> None:
+            if not key:
+                return
             s = QShortcut(QKeySequence(key), self, activated=fn)
             s.setContext(Qt.ShortcutContext.ApplicationShortcut)
+            self._shortcuts.append(s)
 
-        sc("D", lambda: self._toggle_drawing(not self._drawing_active))
-        sc("G", lambda: self._toggle_pan(not self._pan_active))
-        sc("X", lambda: self._toggle_delete(not self._delete_active))
-        sc("Z", self._undo)
-        sc("Delete", self._clear)
-        sc("H", lambda: self._toggle_visibility(not self._vis_btn.isChecked()))
-        QShortcut(QKeySequence("Escape"), self, activated=self._quit)
-        sc("Ctrl+Q", self._quit)
-        sc("P", lambda: self._select_tool(Tool.PEN))
-        sc("E", lambda: self._select_tool(Tool.ERASER))
-        sc("L", lambda: self._select_tool(Tool.LINE))
-        sc("A", lambda: self._select_tool(Tool.ARROW))
-        sc("R", lambda: self._select_tool(Tool.RECT))
-        sc("O", lambda: self._select_tool(Tool.ELLIPSE))
-        sc("[", self._size_down)
-        sc("]", self._size_up)
+        sc(sc_map.get("draw", "d"), lambda: self._toggle_drawing(not self._drawing_active))
+        sc(sc_map.get("pan", "g"), lambda: self._toggle_pan(not self._pan_active))
+        sc(sc_map.get("delete", "x"), lambda: self._toggle_delete(not self._delete_active))
+        sc(sc_map.get("undo", "z"), self._undo)
+        sc(sc_map.get("clear", "delete"), self._clear)
+        sc(sc_map.get("hide", "h"), lambda: self._toggle_visibility(not self._vis_btn.isChecked()))
+        sc(sc_map.get("quit", "ctrl+q"), self._quit)
+        sc(sc_map.get("tool_pen", "p"), lambda: self._select_tool(Tool.PEN))
+        sc(sc_map.get("tool_eraser", "e"), lambda: self._select_tool(Tool.ERASER))
+        sc(sc_map.get("tool_line", "l"), lambda: self._select_tool(Tool.LINE))
+        sc(sc_map.get("tool_arrow", "a"), lambda: self._select_tool(Tool.ARROW))
+        sc(sc_map.get("tool_rect", "r"), lambda: self._select_tool(Tool.RECT))
+        sc(sc_map.get("tool_ellipse", "o"), lambda: self._select_tool(Tool.ELLIPSE))
+        sc(sc_map.get("size_down", "["), self._size_down)
+        sc(sc_map.get("size_up", "]"), self._size_up)
+
+    def _open_settings(self) -> None:
+        if self._settings_win is None or not self._settings_win.isVisible():
+            self._settings_win = SettingsWindow(self._settings_manager, parent=None)
+            self._settings_win.shortcuts_changed.connect(self._restart_global_hotkey)
+            self._settings_win.language_changed.connect(self._on_language_changed)
+            self._settings_win.activation_changed.connect(self._on_settings_activation)
+            geo = self.frameGeometry()
+            self._settings_win.move(geo.right() + 8, geo.top())
+            self._settings_win.show()
+        else:
+            self._settings_win.raise_()
+            self._settings_win.activateWindow()
+
+    def _on_language_changed(self, lang: str) -> None:
+        self.retranslate()
+
+    def _on_settings_activation(self, active: bool) -> None:
+        self._update_focus_dot(self._is_our_window_active())
+
+    def retranslate(self) -> None:
+        self._settings_btn.setToolTip(t("Settings"))
+        self._quit_btn.setToolTip(t("Quit  [Esc / Ctrl+Q]"))
+        self._draw_btn.setToolTip(t("Activate drawing mode  [D]  ·  Focus: F8"))
+        self._pan_btn.setToolTip(t("Drag to shift all drawings on the overlay  [G]"))
+        self._del_btn.setToolTip(t("Click near any stroke to remove it  [X]"))
+        self._size_text_lbl.setText(t("Size"))
+        self._minus_btn.setToolTip(t("Decrease stroke size  [[]"))
+        self._size_lbl.setToolTip(t("Current stroke size (px)"))
+        self._plus_btn.setToolTip(t("Increase stroke size  []]"))
+        self._undo_btn.setToolTip(t("Undo  [Z]"))
+        self._clear_btn.setToolTip(t("Clear all  [Del]"))
+        self._custom_btn.setToolTip(t("Custom color…"))
+        self._update_focus_dot(self.isActiveWindow())
+        for tool, btn in self._tool_btns.items():
+            _, tip = TOOL_ICONS[tool]
+            btn.setToolTip(t(tip))
+        # mode button labels: only update if not in active state
+        if not self._drawing_active:
+            self._draw_btn.setText(t("Draw"))
+        if not self._pan_active:
+            self._pan_btn.setText(t("Pan"))
+        if not self._delete_active:
+            self._del_btn.setText(t("Delete"))
 
     # ------------------------------------------------------------------
     # Tool / color / size
     # ------------------------------------------------------------------
 
     def _select_tool(self, tool: Tool) -> None:
-        for t, btn in self._tool_btns.items():
-            btn.setChecked(t == tool)
+        for key, btn in self._tool_btns.items():
+            btn.setChecked(key == tool)
         for canvas in self.canvases:
             canvas.active_tool = tool
 
@@ -423,10 +518,10 @@ class Toolbar(QWidget):
         self._drawing_active = checked
         self._draw_btn.setChecked(checked)
         if checked:
-            self._draw_btn.setText("Drawing…")
+            self._draw_btn.setText(t("Drawing…"))
             self._draw_btn.setStyleSheet(base_btn(bg="#e07020", hover="#f08030", checked="#e07020"))
         else:
-            self._draw_btn.setText("Draw")
+            self._draw_btn.setText(t("Draw"))
             self._draw_btn.setStyleSheet(accent_btn())
         self._set_panel_style(active=checked)
         for cap in self.captures:
@@ -450,10 +545,10 @@ class Toolbar(QWidget):
         self._pan_active = checked
         self._pan_btn.setChecked(checked)
         if checked:
-            self._pan_btn.setText("Panning…")
+            self._pan_btn.setText(t("Panning…"))
             self._pan_btn.setStyleSheet(base_btn(bg="#357a50", hover="#47a368", checked="#357a50"))
         else:
-            self._pan_btn.setText("Pan")
+            self._pan_btn.setText(t("Pan"))
             self._pan_btn.setStyleSheet(muted_btn())
         for cap in self.captures:
             cap.pan_mode = checked
@@ -477,10 +572,10 @@ class Toolbar(QWidget):
         self._delete_active = checked
         self._del_btn.setChecked(checked)
         if checked:
-            self._del_btn.setText("Deleting…")
+            self._del_btn.setText(t("Deleting…"))
             self._del_btn.setStyleSheet(base_btn(bg="#7a1a1a", hover="#b02020", checked="#7a1a1a"))
         else:
-            self._del_btn.setText("Delete")
+            self._del_btn.setText(t("Delete"))
             self._del_btn.setStyleSheet(muted_btn())
         for cap in self.captures:
             cap.delete_mode = checked
@@ -512,7 +607,7 @@ class Toolbar(QWidget):
             checked = self._vis_btn.isChecked()
         self._vis_btn.setChecked(checked)
         self._vis_btn.setIcon(svg_icon("show" if checked else "hide", 16))
-        self._vis_btn.setToolTip("Show overlay  [H]" if checked else "Hide overlay  [H]")
+        self._vis_btn.setToolTip(t("Show overlay  [H]") if checked else t("Hide overlay  [H]"))
         for canvas in self.canvases:
             if checked:
                 canvas.hide()
@@ -529,6 +624,14 @@ class Toolbar(QWidget):
             return
         self._hotkey_thread.stop()
         QApplication.instance().quit()
+
+    def _is_our_window_active(self) -> bool:
+        return self.isActiveWindow() or (self._settings_win is not None and self._settings_win.isActiveWindow())
+
+    def changeEvent(self, event) -> None:
+        if event.type() == QEvent.Type.ActivationChange:
+            self._update_focus_dot(self._is_our_window_active())
+        super().changeEvent(event)
 
     def closeEvent(self, event) -> None:
         self._hotkey_thread.stop()

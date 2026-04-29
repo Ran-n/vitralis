@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480">
+  <!-- Galician flag: white field with blue diagonal stripe -->
+  <rect width="640" height="480" fill="white"/>
+  <line x1="0" y1="0" x2="640" y2="480" stroke="#0099CC" stroke-width="120"/>
+</svg>

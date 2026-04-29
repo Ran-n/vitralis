@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480">
+  <!-- China: red field, large star + 4 small stars -->
+  <rect width="640" height="480" fill="#DE2910"/>
+  <!-- Large star centered at (120,120) -->
+  <polygon points="120,40 140,100 203,100 152,138 172,198 120,160 68,198 88,138 37,100 100,100"
+           fill="#FFDE00"/>
+  <!-- Small star 1 -->
+  <polygon points="240,30 247,52 270,52 252,65 259,87 240,74 221,87 228,65 210,52 233,52"
+           fill="#FFDE00"/>
+  <!-- Small star 2 -->
+  <polygon points="290,80 297,102 320,102 302,115 309,137 290,124 271,137 278,115 260,102 283,102"
+           fill="#FFDE00"/>
+  <!-- Small star 3 -->
+  <polygon points="290,160 297,182 320,182 302,195 309,217 290,204 271,217 278,195 260,182 283,182"
+           fill="#FFDE00"/>
+  <!-- Small star 4 -->
+  <polygon points="240,210 247,232 270,232 252,245 259,267 240,254 221,267 228,245 210,232 233,232"
+           fill="#FFDE00"/>
+</svg>
