@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.270010
-Revised: 2026/04/28 15:57:04.270010
+Revised: 2026/04/29 13:04:58.785417
 """
 
 from vitralis.models import Tool
@@ -65,6 +65,7 @@ def base_btn(
         f"QPushButton:hover {{ background: {hover}; }}"
         f"QPushButton:checked {{ background: {checked}; color: white; }}"
         f"QPushButton:pressed {{ background: rgba(255,255,255,40); }}"
+        f"QPushButton:disabled {{ background: rgba(255,255,255,12); color: rgba(255,255,255,80); }}"
     )
 
 

@@ -2,14 +2,15 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/27 13:43:24.591252
-Revised: 2026/04/28 16:05:31.507282
+Revised: 2026/04/29 13:20:25.273939
 """
 
 """
-Build vitralis.exe — run once to produce build/dist/vitralis-<version>.exe
+Build vitralis.exe — produces build/dist/vitralis-<version>.exe and build/dist/vitralis.exe (latest).
 """
 
 import os
+import shutil
 import struct
 import subprocess
 import sys
@@ -64,14 +65,14 @@ def main() -> None:
         version = tomllib.load(f)["project"]["version"]
 
     exe_name = f"vitralis-{version}"
-    script   = os.path.join(here, "src", "vitralis", "__main__.py")
-    build    = os.path.join(here, "build", "temp")
-    dist     = os.path.join(here, "build", "dist")
-    ico      = os.path.join(build, "vitralis.ico")
-    png      = os.path.join(here, "media", "icon.png")
+    script = os.path.join(here, "src", "vitralis", "__main__.py")
+    build = os.path.join(here, "build", "temp")
+    dist = os.path.join(here, "build", "dist")
+    ico = os.path.join(build, "vitralis.ico")
+    png = os.path.join(here, "media", "icon.png")
 
     os.makedirs(build, exist_ok=True)
-    os.makedirs(dist,  exist_ok=True)
+    os.makedirs(dist, exist_ok=True)
 
     png_to_ico(png, ico)
 
@@ -79,7 +80,9 @@ def main() -> None:
     icons_dir = os.path.join(here, "media", "icons")
     src_dir = os.path.join(here, "src")
     cmd = [
-        sys.executable, "-m", "PyInstaller",
+        sys.executable,
+        "-m",
+        "PyInstaller",
         "--onefile",
         "--windowed",
         f"--icon={ico}",
@@ -96,7 +99,11 @@ def main() -> None:
     print("Running PyInstaller...")
     result = subprocess.run(cmd)
     if result.returncode == 0:
+        versioned = os.path.join(dist, f"{exe_name}.exe")
+        latest = os.path.join(dist, "vitralis.exe")
+        shutil.copy2(versioned, latest)
         print(f"\nDone ->  {dist}\\{exe_name}.exe")
+        print(f"Latest-> {latest}")
     else:
         print("\nBuild failed.")
         sys.exit(result.returncode)

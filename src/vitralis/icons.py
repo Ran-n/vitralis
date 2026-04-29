@@ -2,14 +2,14 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:03.995834
-Revised: 2026/04/29 08:02:04.059097
+Revised: 2026/04/29 13:04:58.715678
 """
 
 import sys
 from pathlib import Path
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon, QPixmap
+from PyQt6.QtGui import QIcon, QPainter, QPixmap
 
 _ICONS_DIR: Path | None = None
 _FLAGS_DIR: Path | None = None
@@ -28,7 +28,15 @@ def svg_icon(name: str, size: int = 20) -> QIcon:
     if not px.isNull():
         px = px.scaled(size, size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
     icon = QIcon()
-    icon.addPixmap(px)
+    icon.addPixmap(px, QIcon.Mode.Normal)
+    # disabled pixmap: same image at 30% opacity to match disabled text alpha
+    disabled_px = QPixmap(px.size())
+    disabled_px.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(disabled_px)
+    painter.setOpacity(0.45)
+    painter.drawPixmap(0, 0, px)
+    painter.end()
+    icon.addPixmap(disabled_px, QIcon.Mode.Disabled)
     return icon
 
 

@@ -1,6 +1,6 @@
 [project]
 name = "vitralis"
-version = "1.2.0"
+version = "1.2.1"
 description = "Persistent screen overlay for drawing annotations over live desktop"
 readme = "README.md"
 requires-python = ">=3.13"

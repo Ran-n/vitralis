@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/04/27 10:48:03.565778 )
-[//]: # (+ Revised: 	2026/04/29 07:20:32.795173 )
+[//]: # (+ Revised: 	2026/04/29 13:10:20.388767 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 ![Vitralis icon](src/vitralis/media/logo/icon_title.png)
@@ -26,6 +26,7 @@ Draw annotations, shapes, and marks directly over your live desktop. They stay �
 - Drawings persist across restarts (JSON stroke list, per-monitor)
 - Show/hide overlay without losing drawings
 - System tray icon — lives quietly in the background
+- Info panel — version, author, and license at a glance
 
 ## Setup
 
@@ -68,9 +69,7 @@ uv run python -m vitralis
 
 ## TODO
 
-- Save and load named overlay snapshots (export/import stroke sets by name)
-- Settings window (accessible from toolbar): custom keyboard shortcuts and UI language
-- Focus indicator: toolbar shows a visual toggle/light indicating whether Vitralis currently has OS focus
+- Scroll wheel to cycle through colors
 
 ## License
 

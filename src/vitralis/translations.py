@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 08:16:03.814171
-Revised: 2026/04/29 08:30:03.093906
+Revised: 2026/04/29 13:23:34.402384
 """
 
 # fmt: off
@@ -12,6 +12,18 @@ Revised: 2026/04/29 08:30:03.093906
 _TRANSLATIONS: dict[str, dict[str, str]] = {
     "English": {},  # fallback — keys are their own values
     "Galego": {
+        # info window
+        "About":                            "Sobre",
+        "App":                              "Aplicación",
+        "Version":                          "Versión",
+        "Author":                           "Autor",
+        "Email":                            "Correo",
+        "License":                          "Licenza",
+        # snapshots
+        "Snapshots":            "Instantáneas",
+        "Snapshot name…":  "Nome da instantánea…",
+        "Save":                 "Gardar",
+        "Load":                 "Cargar",
         # toolbar mode buttons
         "Draw":             "Debuxar",
         "Drawing…":    "Debuxando…",
@@ -69,6 +81,18 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Quit":                         "Saír",
     },
     "Galego reintegrado": {
+        # info window
+        "About":                            "Sobre",
+        "App":                              "Aplicación",
+        "Version":                          "Versión",
+        "Author":                           "Autor",
+        "Email":                            "Correo",
+        "License":                          "Licenza",
+        # snapshots
+        "Snapshots":            "Instantâneas",
+        "Snapshot name…":  "Nome da instantânea…",
+        "Save":                 "Guardar",
+        "Load":                 "Carregar",
         # toolbar mode buttons
         "Draw":             "Desenhar",
         "Drawing…":    "Desenhando…",
@@ -126,6 +150,18 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Quit":                         "Sair",
     },
     "Español": {
+        # info window
+        "About":                            "Acerca de",
+        "App":                              "Aplicación",
+        "Version":                          "Versión",
+        "Author":                           "Autor",
+        "Email":                            "Correo",
+        "License":                          "Licencia",
+        # snapshots
+        "Snapshots":            "Instantáneas",
+        "Snapshot name…":  "Nombre de la instantánea…",
+        "Save":                 "Guardar",
+        "Load":                 "Cargar",
         "Draw":             "Dibujar",
         "Drawing…":    "Dibujando…",
         "Pan":              "Desplazar",
@@ -177,6 +213,18 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Quit":                         "Salir",
     },
     "Português": {
+        # info window
+        "About":                            "Sobre",
+        "App":                              "Aplicação",
+        "Version":                          "Versão",
+        "Author":                           "Autor",
+        "Email":                            "E-mail",
+        "License":                          "Licença",
+        # snapshots
+        "Snapshots":            "Instantâneos",
+        "Snapshot name…":  "Nome do instantâneo…",
+        "Save":                 "Guardar",
+        "Load":                 "Carregar",
         # toolbar mode buttons
         "Draw":             "Desenhar",
         "Drawing…":    "Desenhando…",
@@ -234,6 +282,18 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Quit":                         "Sair",
     },
     "Français": {
+        # info window
+        "About":                            "À propos",
+        "App":                              "Application",
+        "Version":                          "Version",
+        "Author":                           "Auteur",
+        "Email":                            "E-mail",
+        "License":                          "Licence",
+        # snapshots
+        "Snapshots":            "Instantanés",
+        "Snapshot name…":  "Nom de l'instantané…",
+        "Save":                 "Enregistrer",
+        "Load":                 "Charger",
         # toolbar mode buttons
         "Draw":             "Dessiner",
         "Drawing…":    "Dessin en cours…",
@@ -291,6 +351,18 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Quit":                         "Quitter",
     },
     "Deutsch": {
+        # info window
+        "About":                            "Info",
+        "App":                              "App",
+        "Version":                          "Version",
+        "Author":                           "Autor",
+        "Email":                            "E-Mail",
+        "License":                          "Lizenz",
+        # snapshots
+        "Snapshots":            "Schnappschüsse",
+        "Snapshot name…":  "Name des Schnappschusses…",
+        "Save":                 "Speichern",
+        "Load":                 "Laden",
         # toolbar mode buttons
         "Draw":             "Zeichnen",
         "Drawing…":    "Zeichnet…",
@@ -348,6 +420,18 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Quit":                         "Beenden",
     },
     "中文": {
+        # info window
+        "About":                            "关于",
+        "App":                              "应用",
+        "Version":                          "版本",
+        "Author":                           "作者",
+        "Email":                            "邮箱",
+        "License":                          "许可证",
+        # snapshots
+        "Snapshots":            "快照",
+        "Snapshot name…":  "快照名称…",
+        "Save":                 "保存",
+        "Load":                 "加载",
         # toolbar mode buttons
         "Draw":             "绘制",
         "Drawing…":    "绘制中…",
@@ -405,6 +489,18 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Quit":                         "退出",
     },
     "日本語": {
+        # info window
+        "About":                            "情報",
+        "App":                              "アプリ",
+        "Version":                          "バージョン",
+        "Author":                           "作者",
+        "Email":                            "メール",
+        "License":                          "ライセンス",
+        # snapshots
+        "Snapshots":            "スナップショット",
+        "Snapshot name…":  "スナップショット名…",
+        "Save":                 "保存",
+        "Load":                 "読み込む",
         # toolbar mode buttons
         "Draw":             "描画",
         "Drawing…":    "描画中…",

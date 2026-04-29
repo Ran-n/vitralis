@@ -2,19 +2,22 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.341523
-Revised: 2026/04/29 09:31:05.366026
+Revised: 2026/04/29 13:24:10.622401
 """
 
 import ctypes
 
-from PyQt6.QtCore import QEvent, QPoint, Qt
+from PyQt6.QtCore import QPoint, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QKeySequence, QPainter, QPen, QPixmap, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
     QColorDialog,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
+    QListWidget,
     QPushButton,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -23,6 +26,14 @@ from vitralis.canvas import Canvas, DrawCapture
 from vitralis.hotkeys import GlobalHotkeyThread
 from vitralis.icons import media_base, svg_icon
 from vitralis.models import Tool
+from vitralis.persistence import (
+    _screen_key,
+    delete_snapshot,
+    list_snapshots,
+    load_snapshot,
+    save_snapshot,
+    save_strokes_for,
+)
 from vitralis.settings import SettingsManager, SettingsWindow
 from vitralis.styles import (
     PALETTE,
@@ -45,17 +56,29 @@ class _Divider(QWidget):
         self.setStyleSheet("background: rgba(255,255,255,20);")
 
 
-class _DragHandle(QWidget):
-    def __init__(self, text: str, parent: QWidget, icon_path=None, dot: QLabel | None = None) -> None:
+class _TitleHeader(QWidget):
+    """Header: top row of icon buttons, bottom row with logo+dot."""
+
+    def __init__(self, icon_path, dot: QLabel, buttons: list, parent: QWidget = None) -> None:
         super().__init__(parent)
-        self._window = parent
-        self._dragging = False
-        self._drag_pos = QPoint()
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
 
+        btn_row = QHBoxLayout()
+        btn_row.setContentsMargins(0, 0, 0, 0)
+        btn_row.setSpacing(6)
+        for w in buttons:
+            btn_row.addWidget(w)
+        root.addLayout(btn_row)
+
+        root.addSpacing(6)
+
+        logo_row = QHBoxLayout()
+        logo_row.setContentsMargins(0, 0, 0, 0)
+        logo_row.setSpacing(0)
+        logo_row.addStretch()
         if icon_path and icon_path.exists():
             px = QPixmap(str(icon_path)).scaled(
                 14, 14, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
@@ -64,33 +87,323 @@ class _DragHandle(QWidget):
             icon_lbl.setPixmap(px)
             icon_lbl.setFixedSize(14, 14)
             icon_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-            layout.addWidget(icon_lbl)
-
-        text_lbl = QLabel(text)
+            logo_row.addWidget(icon_lbl)
+        text_lbl = QLabel("itralis")
         text_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         text_lbl.setStyleSheet(
             "color: rgba(255,255,255,160); font-size: 11px; font-weight: 600;"
             "letter-spacing: 1.5px; background: transparent;"
         )
-        layout.addWidget(text_lbl)
+        logo_row.addWidget(text_lbl)
+        logo_row.addSpacing(6)
+        logo_row.addWidget(dot)
+        logo_row.addStretch()
+        root.addLayout(logo_row)
 
-        if dot is not None:
-            layout.addSpacing(6)
-            layout.addWidget(dot)
 
-        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+class InfoWindow(QWidget):
+    closed = pyqtSignal()
+
+    def __init__(self, version: str, parent=None) -> None:
+        super().__init__(
+            parent, Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.FramelessWindowHint
+        )
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setWindowTitle("Vitralis — Info")
+        self._dragging = False
+        self._drag_pos = QPoint()
+        self._build_ui(version)
+        QShortcut(QKeySequence("Escape"), self, activated=self.close)
+
+    def _build_ui(self, version: str) -> None:
+        from pathlib import Path
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(20, 14, 20, 18)
+        root.setSpacing(0)
+
+        _LBL = "color: rgba(255,255,255,60); font-size: 10px; background: transparent; letter-spacing: 0.5px;"
+        _VAL = "color: rgba(255,255,255,200); font-size: 12px; background: transparent;"
+
+        def _field(key: str, value: str) -> tuple[QVBoxLayout, QLabel]:
+            col = QVBoxLayout()
+            col.setSpacing(1)
+            lbl = QLabel(t(key).upper())
+            lbl.setStyleSheet(_LBL)
+            lbl.setProperty("i18n_key", key)
+            val = QLabel(value)
+            val.setStyleSheet(_VAL)
+            col.addWidget(lbl)
+            col.addWidget(val)
+            return col, lbl
+
+        # close button row
+        close_row = QHBoxLayout()
+        close_row.setContentsMargins(0, 0, 0, 0)
+        close_row.addStretch()
+        close_btn = QPushButton("✕")
+        close_btn.setFixedSize(22, 22)
+        close_btn.setStyleSheet(danger_btn())
+        close_btn.clicked.connect(self.close)
+        close_row.addWidget(close_btn)
+        root.addLayout(close_row)
+
+        root.addSpacing(6)
+
+        # centered logo
+        icon_path = Path(__file__).parent / "media" / "logo" / "icon.png"
+        if icon_path.exists():
+            px = QPixmap(str(icon_path)).scaled(
+                128, 128, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+            )
+            logo_lbl = QLabel()
+            logo_lbl.setPixmap(px)
+            logo_lbl.setFixedSize(128, 128)
+            logo_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            logo_lbl.setStyleSheet("background: transparent;")
+            logo_row = QHBoxLayout()
+            logo_row.addStretch()
+            logo_row.addWidget(logo_lbl)
+            logo_row.addStretch()
+            root.addLayout(logo_row)
+
+        root.addSpacing(14)
+        root.addWidget(_Divider())
+        root.addSpacing(12)
+
+        self._field_labels: list[QLabel] = []
+        for key, value in [
+            ("App", "Vitralis"),
+            ("Version", f"v{version}"),
+        ]:
+            col, lbl = _field(key, value)
+            root.addLayout(col)
+            root.addSpacing(10)
+            self._field_labels.append(lbl)
+        root.addWidget(_Divider())
+        root.addSpacing(10)
+        for key, value in [
+            ("Author", "Ran#"),
+            ("Email", "ran.hash@proton.me"),
+            ("License", "PayBack License (PBL)"),
+        ]:
+            col, lbl = _field(key, value)
+            root.addLayout(col)
+            root.addSpacing(10)
+            self._field_labels.append(lbl)
+
+    def retranslate(self) -> None:
+        for lbl in self._field_labels:
+            lbl.setText(t(lbl.property("i18n_key")).upper())
 
     def mousePressEvent(self, event) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self._dragging = True
-            self._drag_pos = event.globalPosition().toPoint() - self._window.frameGeometry().topLeft()
+            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
 
     def mouseMoveEvent(self, event) -> None:
         if self._dragging:
-            self._window.move(event.globalPosition().toPoint() - self._drag_pos)
+            self.move(event.globalPosition().toPoint() - self._drag_pos)
 
     def mouseReleaseEvent(self, event) -> None:
         self._dragging = False
+
+    def paintEvent(self, event) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(QPen(QColor(255, 255, 255, 18), 1))
+        painter.setBrush(QColor(18, 18, 22, 218))
+        painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), 9, 9)
+        painter.end()
+
+    def closeEvent(self, event) -> None:
+        self.closed.emit()
+        event.accept()
+
+
+class SnapshotWindow(QWidget):
+    closed = pyqtSignal()
+
+    _LIST_STYLE = (
+        "QListWidget { background: rgba(255,255,255,8); border: 1px solid rgba(255,255,255,18);"
+        "border-radius: 6px; color: #f0f0f0; font-size: 12px; padding: 2px; }"
+        "QListWidget::item { padding: 5px 8px; border-radius: 4px; }"
+        "QListWidget::item:selected { background: #e07020; color: white; }"
+        "QListWidget::item:hover { background: rgba(255,255,255,15); }"
+    )
+    _INPUT_STYLE = (
+        "QLineEdit { background: rgba(255,255,255,10); border: 1px solid rgba(255,255,255,25);"
+        "border-radius: 6px; color: #f0f0f0; font-size: 12px; padding: 5px 8px; }"
+        "QLineEdit:focus { border-color: rgba(255,255,255,60); }"
+    )
+
+    def __init__(self, canvases: list, parent=None) -> None:
+        super().__init__(
+            parent, Qt.WindowType.Tool | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.FramelessWindowHint
+        )
+        self.canvases = canvases
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setWindowTitle("Vitralis Snapshots")
+        self._dragging = False
+        self._drag_pos = QPoint()
+        self._all_names: list[str] = []
+        self._build_ui()
+        self._refresh_list()
+        QShortcut(QKeySequence("Escape"), self, activated=self.close)
+
+    def _build_ui(self) -> None:
+        root = QVBoxLayout(self)
+        root.setContentsMargins(16, 12, 16, 14)
+        root.setSpacing(8)
+
+        # title row
+        title_row = QHBoxLayout()
+        title_row.setContentsMargins(0, 0, 0, 0)
+        title_row.setSpacing(8)
+        title_lbl = QLabel(t("Snapshots"))
+        title_lbl.setStyleSheet("color: white; font-size: 13px; font-weight: 700; background: transparent;")
+        close_btn = QPushButton("✕")
+        close_btn.setFixedSize(22, 22)
+        close_btn.setStyleSheet(danger_btn())
+        close_btn.clicked.connect(self.close)
+        title_row.addWidget(title_lbl, stretch=1)
+        title_row.addWidget(close_btn)
+        root.addLayout(title_row)
+
+        # search / name input
+        self._name_edit = QLineEdit()
+        self._name_edit.setPlaceholderText(t("Snapshot name…"))
+        self._name_edit.setClearButtonEnabled(True)
+        self._name_edit.setStyleSheet(self._INPUT_STYLE)
+        self._name_edit.textChanged.connect(self._on_filter)
+        self._name_edit.returnPressed.connect(self._save)
+        root.addWidget(self._name_edit)
+
+        # list
+        self._list = QListWidget()
+        self._list.setMinimumHeight(130)
+        self._list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
+        self._list.setStyleSheet(self._LIST_STYLE)
+        QShortcut(QKeySequence("Ctrl+A"), self._list, activated=self._list.selectAll)
+        QShortcut(QKeySequence("Return"), self._list, activated=self._load)
+        QShortcut(QKeySequence("Delete"), self._list, activated=self._delete)
+        root.addWidget(self._list)
+
+        # action buttons
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(6)
+
+        self._save_btn = QPushButton(svg_icon("save", 15), "  " + t("Save"))
+        self._save_btn.setFixedHeight(30)
+        self._save_btn.setStyleSheet(muted_btn())
+        self._save_btn.clicked.connect(self._save)
+
+        self._load_btn = QPushButton(svg_icon("load", 15), "  " + t("Load"))
+        self._load_btn.setFixedHeight(30)
+        self._load_btn.setStyleSheet(muted_btn())
+        self._load_btn.clicked.connect(self._load)
+
+        self._del_btn = QPushButton(svg_icon("trash", 15), "  " + t("Delete"))
+        self._del_btn.setFixedHeight(30)
+        self._del_btn.setStyleSheet(muted_btn())
+        self._del_btn.clicked.connect(self._delete)
+
+        for b in (self._save_btn, self._load_btn, self._del_btn):
+            btn_row.addWidget(b)
+        root.addLayout(btn_row)
+
+        self._list.itemSelectionChanged.connect(self._update_buttons)
+        self._name_edit.textChanged.connect(self._update_buttons)
+        self._update_buttons()
+
+    def _update_buttons(self) -> None:
+        n = len(self._list.selectedItems())
+        has_name = bool(self._name_edit.text().strip())
+        self._save_btn.setEnabled((has_name or n == 1) and n <= 1)
+        self._load_btn.setEnabled(n == 1)
+        self._del_btn.setEnabled(n >= 1)
+
+    def _refresh_list(self, keep_filter: bool = False) -> None:
+        self._all_names = list_snapshots()
+        query = self._name_edit.text().strip().lower() if keep_filter else ""
+        self._apply_filter(query)
+
+    def _on_filter(self, text: str) -> None:
+        self._apply_filter(text.strip().lower())
+
+    def _apply_filter(self, query: str) -> None:
+        selected = {item.text() for item in self._list.selectedItems()}
+        self._list.clear()
+        for name in self._all_names:
+            if not query or query in name.lower():
+                self._list.addItem(name)
+        for i in range(self._list.count()):
+            if self._list.item(i).text() in selected:
+                self._list.item(i).setSelected(True)
+
+    def _save(self) -> None:
+        name = self._name_edit.text().strip()
+        if not name:
+            items = self._list.selectedItems()
+            if len(items) == 1:
+                name = items[0].text()
+        if not name:
+            return
+        screens = {_screen_key(c._geo): c.strokes for c in self.canvases}
+        save_snapshot(name, screens)
+        self._name_edit.clear()
+        self._refresh_list()
+
+    def _load(self) -> None:
+        items = self._list.selectedItems()
+        if len(items) != 1:
+            return
+        data = load_snapshot(items[0].text())
+        if not data:
+            return
+        for canvas in self.canvases:
+            key = _screen_key(canvas._geo)
+            if key in data:
+                canvas.load(data[key])
+                save_strokes_for(canvas._geo, canvas.strokes)
+
+    def _delete(self) -> None:
+        items = self._list.selectedItems()
+        if not items:
+            return
+        for item in items:
+            delete_snapshot(item.text())
+        self._refresh_list(keep_filter=True)
+
+    def retranslate(self) -> None:
+        self._name_edit.setPlaceholderText(t("Snapshot name…"))
+        self._save_btn.setText("  " + t("Save"))
+        self._load_btn.setText("  " + t("Load"))
+        self._del_btn.setText("  " + t("Delete"))
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = True
+            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+
+    def mouseMoveEvent(self, event) -> None:
+        if self._dragging:
+            self.move(event.globalPosition().toPoint() - self._drag_pos)
+
+    def mouseReleaseEvent(self, event) -> None:
+        self._dragging = False
+
+    def paintEvent(self, event) -> None:
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(QPen(QColor(255, 255, 255, 18), 1))
+        painter.setBrush(QColor(18, 18, 22, 218))
+        painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), 9, 9)
+        painter.end()
+
+    def closeEvent(self, event) -> None:
+        self.closed.emit()
+        event.accept()
 
 
 class Toolbar(QWidget):
@@ -105,7 +418,11 @@ class Toolbar(QWidget):
         self._prev_hwnd: int | None = None
         self._settings_manager = SettingsManager()
         self._settings_win: SettingsWindow | None = None
+        self._snapshot_win: SnapshotWindow | None = None
+        self._info_win: InfoWindow | None = None
         self._shortcuts: list[QShortcut] = []
+        self._dragging = False
+        self._drag_pos = QPoint()
 
         set_language(self._settings_manager.language())
 
@@ -117,6 +434,10 @@ class Toolbar(QWidget):
         self.resize(self.sizeHint())
         self.setFixedWidth(self.width())
         self._start_global_hotkeys()
+        self._focus_poll = QTimer(self)
+        self._focus_poll.setInterval(150)
+        self._focus_poll.timeout.connect(self._poll_focus)
+        self._focus_poll.start()
 
     # ------------------------------------------------------------------
     # Hotkeys / focus
@@ -138,7 +459,16 @@ class Toolbar(QWidget):
     def _is_vitralis_focused(self) -> bool:
         fg = ctypes.windll.user32.GetForegroundWindow()
         our_hwnds = {int(self.winId())} | {int(c.winId()) for c in self.captures}
+        if self._settings_win and self._settings_win.isVisible():
+            our_hwnds.add(int(self._settings_win.winId()))
+        if self._snapshot_win and self._snapshot_win.isVisible():
+            our_hwnds.add(int(self._snapshot_win.winId()))
+        if self._info_win and self._info_win.isVisible():
+            our_hwnds.add(int(self._info_win.winId()))
         return fg in our_hwnds
+
+    def _poll_focus(self) -> None:
+        self._update_focus_dot(self._is_vitralis_focused())
 
     def _toggle_focus(self) -> None:
         if self._is_vitralis_focused():
@@ -181,6 +511,8 @@ class Toolbar(QWidget):
         self._add_size_row(root)
         root.addWidget(_Divider())
         self._add_action_row(root)
+        root.addWidget(_Divider())
+        self._add_snapshot_row(root)
 
         self._set_panel_style(active=False)
         self._select_tool(Tool.PEN)
@@ -195,14 +527,20 @@ class Toolbar(QWidget):
         self._focus_dot.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self._update_focus_dot(False)
 
-        handle = _DragHandle("itralis", self, icon_path=base / "media" / "logo" / "icon.png", dot=self._focus_dot)
-        handle.setCursor(Qt.CursorShape.SizeAllCursor)
-
         self._settings_btn = QPushButton(svg_icon("settings", 14), "")
         self._settings_btn.setToolTip(t("Settings"))
         self._settings_btn.setFixedSize(26, 26)
         self._settings_btn.setStyleSheet(muted_btn())
         self._settings_btn.clicked.connect(self._open_settings)
+
+        self._info_btn = QPushButton(svg_icon("info", 14), "")
+        self._info_btn.setToolTip(t("About"))
+        self._info_btn.setFixedSize(26, 26)
+        self._info_btn.setStyleSheet(muted_btn())
+        self._info_btn.clicked.connect(self._open_info)
+
+        _spacer = QWidget()
+        _spacer.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         self._quit_btn = QPushButton(svg_icon("quit", 14), "")
         self._quit_btn.setToolTip(t("Quit  [Esc / Ctrl+Q]"))
@@ -210,13 +548,13 @@ class Toolbar(QWidget):
         self._quit_btn.setStyleSheet(danger_btn())
         self._quit_btn.clicked.connect(self._quit)
 
-        title_row = QHBoxLayout()
-        title_row.setContentsMargins(0, 0, 0, 0)
-        title_row.setSpacing(8)
-        title_row.addWidget(self._settings_btn)
-        title_row.addWidget(handle, stretch=1)
-        title_row.addWidget(self._quit_btn)
-        root.addLayout(title_row)
+        header = _TitleHeader(
+            icon_path=base / "media" / "logo" / "icon.png",
+            dot=self._focus_dot,
+            buttons=[self._settings_btn, self._info_btn, _spacer, self._quit_btn],
+            parent=self,
+        )
+        root.addWidget(header)
 
     def _add_mode_buttons(self, root: QVBoxLayout) -> None:
         self._draw_btn = QPushButton(svg_icon("draw", 16), t("Draw"))
@@ -358,6 +696,14 @@ class Toolbar(QWidget):
             act_row.addWidget(b)
         root.addLayout(act_row)
 
+    def _add_snapshot_row(self, root: QVBoxLayout) -> None:
+        self._snapshot_btn = QPushButton(svg_icon("snapshot", 14), t("Snapshots"))
+        self._snapshot_btn.setToolTip(t("Snapshots"))
+        self._snapshot_btn.setFixedHeight(28)
+        self._snapshot_btn.setStyleSheet(muted_btn())
+        self._snapshot_btn.clicked.connect(self._open_snapshots)
+        root.addWidget(self._snapshot_btn)
+
     def _update_focus_dot(self, focused: bool) -> None:
         if focused:
             color, glow = "#44dd88", "rgba(68,221,136,120)"
@@ -382,8 +728,18 @@ class Toolbar(QWidget):
         )
 
     def _setup_shortcuts(self) -> None:
-        QShortcut(QKeySequence("Escape"), self, activated=self._quit)
+        QShortcut(QKeySequence("Escape"), self, activated=self._esc)
         self._apply_shortcuts(self._settings_manager.shortcuts())
+
+    def _esc(self) -> None:
+        if self._info_win and self._info_win.isVisible():
+            self._info_win.close()
+        elif self._snapshot_win and self._snapshot_win.isVisible():
+            self._snapshot_win.close()
+        elif self._settings_win and self._settings_win.isVisible():
+            self._settings_win.close()
+        else:
+            self._quit()
 
     def _apply_shortcuts(self, sc_map: dict) -> None:
         for s in self._shortcuts:
@@ -414,12 +770,31 @@ class Toolbar(QWidget):
         sc(sc_map.get("size_down", "["), self._size_down)
         sc(sc_map.get("size_up", "]"), self._size_up)
 
+    def _open_info(self) -> None:
+        if self._info_win is None or not self._info_win.isVisible():
+            from importlib.metadata import version as pkg_version
+
+            try:
+                ver = pkg_version("vitralis")
+            except Exception:
+                ver = "?"
+            self._info_win = InfoWindow(ver, parent=None)
+            self._info_win.closed.connect(self._on_info_closed)
+            geo = self.frameGeometry()
+            self._info_win.move(geo.right() + 8, geo.top())
+            self._info_win.show()
+        else:
+            self._info_win.raise_()
+            self._info_win.activateWindow()
+
+    def _on_info_closed(self) -> None:
+        self._info_win = None
+
     def _open_settings(self) -> None:
         if self._settings_win is None or not self._settings_win.isVisible():
             self._settings_win = SettingsWindow(self._settings_manager, parent=None)
             self._settings_win.shortcuts_changed.connect(self._restart_global_hotkey)
             self._settings_win.language_changed.connect(self._on_language_changed)
-            self._settings_win.activation_changed.connect(self._on_settings_activation)
             self._settings_win.closed.connect(self._on_settings_closed)
             geo = self.frameGeometry()
             self._settings_win.move(geo.right() + 8, geo.top())
@@ -430,16 +805,33 @@ class Toolbar(QWidget):
 
     def _on_language_changed(self, lang: str) -> None:
         self.retranslate()
-
-    def _on_settings_activation(self, active: bool) -> None:
-        self._update_focus_dot(self._is_our_window_active())
+        if self._snapshot_win and self._snapshot_win.isVisible():
+            self._snapshot_win.retranslate()
+        if self._info_win and self._info_win.isVisible():
+            self._info_win.retranslate()
 
     def _on_settings_closed(self) -> None:
         self._settings_win = None
-        self._update_focus_dot(self.isActiveWindow())
+
+    def _open_snapshots(self) -> None:
+        if self._snapshot_win is None or not self._snapshot_win.isVisible():
+            self._snapshot_win = SnapshotWindow(self.canvases, parent=None)
+            self._snapshot_win.closed.connect(self._on_snapshot_closed)
+            geo = self.frameGeometry()
+            self._snapshot_win.move(geo.right() + 8, geo.top())
+            self._snapshot_win.show()
+        else:
+            self._snapshot_win.raise_()
+            self._snapshot_win.activateWindow()
+
+    def _on_snapshot_closed(self) -> None:
+        self._snapshot_win = None
 
     def retranslate(self) -> None:
         self._settings_btn.setToolTip(t("Settings"))
+        self._info_btn.setToolTip(t("About"))
+        self._snapshot_btn.setText(t("Snapshots"))
+        self._snapshot_btn.setToolTip(t("Snapshots"))
         self._quit_btn.setToolTip(t("Quit  [Esc / Ctrl+Q]"))
         self._draw_btn.setToolTip(t("Activate drawing mode  [D]  ·  Focus: F8"))
         self._pan_btn.setToolTip(t("Drag to shift all drawings on the overlay  [G]"))
@@ -451,7 +843,6 @@ class Toolbar(QWidget):
         self._undo_btn.setToolTip(t("Undo  [Z]"))
         self._clear_btn.setToolTip(t("Clear all  [Del]"))
         self._custom_btn.setToolTip(t("Custom color…"))
-        self._update_focus_dot(self.isActiveWindow())
         for tool, btn in self._tool_btns.items():
             _, tip = TOOL_ICONS[tool]
             btn.setToolTip(t(tip))
@@ -630,22 +1021,25 @@ class Toolbar(QWidget):
         self._hotkey_thread.stop()
         QApplication.instance().quit()
 
-    def _is_our_window_active(self) -> bool:
-        settings_active = (
-            self._settings_win is not None
-            and self._settings_win.isVisible()
-            and self._settings_win.isActiveWindow()
-        )
-        return self.isActiveWindow() or settings_active
-
-    def changeEvent(self, event) -> None:
-        if event.type() == QEvent.Type.ActivationChange:
-            self._update_focus_dot(self._is_our_window_active())
-        super().changeEvent(event)
-
     def closeEvent(self, event) -> None:
         self._hotkey_thread.stop()
+        if self._snapshot_win:
+            self._snapshot_win.close()
+        if self._info_win:
+            self._info_win.close()
         event.accept()
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._dragging = True
+            self._drag_pos = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+
+    def mouseMoveEvent(self, event) -> None:
+        if self._dragging:
+            self.move(event.globalPosition().toPoint() - self._drag_pos)
+
+    def mouseReleaseEvent(self, event) -> None:
+        self._dragging = False
 
     def paintEvent(self, event) -> None:
         painter = QPainter(self)
