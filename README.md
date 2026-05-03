@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/04/27 10:48:03.565778 )
-[//]: # (+ Revised: 	2026/04/29 13:29:28.397754 )
+[//]: # (+ Revised: 	2026/05/03 12:07:50.447427 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 ![Vitralis icon](src/vitralis/media/logo/icon_title.png)
@@ -20,7 +20,7 @@ Draw annotations, shapes, and marks directly over your live desktop. They stay �
 - Always click-through — use your computer normally at all times
 - Drawing activated via a small floating toolbar; finishes automatically after each stroke
 - Tools: freehand pen, eraser, rectangle, ellipse, line, arrow
-- Color palette with custom color picker and stroke size control
+- Color palette with custom color picker, stroke size control, and scroll-wheel color cycling
 - Per-stroke undo and click-to-delete individual strokes
 - Pan mode — drag all drawings to reposition them
 - Drawings persist across restarts (JSON stroke list, per-monitor)
@@ -65,6 +65,7 @@ uv run python -m vitralis
 | `Del` | Clear all | `R` | Rectangle |
 | `H` | Hide/show overlay | `O` | Ellipse |
 | `[` / `]` | Decrease / increase size | `Right-click` | Exit active mode |
+| `Scroll wheel` | Cycle through palette colors | | |
 | `Esc` | Quit if idle | `Ctrl+Q` | Quit |
 
 ## License
