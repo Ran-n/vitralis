@@ -2,10 +2,11 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 16:06:25.762869
-Revised: 2026/04/28 16:22:10.695643
+Revised: 2026/04/29 15:08:10.369133
 """
 
 import os
+import shutil
 import struct
 import subprocess
 import sys
@@ -95,7 +96,10 @@ def main() -> None:
     print("Running PyInstaller...")
     result = subprocess.run(cmd)
     if result.returncode == 0:
-        print(f"\nDone -> {dist}\\{exe_name}.exe")
+        latest = os.path.join(dist, "vitralis.exe")
+        shutil.copy2(os.path.join(dist, f"{exe_name}.exe"), latest)
+        print(f"\nDone ->   {dist}\\{exe_name}.exe")
+        print(f"Latest -> {latest}")
     else:
         print("\nBuild failed.")
         sys.exit(result.returncode)

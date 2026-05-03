@@ -2,12 +2,12 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.341523
-Revised: 2026/04/29 13:24:10.622401
+Revised: 2026/05/03 12:04:19.919407
 """
 
 import ctypes
 
-from PyQt6.QtCore import QPoint, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QEvent, QPoint, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QKeySequence, QPainter, QPen, QPixmap, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
@@ -116,8 +116,6 @@ class InfoWindow(QWidget):
         QShortcut(QKeySequence("Escape"), self, activated=self.close)
 
     def _build_ui(self, version: str) -> None:
-        from pathlib import Path
-
         root = QVBoxLayout(self)
         root.setContentsMargins(20, 14, 20, 18)
         root.setSpacing(0)
@@ -151,7 +149,7 @@ class InfoWindow(QWidget):
         root.addSpacing(6)
 
         # centered logo
-        icon_path = Path(__file__).parent / "media" / "logo" / "icon.png"
+        icon_path = media_base() / "media" / "logo" / "icon.png"
         if icon_path.exists():
             px = QPixmap(str(icon_path)).scaled(
                 128, 128, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
@@ -433,6 +431,7 @@ class Toolbar(QWidget):
         self._build_ui()
         self.resize(self.sizeHint())
         self.setFixedWidth(self.width())
+        self._install_wheel_filter(self)
         self._start_global_hotkeys()
         self._focus_poll = QTimer(self)
         self._focus_poll.setInterval(150)
@@ -602,6 +601,7 @@ class Toolbar(QWidget):
 
     def _add_color_palette(self, root: QVBoxLayout) -> None:
         self._color = PALETTE[0]
+        self._color_index = 0
         self._swatch_btns: list[QPushButton] = []
         for row_start in range(0, len(PALETTE), 5):
             swatch_row = QHBoxLayout()
@@ -864,8 +864,9 @@ class Toolbar(QWidget):
         for canvas in self.canvases:
             canvas.active_tool = tool
 
-    def _select_color(self, color: str, source_btn: QPushButton) -> None:
+    def _select_color(self, color: str, source_btn: QPushButton | None) -> None:
         self._color = color
+        self._color_index = self._swatch_btns.index(source_btn) if source_btn in self._swatch_btns else -1
         for i, btn in enumerate(self._swatch_btns):
             selected = btn is source_btn
             btn.setChecked(selected)
@@ -878,6 +879,7 @@ class Toolbar(QWidget):
         color = QColorDialog.getColor(QColor(self._color), self, "Pick color")
         if color.isValid():
             self._color = color.name()
+            self._color_index = -1
             for i, btn in enumerate(self._swatch_btns):
                 btn.setChecked(False)
                 btn.setFixedSize(18, 18)
@@ -1040,6 +1042,27 @@ class Toolbar(QWidget):
 
     def mouseReleaseEvent(self, event) -> None:
         self._dragging = False
+
+    def _install_wheel_filter(self, widget) -> None:
+        widget.installEventFilter(self)
+        for child in widget.children():
+            if isinstance(child, QWidget):
+                self._install_wheel_filter(child)
+
+    def eventFilter(self, obj, event) -> bool:
+        if event.type() == QEvent.Type.Wheel and obj is not self:
+            self.wheelEvent(event)
+            return True
+        return super().eventFilter(obj, event)
+
+    def wheelEvent(self, event) -> None:
+        delta = event.angleDelta().y()
+        if delta == 0:
+            return
+        step = -1 if delta > 0 else 1
+        base = self._color_index if self._color_index >= 0 else 0
+        new_index = (base + step) % len(PALETTE)
+        self._select_color(PALETTE[new_index], self._swatch_btns[new_index])
 
     def paintEvent(self, event) -> None:
         painter = QPainter(self)

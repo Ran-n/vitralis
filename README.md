@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/04/27 10:48:03.565778 )
-[//]: # (+ Revised: 	2026/04/29 13:10:20.388767 )
+[//]: # (+ Revised: 	2026/04/29 13:29:28.397754 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 ![Vitralis icon](src/vitralis/media/logo/icon_title.png)
@@ -66,10 +66,6 @@ uv run python -m vitralis
 | `H` | Hide/show overlay | `O` | Ellipse |
 | `[` / `]` | Decrease / increase size | `Right-click` | Exit active mode |
 | `Esc` | Quit if idle | `Ctrl+Q` | Quit |
-
-## TODO
-
-- Scroll wheel to cycle through colors
 
 ## License
 
