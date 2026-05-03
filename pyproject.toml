@@ -11,10 +11,7 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = [
-    "pyinstaller>=6.0",
-    "ruff>=0.11.0",
-]
+dev = ["pyinstaller>=6.0", "ruff>=0.11.0"]
 
 [build-system]
 requires = ["setuptools"]
@@ -41,5 +38,6 @@ line-ending = "auto"
 docstring-code-format = true
 
 [project.scripts]
+this = "vitralis.app:main"
 vitralis = "vitralis.app:main"
 build = "vitralis.build:main"
