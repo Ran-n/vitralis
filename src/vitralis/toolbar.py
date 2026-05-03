@@ -2,12 +2,12 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.341523
-Revised: 2026/05/03 12:04:19.919407
+Revised: 2026/05/03 12:16:45.571169
 """
 
 import ctypes
 
-from PyQt6.QtCore import QEvent, QPoint, Qt, QTimer, pyqtSignal
+from PyQt6.QtCore import QPoint, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QKeySequence, QPainter, QPen, QPixmap, QShortcut
 from PyQt6.QtWidgets import (
     QApplication,
@@ -23,7 +23,7 @@ from PyQt6.QtWidgets import (
 )
 
 from vitralis.canvas import Canvas, DrawCapture
-from vitralis.hotkeys import GlobalHotkeyThread
+from vitralis.hotkeys import GlobalHotkeyThread, GlobalMouseWheelThread
 from vitralis.icons import media_base, svg_icon
 from vitralis.models import Tool
 from vitralis.persistence import (
@@ -431,8 +431,8 @@ class Toolbar(QWidget):
         self._build_ui()
         self.resize(self.sizeHint())
         self.setFixedWidth(self.width())
-        self._install_wheel_filter(self)
         self._start_global_hotkeys()
+        self._start_global_wheel_hook()
         self._focus_poll = QTimer(self)
         self._focus_poll.setInterval(150)
         self._focus_poll.timeout.connect(self._poll_focus)
@@ -447,6 +447,18 @@ class Toolbar(QWidget):
         self._hotkey_thread = GlobalHotkeyThread(self, hotkey=sc.get("focus_toggle", "f8"))
         self._hotkey_thread.signals.toggle_focus.connect(self._toggle_focus)
         self._hotkey_thread.start()
+
+    def _start_global_wheel_hook(self) -> None:
+        self._wheel_thread = GlobalMouseWheelThread(self)
+        self._wheel_thread.signals.scrolled.connect(self._on_global_wheel)
+        self._wheel_thread.start()
+
+    def _on_global_wheel(self, step: int) -> None:
+        if not self._is_vitralis_focused():
+            return
+        base = self._color_index if self._color_index >= 0 else 0
+        new_index = (base + step) % len(PALETTE)
+        self._select_color(PALETTE[new_index], self._swatch_btns[new_index])
 
     def _restart_global_hotkey(self, shortcuts: dict) -> None:
         self._hotkey_thread.stop()
@@ -1021,10 +1033,12 @@ class Toolbar(QWidget):
         if not self._hotkey_thread.isRunning():
             return
         self._hotkey_thread.stop()
+        self._wheel_thread.stop()
         QApplication.instance().quit()
 
     def closeEvent(self, event) -> None:
         self._hotkey_thread.stop()
+        self._wheel_thread.stop()
         if self._snapshot_win:
             self._snapshot_win.close()
         if self._info_win:
@@ -1042,27 +1056,6 @@ class Toolbar(QWidget):
 
     def mouseReleaseEvent(self, event) -> None:
         self._dragging = False
-
-    def _install_wheel_filter(self, widget) -> None:
-        widget.installEventFilter(self)
-        for child in widget.children():
-            if isinstance(child, QWidget):
-                self._install_wheel_filter(child)
-
-    def eventFilter(self, obj, event) -> bool:
-        if event.type() == QEvent.Type.Wheel and obj is not self:
-            self.wheelEvent(event)
-            return True
-        return super().eventFilter(obj, event)
-
-    def wheelEvent(self, event) -> None:
-        delta = event.angleDelta().y()
-        if delta == 0:
-            return
-        step = -1 if delta > 0 else 1
-        base = self._color_index if self._color_index >= 0 else 0
-        new_index = (base + step) % len(PALETTE)
-        self._select_color(PALETTE[new_index], self._swatch_btns[new_index])
 
     def paintEvent(self, event) -> None:
         painter = QPainter(self)

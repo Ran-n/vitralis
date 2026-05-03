@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:03.794151
-Revised: 2026/04/28 15:57:03.794151
+Revised: 2026/05/03 12:16:45.715293
 """
 
 import contextlib
@@ -66,4 +66,5 @@ def main() -> None:
     _tray = make_tray_icon(app, toolbar)  # noqa: F841 — must stay alive
 
     app.aboutToQuit.connect(toolbar._hotkey_thread.stop)
+    app.aboutToQuit.connect(toolbar._wheel_thread.stop)
     sys.exit(app.exec())
