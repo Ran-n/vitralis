@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/08/04 12:03:36.212196 )
+[//]: # (+ Revised: 	2026/08/04 12:15:27.447546 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -16,7 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - GitLab and Codeberg source links next to the existing GitHub one in
-  the hero CTA row, localized across all eight supported languages.
+  the hero CTA row, localized across all eight supported languages,
+  each using its own official logo.
 - When embedded in an iframe, the landing page listens for a
   `vitralis-preset` `postMessage` from `https://breren.com` and applies
   the visitor's language/theme from it on every load — lets
@@ -35,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The landing page now defaults to dark mode regardless of system
   preference; the visitor's choice is remembered from the first
   toggle onward.
+- The download button now sits in its own row above the source links
+  and is visually larger, since it's the primary call to action; the
+  GitHub/GitLab/Codeberg source links moved to a smaller row below.
 
 ### Fixed
 
