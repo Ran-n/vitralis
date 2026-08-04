@@ -228,6 +228,36 @@
   }
   .shard { position: absolute; inset: 0; filter: blur(0.5px); }
   .shard svg { width: 100%; height: 100%; display: block; }
+  .glint { transform-box: fill-box; transform-origin: center; cursor: pointer; }
+  .glint.shard-hit { animation: shard-hit-anim 0.6s cubic-bezier(.22,1,.36,1) both; }
+  @keyframes shard-hit-anim {
+    0% { transform: scale(1) translateY(0); filter: brightness(1); }
+    30% { transform: scale(1.09) translateY(-6px); filter: brightness(1.7); }
+    100% { transform: scale(1) translateY(0); filter: brightness(1); }
+  }
+  .shard-ripple {
+    position: absolute;
+    top: 0; left: 0;
+    width: 1px; height: 1px;
+    border-radius: 50%;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, color-mix(in srgb, var(--violet) 55%, transparent) 0%, color-mix(in srgb, var(--blue) 35%, transparent) 45%, transparent 72%);
+    animation: shard-ripple-anim 0.75s ease-out forwards;
+  }
+  @keyframes shard-ripple-anim {
+    from { width: 0; height: 0; opacity: 0.85; }
+    to { width: 26rem; height: 26rem; opacity: 0; }
+  }
+  .wordmark.shard-hit-glow { animation: wordmark-glow-anim 0.65s ease-out; }
+  @keyframes wordmark-glow-anim {
+    0% { text-shadow: 0 0 46px color-mix(in srgb, var(--violet) 45%, transparent); }
+    35% { text-shadow: 0 0 74px color-mix(in srgb, var(--violet) 90%, transparent), 0 0 34px color-mix(in srgb, var(--blue) 65%, transparent); }
+    100% { text-shadow: 0 0 46px color-mix(in srgb, var(--violet) 45%, transparent); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .glint.shard-hit, .shard-ripple, .wordmark.shard-hit-glow { animation: none; }
+  }
   .wordmark {
     position: relative;
     z-index: 2;
@@ -1128,10 +1158,11 @@
   // ---- hero shard glint ------------------------------------------------
 
   if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    var heroShards = document.querySelector('.hero-shards');
     var svg = document.querySelector('.hero-shards svg');
     if (svg) {
       var polys = Array.prototype.slice.call(svg.querySelectorAll('.glint'));
-      document.querySelector('.hero-shards').addEventListener('pointermove', function (e) {
+      heroShards.addEventListener('pointermove', function (e) {
         var rect = svg.getBoundingClientRect();
         var mx = (e.clientX - rect.left) / rect.width;
         polys.forEach(function (p, i) {
@@ -1140,6 +1171,42 @@
           var glow = Math.max(0, 1 - dist * 3.2);
           p.style.opacity = 0.6 + glow * 0.4;
         });
+      });
+
+      var wordmark = document.querySelector('.wordmark');
+      heroShards.addEventListener('click', function (e) {
+        var shardsRect = heroShards.getBoundingClientRect();
+        var ripple = document.createElement('div');
+        ripple.className = 'shard-ripple';
+        ripple.style.left = (e.clientX - shardsRect.left) + 'px';
+        ripple.style.top = (e.clientY - shardsRect.top) + 'px';
+        heroShards.appendChild(ripple);
+        ripple.addEventListener('animationend', function () { ripple.remove(); });
+
+        polys.forEach(function (p, i) {
+          p.classList.remove('shard-hit');
+          // force reflow so the animation can retrigger on repeated clicks
+          void p.getBoundingClientRect();
+          p.style.animationDelay = (i * 0.05) + 's';
+          p.classList.add('shard-hit');
+        });
+        var lastPoly = polys[polys.length - 1];
+        if (lastPoly) {
+          lastPoly.addEventListener('animationend', function handler() {
+            lastPoly.removeEventListener('animationend', handler);
+            polys.forEach(function (p) { p.classList.remove('shard-hit'); p.style.animationDelay = ''; });
+          });
+        }
+
+        if (wordmark) {
+          wordmark.classList.remove('shard-hit-glow');
+          void wordmark.getBoundingClientRect();
+          wordmark.classList.add('shard-hit-glow');
+          wordmark.addEventListener('animationend', function handler() {
+            wordmark.removeEventListener('animationend', handler);
+            wordmark.classList.remove('shard-hit-glow');
+          });
+        }
       });
     }
   }
