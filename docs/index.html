@@ -837,6 +837,21 @@
     }
   };
 
+  // A page embedding us (e.g. breren.com/vitralis) can hint its current
+  // language/theme via ?lang=&theme= — seed localStorage from it once,
+  // on first visit only, so it doesn't fight the in-page toggles afterward.
+  (function seedFromQuery() {
+    var query = new URLSearchParams(location.search);
+    var lang = (query.get('lang') || '').toLowerCase();
+    if (lang && SUPPORTED.indexOf(lang) !== -1 && !localStorage.getItem('vitralis-lang')) {
+      localStorage.setItem('vitralis-lang', lang);
+    }
+    var theme = (query.get('theme') || '').toLowerCase();
+    if ((theme === 'light' || theme === 'dark') && !localStorage.getItem('vitralis-theme')) {
+      localStorage.setItem('vitralis-theme', theme);
+    }
+  })();
+
   var currentLang = detectLang();
 
   function detectLang() {

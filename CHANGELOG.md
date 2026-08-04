@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- The landing page now honors `?lang=` and `?theme=` URL query
+  parameters as a one-time seed for the visitor's stored preference
+  (only applied when nothing is stored yet, so it never overrides an
+  in-page toggle) — lets an embedding page such as `breren.com/vitralis`
+  hand off its current language/theme.
 - `docs/index.html` — a static landing page for GitHub Pages
   (`ran-n.github.io/vitralis`), styled with the same Gruvbox palette
   and light/dark toggle as breren.com, with a language picker
