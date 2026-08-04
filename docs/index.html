@@ -1084,6 +1084,16 @@
   document.documentElement.lang = currentLang;
   applyTexts();
 
+  // When embedded (e.g. breren.com/vitralis), keep the PBL link in-domain
+  // via breren.com's own iframe route instead of jumping straight to
+  // ran-n.github.io — target="_top" would otherwise break out of
+  // breren.com's chrome entirely.
+  if (window.parent !== window) {
+    var pblHref = 'https://breren.com/licenses/pbl';
+    document.getElementById('version-rest').href = pblHref;
+    document.getElementById('footer-license-link').href = pblHref;
+  }
+
   // ---- latest release -----------------------------------------------
 
   var REPO = 'Ran-n/vitralis';
