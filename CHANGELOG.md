@@ -10,10 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - When embedded in an iframe, the landing page listens for a
-  `vitralis-preset` `postMessage` from `https://breren.com` and seeds
-  the visitor's stored language/theme from it, once, only when nothing
-  is stored yet — lets `breren.com/vitralis` hand off its current
-  language/theme without touching the URL.
+  `vitralis-preset` `postMessage` from `https://breren.com` and applies
+  the visitor's language/theme from it on every load — lets
+  `breren.com/vitralis` hand off its current language/theme every time,
+  not just on first visit, without touching the URL.
 - `docs/index.html` — a static landing page for GitHub Pages
   (`ran-n.github.io/vitralis`), styled with the same Gruvbox palette
   and light/dark toggle as breren.com, with a language picker
