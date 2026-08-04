@@ -14,7 +14,22 @@
   :root {
     color-scheme: light dark;
   }
-  :root, :root[data-theme="light"] {
+  /* Dark is the default look regardless of system preference; light is
+     opt-in only via the theme toggle (and remembered from then on). */
+  :root, :root[data-theme="dark"] {
+    --bg: #282828;        /* gruvbox dark bg0 */
+    --bg-alt: #1d2021;    /* gruvbox dark bg0_h */
+    --fg: #ebdbb2;        /* gruvbox dark fg1 */
+    --fg-muted: #a89984;  /* gruvbox dark fg4 */
+    --card-bg: #3c3836;   /* gruvbox dark bg1 */
+    --card-border: #504945; /* gruvbox dark bg2 */
+    --accent: #fe8019;    /* gruvbox dark bright orange */
+    --shadow: rgba(0, 0, 0, 0.45);
+    --blue: #83a598;      /* gruvbox dark bright blue */
+    --violet: #d3869b;    /* gruvbox dark bright purple */
+    --orange: #fe8019;
+  }
+  :root[data-theme="light"] {
     --bg: #fbf1c7;        /* gruvbox light bg0 */
     --bg-alt: #f2e5bc;    /* gruvbox light bg0_s */
     --fg: #3c3836;        /* gruvbox light fg1 */
@@ -26,27 +41,6 @@
     --blue: #076678;      /* gruvbox light blue */
     --violet: #8f3f71;    /* gruvbox light purple */
     --orange: #d65d0e;    /* gruvbox light orange */
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #282828;        /* gruvbox dark bg0 */
-      --bg-alt: #1d2021;    /* gruvbox dark bg0_h */
-      --fg: #ebdbb2;        /* gruvbox dark fg1 */
-      --fg-muted: #a89984;  /* gruvbox dark fg4 */
-      --card-bg: #3c3836;   /* gruvbox dark bg1 */
-      --card-border: #504945; /* gruvbox dark bg2 */
-      --accent: #fe8019;    /* gruvbox dark bright orange */
-      --shadow: rgba(0, 0, 0, 0.45);
-      --blue: #83a598;      /* gruvbox dark bright blue */
-      --violet: #d3869b;    /* gruvbox dark bright purple */
-      --orange: #fe8019;
-    }
-  }
-  :root[data-theme="dark"] {
-    --bg: #282828; --bg-alt: #1d2021; --fg: #ebdbb2; --fg-muted: #a89984;
-    --card-bg: #3c3836; --card-border: #504945; --accent: #fe8019;
-    --shadow: rgba(0, 0, 0, 0.45);
-    --blue: #83a598; --violet: #d3869b; --orange: #fe8019;
   }
   :root {
     --bg-panel: var(--card-bg);
@@ -627,8 +621,8 @@
   var FLAG_JP = '<svg viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg"><rect width="30" height="20" fill="#ffffff"/><circle cx="15" cy="10" r="5.5" fill="#bc002d"/></svg>';
 
   var LANGUAGES = [
-    { code: 'en', flag: FLAG_GB, name: 'English' },
     { code: 'gl', flag: FLAG_GALEGO, name: 'Galego' },
+    { code: 'en', flag: FLAG_GB, name: 'English' },
     { code: 'es', flag: FLAG_ES, name: 'Español' },
     { code: 'pt', flag: FLAG_PT, name: 'Português' },
     { code: 'fr', flag: FLAG_FR, name: 'Français' },
@@ -1004,7 +998,7 @@
   function effectiveTheme() {
     var stored = localStorage.getItem('vitralis-theme');
     if (stored) return stored;
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    return 'dark'; // default look; remembered once the visitor toggles it
   }
   function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
