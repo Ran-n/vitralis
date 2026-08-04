@@ -878,13 +878,13 @@
       if (e.origin !== 'https://breren.com' || !e.data || e.data.type !== 'vitralis-preset') return;
       var lang = (e.data.lang || '').toLowerCase();
       if (lang && SUPPORTED.indexOf(lang) !== -1) {
-        localStorage.setItem('vitralis-lang', lang);
+        localStorage.setItem('rn-lang', lang);
         currentLang = detectLang();
         applyTexts();
       }
       var theme = (e.data.theme || '').toLowerCase();
       if (theme === 'light' || theme === 'dark') {
-        localStorage.setItem('vitralis-theme', theme);
+        localStorage.setItem('rn-theme', theme);
         applyTheme(effectiveTheme());
       }
     });
@@ -893,7 +893,7 @@
   var currentLang = detectLang();
 
   function detectLang() {
-    var stored = localStorage.getItem('vitralis-lang');
+    var stored = localStorage.getItem('rn-lang');
     if (stored && SUPPORTED.indexOf(stored) !== -1) return stored;
     var candidates = navigator.languages || [navigator.language || 'en'];
     for (var i = 0; i < candidates.length; i++) {
@@ -1043,7 +1043,7 @@
 
   function selectLang(code) {
     currentLang = code;
-    localStorage.setItem('vitralis-lang', code);
+    localStorage.setItem('rn-lang', code);
     document.documentElement.lang = code;
     setupLangPicker._update();
     applyTexts();
@@ -1052,7 +1052,7 @@
   // ---- theme ----------------------------------------------------------
 
   function effectiveTheme() {
-    var stored = localStorage.getItem('vitralis-theme');
+    var stored = localStorage.getItem('rn-theme');
     if (stored) return stored;
     // Follow the OS unless it explicitly asks for light; unknown/no
     // preference falls back to dark, which is this page's default look.
@@ -1073,7 +1073,7 @@
   function setupThemeToggle() {
     document.getElementById('theme-toggle').addEventListener('click', function () {
       var next = effectiveTheme() === 'dark' ? 'light' : 'dark';
-      localStorage.setItem('vitralis-theme', next);
+      localStorage.setItem('rn-theme', next);
       applyTheme(next);
     });
   }
