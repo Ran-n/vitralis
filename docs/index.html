@@ -10,28 +10,61 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
 <style>
+  /* Gruvbox palette: https://github.com/morhetz/gruvbox */
   :root {
-    --bg: #08090f;
-    --bg-panel: #12131f;
-    --bg-panel-2: #171928;
-    --lead: #2a2c3c;
-    --lead-bright: #454864;
-    --fg: #eeecf7;
-    --fg-muted: #9496ac;
-    --fg-dim: #63647c;
-    --blue: #3fa3e0;
-    --orange: #f2a53c;
-    --violet: #9a6cf7;
-    --blue-dim: rgba(63, 163, 224, 0.14);
-    --orange-dim: rgba(242, 165, 60, 0.14);
-    --violet-dim: rgba(154, 108, 247, 0.14);
+    color-scheme: light dark;
+  }
+  :root, :root[data-theme="light"] {
+    --bg: #fbf1c7;        /* gruvbox light bg0 */
+    --bg-alt: #f2e5bc;    /* gruvbox light bg0_s */
+    --fg: #3c3836;        /* gruvbox light fg1 */
+    --fg-muted: #7c6f64;  /* gruvbox light fg4 */
+    --card-bg: #ebdbb2;   /* gruvbox light bg1 */
+    --card-border: #d5c4a1; /* gruvbox light bg2 */
+    --accent: #d65d0e;    /* gruvbox light orange */
+    --shadow: rgba(60, 45, 20, 0.15);
+    --blue: #076678;      /* gruvbox light blue */
+    --violet: #8f3f71;    /* gruvbox light purple */
+    --orange: #d65d0e;    /* gruvbox light orange */
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #282828;        /* gruvbox dark bg0 */
+      --bg-alt: #1d2021;    /* gruvbox dark bg0_h */
+      --fg: #ebdbb2;        /* gruvbox dark fg1 */
+      --fg-muted: #a89984;  /* gruvbox dark fg4 */
+      --card-bg: #3c3836;   /* gruvbox dark bg1 */
+      --card-border: #504945; /* gruvbox dark bg2 */
+      --accent: #fe8019;    /* gruvbox dark bright orange */
+      --shadow: rgba(0, 0, 0, 0.45);
+      --blue: #83a598;      /* gruvbox dark bright blue */
+      --violet: #d3869b;    /* gruvbox dark bright purple */
+      --orange: #fe8019;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #282828; --bg-alt: #1d2021; --fg: #ebdbb2; --fg-muted: #a89984;
+    --card-bg: #3c3836; --card-border: #504945; --accent: #fe8019;
+    --shadow: rgba(0, 0, 0, 0.45);
+    --blue: #83a598; --violet: #d3869b; --orange: #fe8019;
+  }
+  :root {
+    --bg-panel: var(--card-bg);
+    --bg-panel-2: color-mix(in srgb, var(--card-bg) 82%, var(--fg));
+    --lead: var(--card-border);
+    --lead-bright: color-mix(in srgb, var(--card-border) 55%, var(--fg));
+    --fg-dim: var(--fg-muted);
+    --blue-dim: color-mix(in srgb, var(--blue) 18%, transparent);
+    --orange-dim: color-mix(in srgb, var(--orange) 18%, transparent);
+    --violet-dim: color-mix(in srgb, var(--violet) 18%, transparent);
     --radius: 3px;
   }
+
   * { box-sizing: border-box; }
   html { scroll-behavior: smooth; }
   body {
     margin: 0;
-    background: var(--bg);
+    background: linear-gradient(180deg, var(--bg) 0%, var(--bg-alt) 100%);
     color: var(--fg);
     font-family: 'Manrope', -apple-system, "Segoe UI", sans-serif;
     line-height: 1.5;
@@ -57,7 +90,7 @@
       linear-gradient(var(--lead) 1px, transparent 1px),
       linear-gradient(90deg, var(--lead) 1px, transparent 1px);
     background-size: 88px 88px;
-    opacity: 0.25;
+    opacity: 0.35;
     mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black, transparent 75%);
   }
 
@@ -68,6 +101,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 1rem;
     padding: 1.5rem 0;
   }
   .brand {
@@ -80,24 +114,116 @@
     font-size: 1rem;
     letter-spacing: 0.02em;
     color: var(--fg);
+    flex: none;
   }
   .brand img { width: 1.9rem; height: 1.9rem; border-radius: 6px; display: block; }
   nav.site-links {
     display: flex;
+    align-items: center;
     gap: 1.6rem;
     font-size: 0.86rem;
     font-weight: 600;
     color: var(--fg-muted);
+    flex: 1 1 auto;
+    justify-content: flex-end;
+    flex-wrap: wrap;
   }
   nav.site-links a { text-decoration: none; transition: color 0.15s; }
   nav.site-links a:hover, nav.site-links a:focus-visible { color: var(--fg); }
-  nav.site-links a:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }
+  nav.site-links a:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: none;
+  }
+
+  /* Language picker */
+  .lang-picker { position: relative; }
+  .lang-trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font: inherit;
+    cursor: pointer;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--fg);
+    padding: 0.4rem 0.6rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+  .lang-trigger:hover { border-color: var(--accent); }
+  .lang-trigger .chevron { color: var(--fg-muted); font-size: 0.7rem; }
+  .lang-menu {
+    position: absolute;
+    top: calc(100% + 0.4rem);
+    right: 0;
+    margin: 0;
+    padding: 0.35rem;
+    list-style: none;
+    width: 12.5rem;
+    max-height: 18rem;
+    overflow-y: auto;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px var(--shadow);
+    z-index: 20;
+  }
+  .lang-menu[hidden] { display: none; }
+  .lang-option {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: 100%;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: var(--fg);
+    padding: 0.45rem 0.55rem;
+    font-size: 0.84rem;
+  }
+  .lang-option:hover, .lang-option:focus-visible {
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    outline: none;
+  }
+  .lang-option[aria-selected="true"] { font-weight: 700; color: var(--accent); }
+  .flag {
+    flex: none;
+    display: inline-flex;
+    width: 1.2rem;
+    height: 1.2rem;
+    line-height: 1.2rem;
+  }
+  .flag svg { width: 100%; height: 100%; border-radius: 2px; }
+
+  .theme-btn {
+    font: inherit;
+    cursor: pointer;
+    border: 1px solid var(--card-border);
+    border-radius: 8px;
+    background: var(--card-bg);
+    color: var(--fg-muted);
+    width: 2.1rem;
+    height: 2.1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+  }
+  .theme-btn:hover { border-color: var(--accent); }
 
   /* ---- hero -------------------------------------------------------- */
   .hero {
     position: relative;
     z-index: 1;
-    padding: 4.5rem 0 5rem;
+    padding: 3.5rem 0 5rem;
     text-align: center;
   }
   .hero-shards {
@@ -106,11 +232,7 @@
     height: 15rem;
     margin: 0 auto 1.2rem;
   }
-  .shard {
-    position: absolute;
-    inset: 0;
-    filter: blur(0.5px);
-  }
+  .shard { position: absolute; inset: 0; filter: blur(0.5px); }
   .shard svg { width: 100%; height: 100%; display: block; }
   .wordmark {
     position: relative;
@@ -120,11 +242,11 @@
     font-size: clamp(2.6rem, 9vw, 5.2rem);
     letter-spacing: 0.01em;
     margin: 0;
-    background: linear-gradient(180deg, #ffffff 0%, #cfd2e6 60%, #a9adc9 100%);
+    background: linear-gradient(180deg, var(--fg) 0%, color-mix(in srgb, var(--fg) 55%, var(--bg)) 100%);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    text-shadow: 0 0 46px rgba(154, 108, 247, 0.35);
+    text-shadow: 0 0 46px color-mix(in srgb, var(--violet) 45%, transparent);
   }
   .tagline {
     font-size: clamp(1.05rem, 2.4vw, 1.3rem);
@@ -156,19 +278,19 @@
     border: 1px solid transparent;
     transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease, background 0.12s ease;
   }
-  .btn:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }
+  .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
   .btn-primary {
     background: linear-gradient(135deg, var(--blue), var(--violet));
-    color: #050510;
-    box-shadow: 0 10px 30px -10px rgba(90, 130, 230, 0.55);
+    color: var(--bg);
+    box-shadow: 0 10px 30px -10px color-mix(in srgb, var(--violet) 55%, transparent);
   }
-  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 14px 36px -10px rgba(90, 130, 230, 0.7); }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 14px 36px -10px color-mix(in srgb, var(--violet) 70%, transparent); }
   .btn-ghost {
     background: var(--bg-panel);
     color: var(--fg-muted);
     border-color: var(--lead-bright);
   }
-  .btn-ghost:hover { color: var(--fg); border-color: var(--orange); transform: translateY(-2px); }
+  .btn-ghost:hover { color: var(--fg); border-color: var(--accent); transform: translateY(-2px); }
   .btn svg { width: 1.05rem; height: 1.05rem; flex: none; }
 
   .version-note {
@@ -189,7 +311,7 @@
     font-size: 0.72rem;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: var(--orange);
+    color: var(--accent);
     margin: 0 0 0.7rem;
   }
   .section-head h2 {
@@ -203,10 +325,16 @@
   /* ---- panes / feature grid ------------------------------------------ */
   .panes {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(15.5rem, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 1px;
     background: var(--lead);
     border: 1px solid var(--lead);
+  }
+  @media (max-width: 860px) {
+    .panes { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 540px) {
+    .panes { grid-template-columns: 1fr; }
   }
   .pane {
     background: var(--bg-panel);
@@ -302,11 +430,7 @@
     padding: 2.4rem 0 3rem;
     text-align: center;
   }
-  footer.site p {
-    color: var(--fg-dim);
-    font-size: 0.82rem;
-    margin: 0.3rem 0;
-  }
+  footer.site p { color: var(--fg-dim); font-size: 0.82rem; margin: 0.3rem 0; }
   footer.site a { color: var(--fg-muted); text-decoration: none; }
   footer.site a:hover { color: var(--fg); text-decoration: underline; }
 
@@ -325,11 +449,22 @@
       Vitralis
     </a>
     <nav class="site-links">
-      <a href="#features">Features</a>
-      <a href="#shortcuts">Shortcuts</a>
-      <a href="https://github.com/Ran-n/vitralis">Source</a>
-      <a href="https://breren.com">Breren ↗</a>
+      <a href="#features" id="nav-features">Features</a>
+      <a href="#shortcuts" id="nav-shortcuts">Shortcuts</a>
+      <a href="https://github.com/Ran-n/vitralis" id="nav-source">Source</a>
+      <a href="https://breren.com" id="nav-breren">Breren ↗</a>
     </nav>
+    <div class="toolbar">
+      <div class="lang-picker">
+        <button class="lang-trigger" id="lang-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+          <span class="flag" id="lang-trigger-flag"></span>
+          <span id="lang-trigger-name"></span>
+          <span class="chevron">▾</span>
+        </button>
+        <ul class="lang-menu" id="lang-menu" role="listbox" hidden></ul>
+      </div>
+      <button class="theme-btn" id="theme-toggle" type="button"></button>
+    </div>
   </header>
 </div>
 
@@ -341,23 +476,23 @@
           <svg viewBox="0 0 640 220" preserveAspectRatio="xMidYMid meet">
             <defs>
               <linearGradient id="gBlue" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#3fa3e0" stop-opacity="0.55"/>
-                <stop offset="100%" stop-color="#3fa3e0" stop-opacity="0.05"/>
+                <stop offset="0%" stop-color="var(--blue)" stop-opacity="0.6"/>
+                <stop offset="100%" stop-color="var(--blue)" stop-opacity="0.05"/>
               </linearGradient>
               <linearGradient id="gOrange" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#f2a53c" stop-opacity="0.5"/>
-                <stop offset="100%" stop-color="#f2a53c" stop-opacity="0.05"/>
+                <stop offset="0%" stop-color="var(--orange)" stop-opacity="0.55"/>
+                <stop offset="100%" stop-color="var(--orange)" stop-opacity="0.05"/>
               </linearGradient>
               <linearGradient id="gViolet" x1="0" y1="1" x2="1" y2="0">
-                <stop offset="0%" stop-color="#9a6cf7" stop-opacity="0.55"/>
-                <stop offset="100%" stop-color="#9a6cf7" stop-opacity="0.05"/>
+                <stop offset="0%" stop-color="var(--violet)" stop-opacity="0.6"/>
+                <stop offset="100%" stop-color="var(--violet)" stop-opacity="0.05"/>
               </linearGradient>
             </defs>
             <polygon class="glint" data-tone="blue" points="40,190 130,30 210,70 150,190" fill="url(#gBlue)"/>
             <polygon class="glint" data-tone="orange" points="220,190 260,20 360,10 330,190" fill="url(#gOrange)"/>
             <polygon class="glint" data-tone="violet" points="350,190 400,40 520,60 470,190" fill="url(#gViolet)"/>
             <polygon class="glint" data-tone="blue" points="480,190 540,80 610,110 580,190" fill="url(#gBlue)"/>
-            <g stroke="#454864" stroke-width="1.4" opacity="0.8">
+            <g stroke="var(--lead-bright)" stroke-width="1.4" opacity="0.9">
               <line x1="40" y1="190" x2="130" y2="30"/>
               <line x1="130" y1="30" x2="210" y2="70"/>
               <line x1="210" y1="70" x2="150" y2="190"/>
@@ -375,97 +510,98 @@
         </div>
       </div>
       <h1 class="wordmark">VITRALIS</h1>
-      <p class="tagline">Your screen, with <strong>memory</strong>. Draw over your live desktop — it stays, click-through, across reboots.</p>
+      <p class="tagline" id="hero-tagline"></p>
       <div class="cta-row">
         <a class="btn btn-primary" id="download-btn" href="https://github.com/Ran-n/vitralis/releases/latest">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg>
           <span id="download-label">Download for Windows</span>
         </a>
-        <a class="btn btn-ghost" href="https://github.com/Ran-n/vitralis">
+        <a class="btn btn-ghost" href="https://github.com/Ran-n/vitralis" id="btn-source">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.8.1-.7.1-.7 1.2.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.3 3.6 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.4-1.3-5.4-5.9 0-1.3.5-2.4 1.3-3.2-.1-.3-.6-1.6.1-3.2 0 0 1.1-.3 3.5 1.3a12 12 0 0 1 6.4 0c2.4-1.6 3.5-1.3 3.5-1.3.7 1.6.2 2.9.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.7 5.6-5.4 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3Z"/></svg>
-          Source on GitHub
+          <span id="btn-source-label">Source on GitHub</span>
         </a>
       </div>
-      <p class="version-note" id="version-note">
-        <a href="https://github.com/Ran-n/vitralis/releases">See all releases</a> · PayBack License
+      <p class="version-note">
+        <a href="https://github.com/Ran-n/vitralis/releases" id="version-link">See all releases</a>
+        <span id="version-rest"> · PayBack License</span>
       </p>
     </section>
 
     <section id="features">
       <div class="section-head">
-        <p class="eyebrow">What it does</p>
-        <h2>A surface that's there without being in the way</h2>
-        <p>A transparent, always-on-top overlay spanning every monitor. It's click-through the rest of the time — use your computer exactly as normal — and only catches your input when you're actively drawing.</p>
+        <p class="eyebrow" id="eyebrow-what"></p>
+        <h2 id="features-h2"></h2>
+        <p id="features-p"></p>
       </div>
       <div class="panes">
         <div class="pane" style="--pane-color: var(--blue); --pane-dim: var(--blue-dim); --pane-glow: var(--blue-dim);">
           <div class="pane-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/></svg></div>
-          <h3>Six drawing tools</h3>
-          <p>Freehand pen, eraser, rectangle, ellipse, line, and arrow — each finishes automatically after a stroke so the overlay drops out of the way.</p>
+          <h3 id="pane1-t"></h3>
+          <p id="pane1-d"></p>
         </div>
         <div class="pane" style="--pane-color: var(--orange); --pane-dim: var(--orange-dim); --pane-glow: var(--orange-dim);">
           <div class="pane-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r=".5"/><circle cx="17.5" cy="10.5" r=".5"/><circle cx="8.5" cy="7.5" r=".5"/><circle cx="6.5" cy="12.5" r=".5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.6-.7 1.6-1.6 0-.4-.2-.8-.4-1.1-.2-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6H16c3.3 0 6-2.7 6-6 0-4.4-4.5-8-10-8Z"/></svg></div>
-          <h3>Full color control</h3>
-          <p>A curated palette, a custom color picker, adjustable stroke size, and scroll-wheel cycling to move through colors without opening a menu.</p>
+          <h3 id="pane2-t"></h3>
+          <p id="pane2-d"></p>
         </div>
         <div class="pane" style="--pane-color: var(--violet); --pane-dim: var(--violet-dim); --pane-glow: var(--violet-dim);">
           <div class="pane-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9"/><path d="M3 4v8h8"/></svg></div>
-          <h3>Undo, delete, pan</h3>
-          <p>Per-stroke undo, click-to-delete on individual marks, and a pan mode to drag every drawing into a new position at once.</p>
+          <h3 id="pane3-t"></h3>
+          <p id="pane3-d"></p>
         </div>
         <div class="pane" style="--pane-color: var(--blue); --pane-dim: var(--blue-dim); --pane-glow: var(--blue-dim);">
           <div class="pane-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg></div>
-          <h3>Persists across reboots</h3>
-          <p>Strokes are written to a per-monitor JSON file. Close the app, restart the machine — your annotations are exactly where you left them.</p>
+          <h3 id="pane4-t"></h3>
+          <p id="pane4-d"></p>
         </div>
         <div class="pane" style="--pane-color: var(--orange); --pane-dim: var(--orange-dim); --pane-glow: var(--orange-dim);">
           <div class="pane-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/><path d="m2 2 20 20"/></svg></div>
-          <h3>Hide without losing work</h3>
-          <p>Toggle the whole overlay out of sight and back again — your drawings are never cleared just because you needed a clean screen for a moment.</p>
+          <h3 id="pane5-t"></h3>
+          <p id="pane5-d"></p>
         </div>
         <div class="pane" style="--pane-color: var(--violet); --pane-dim: var(--violet-dim); --pane-glow: var(--violet-dim);">
           <div class="pane-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4"/><path d="m4.9 4.9 2.8 2.8"/><path d="M2 12h4"/><path d="m4.9 19.1 2.8-2.8"/><path d="M12 18v4"/><path d="m16.3 16.3 2.8 2.8"/><path d="M18 12h4"/><path d="m16.3 7.7 2.8-2.8"/></svg></div>
-          <h3>Lives in the tray</h3>
-          <p>A quiet system tray icon and an info panel with version, author, and license — the app stays out of sight until you press <kbd>F8</kbd>.</p>
+          <h3 id="pane6-t"></h3>
+          <p id="pane6-d"></p>
         </div>
       </div>
     </section>
 
     <section id="shortcuts">
       <div class="section-head">
-        <p class="eyebrow">At your fingertips</p>
-        <h2>Every action has a key</h2>
-        <p>One global hotkey to summon the toolbar from anywhere; the rest work while Vitralis is focused.</p>
+        <p class="eyebrow" id="eyebrow-short"></p>
+        <h2 id="shortcuts-h2"></h2>
+        <p id="shortcuts-p"></p>
       </div>
       <div class="kbd-groups">
         <div class="kbd-group">
-          <h3>Global — from any app</h3>
-          <div class="kbd-row"><span>Focus / unfocus toolbar</span><kbd>F8</kbd></div>
+          <h3 id="kbd-global-h"></h3>
+          <div class="kbd-row"><span id="lbl-focus-toolbar"></span><kbd>F8</kbd></div>
         </div>
         <div class="kbd-group">
-          <h3>Modes</h3>
-          <div class="kbd-row"><span>Toggle draw mode</span><kbd>D</kbd></div>
-          <div class="kbd-row"><span>Toggle pan mode</span><kbd>G</kbd></div>
-          <div class="kbd-row"><span>Toggle delete mode</span><kbd>X</kbd></div>
-          <div class="kbd-row"><span>Hide / show overlay</span><kbd>H</kbd></div>
-          <div class="kbd-row"><span>Undo last stroke</span><kbd>Z</kbd></div>
-          <div class="kbd-row"><span>Clear all</span><kbd>Del</kbd></div>
+          <h3 id="kbd-modes-h"></h3>
+          <div class="kbd-row"><span id="lbl-toggle-draw"></span><kbd>D</kbd></div>
+          <div class="kbd-row"><span id="lbl-toggle-pan"></span><kbd>G</kbd></div>
+          <div class="kbd-row"><span id="lbl-toggle-delete"></span><kbd>X</kbd></div>
+          <div class="kbd-row"><span id="lbl-hide-show"></span><kbd>H</kbd></div>
+          <div class="kbd-row"><span id="lbl-undo"></span><kbd>Z</kbd></div>
+          <div class="kbd-row"><span id="lbl-clear-all"></span><kbd>Del</kbd></div>
         </div>
         <div class="kbd-group">
-          <h3>Tools</h3>
-          <div class="kbd-row"><span>Pen</span><kbd>P</kbd></div>
-          <div class="kbd-row"><span>Eraser</span><kbd>E</kbd></div>
-          <div class="kbd-row"><span>Line</span><kbd>L</kbd></div>
-          <div class="kbd-row"><span>Arrow</span><kbd>A</kbd></div>
-          <div class="kbd-row"><span>Rectangle</span><kbd>R</kbd></div>
-          <div class="kbd-row"><span>Ellipse</span><kbd>O</kbd></div>
+          <h3 id="kbd-tools-h"></h3>
+          <div class="kbd-row"><span id="lbl-pen"></span><kbd>P</kbd></div>
+          <div class="kbd-row"><span id="lbl-eraser"></span><kbd>E</kbd></div>
+          <div class="kbd-row"><span id="lbl-line"></span><kbd>L</kbd></div>
+          <div class="kbd-row"><span id="lbl-arrow"></span><kbd>A</kbd></div>
+          <div class="kbd-row"><span id="lbl-rect"></span><kbd>R</kbd></div>
+          <div class="kbd-row"><span id="lbl-ellipse"></span><kbd>O</kbd></div>
         </div>
         <div class="kbd-group">
-          <h3>Fine control</h3>
-          <div class="kbd-row"><span>Decrease / increase size</span><kbd>[</kbd>&nbsp;<kbd>]</kbd></div>
-          <div class="kbd-row"><span>Cycle palette colors</span><kbd>Scroll</kbd></div>
-          <div class="kbd-row"><span>Exit active mode</span><kbd>Right-click</kbd></div>
-          <div class="kbd-row"><span>Quit</span><kbd>Ctrl+Q</kbd></div>
+          <h3 id="kbd-fine-h"></h3>
+          <div class="kbd-row"><span id="lbl-size"></span><kbd>[</kbd>&nbsp;<kbd>]</kbd></div>
+          <div class="kbd-row"><span id="lbl-cycle"></span><kbd id="kbd-scroll"></kbd></div>
+          <div class="kbd-row"><span id="lbl-exit"></span><kbd id="kbd-rclick"></kbd></div>
+          <div class="kbd-row"><span id="lbl-quit"></span><kbd>Ctrl+Q</kbd></div>
         </div>
       </div>
     </section>
@@ -473,31 +609,446 @@
 
   <footer class="site">
     <div class="wrap">
-      <p>PayBack License (PBL) — free for personal, academic, and non-commercial use.</p>
-      <p>Built by <a href="https://github.com/Ran-n">Ran#</a> · part of <a href="https://breren.com">Breren</a></p>
+      <p id="footer-license"></p>
+      <p><span id="footer-built-pre"></span><a href="https://github.com/Ran-n">Ran#</a><span id="footer-built-mid"></span><a href="https://breren.com">Breren</a></p>
     </div>
   </footer>
 </main>
 
 <script>
 (function () {
-  // Fetch the latest release from GitHub so the download button and
-  // version note never go stale when a new version ships.
-  var REPO = 'Ran-n/vitralis';
+  var FLAG_GALEGO = '<svg viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg"><rect width="30" height="20" fill="#ffffff"/><polygon points="0,20 0,14 24,0 30,0" fill="#0090d6"/></svg>';
+  var FLAG_GB = '<svg viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg"><rect width="30" height="20" fill="#00247d"/><path d="M0,0 L30,20 M30,0 L0,20" stroke="#ffffff" stroke-width="4"/><path d="M0,0 L30,20 M30,0 L0,20" stroke="#cf142b" stroke-width="1.5"/><path d="M15,0 V20 M0,10 H30" stroke="#ffffff" stroke-width="6.5"/><path d="M15,0 V20 M0,10 H30" stroke="#cf142b" stroke-width="4"/></svg>';
+  var FLAG_ES = '<svg viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg"><rect width="30" height="20" fill="#aa151b"/><rect width="30" height="10" y="5" fill="#f1bf00"/></svg>';
+  var FLAG_PT = '<svg viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg"><rect width="30" height="20" fill="#da291c"/><rect width="12" height="20" fill="#046a38"/><circle cx="12" cy="10" r="3.4" fill="#f2c500" stroke="#da291c" stroke-width="0.3"/></svg>';
+  var FLAG_FR = '<svg viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg"><rect width="10" height="20" fill="#0055a4"/><rect width="10" height="20" x="10" fill="#ffffff"/><rect width="10" height="20" x="20" fill="#ef4135"/></svg>';
+  var FLAG_DE = '<svg viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg"><rect width="30" height="6.67" fill="#000000"/><rect width="30" height="6.67" y="6.67" fill="#dd0000"/><rect width="30" height="6.66" y="13.34" fill="#ffce00"/></svg>';
+  var FLAG_CN = '<svg viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg"><rect width="30" height="20" fill="#de2910"/><g fill="#ffde00"><path d="M5,2 L6,5.2 L9,3.2 L7,6 L9,7 L5.8,6.6 L6,10 L4.6,6.9 L2,8.5 L3.8,5.7 L1,4.6 L4.4,4.6 Z"/><circle cx="10.5" cy="1.5" r="0.7"/><circle cx="12" cy="4" r="0.7"/><circle cx="12" cy="7" r="0.7"/><circle cx="10" cy="9" r="0.7"/></g></svg>';
+  var FLAG_JP = '<svg viewBox="0 0 30 20" xmlns="http://www.w3.org/2000/svg"><rect width="30" height="20" fill="#ffffff"/><circle cx="15" cy="10" r="5.5" fill="#bc002d"/></svg>';
 
+  var LANGUAGES = [
+    { code: 'en', flag: FLAG_GB, name: 'English' },
+    { code: 'gl', flag: FLAG_GALEGO, name: 'Galego' },
+    { code: 'es', flag: FLAG_ES, name: 'Español' },
+    { code: 'pt', flag: FLAG_PT, name: 'Português' },
+    { code: 'fr', flag: FLAG_FR, name: 'Français' },
+    { code: 'de', flag: FLAG_DE, name: 'Deutsch' },
+    { code: 'zh', flag: FLAG_CN, name: '中文' },
+    { code: 'ja', flag: FLAG_JP, name: '日本語' }
+  ];
+  var SUPPORTED = LANGUAGES.map(function (l) { return l.code; });
+  var BY_CODE = {};
+  LANGUAGES.forEach(function (l) { BY_CODE[l.code] = l; });
+
+  var STRINGS = {
+    en: {
+      nav_features: 'Features', nav_shortcuts: 'Shortcuts', nav_source: 'Source', nav_breren: 'Breren ↗',
+      hero_tagline: "Your screen, with **memory**. Draw over your live desktop — it stays, click-through, across reboots.",
+      btn_download: 'Download for Windows', btn_source: 'Source on GitHub',
+      version_link: 'See all releases', version_rest: ' · PayBack License',
+      eyebrow_what: 'What it does', features_h2: "A surface that's there without being in the way",
+      features_p: "A transparent, always-on-top overlay spanning every monitor. It's click-through the rest of the time — use your computer exactly as normal — and only catches your input when you're actively drawing.",
+      pane1_t: 'Six drawing tools', pane1_d: 'Freehand pen, eraser, rectangle, ellipse, line, and arrow — each finishes automatically after a stroke so the overlay drops out of the way.',
+      pane2_t: 'Full color control', pane2_d: 'A curated palette, a custom color picker, adjustable stroke size, and scroll-wheel cycling to move through colors without opening a menu.',
+      pane3_t: 'Undo, delete, pan', pane3_d: 'Per-stroke undo, click-to-delete on individual marks, and a pan mode to drag every drawing into a new position at once.',
+      pane4_t: 'Persists across reboots', pane4_d: 'Strokes are written to a per-monitor JSON file. Close the app, restart the machine — your annotations are exactly where you left them.',
+      pane5_t: 'Hide without losing work', pane5_d: 'Toggle the whole overlay out of sight and back again — your drawings are never cleared just because you needed a clean screen for a moment.',
+      pane6_t: 'Lives in the tray', pane6_d: 'A quiet system tray icon and an info panel with version, author, and license — the app stays out of sight until you press F8.',
+      eyebrow_short: 'At your fingertips', shortcuts_h2: 'Every action has a key',
+      shortcuts_p: 'One global hotkey to summon the toolbar from anywhere; the rest work while Vitralis is focused.',
+      kbd_global_h: 'Global — from any app', kbd_modes_h: 'Modes', kbd_tools_h: 'Tools', kbd_fine_h: 'Fine control',
+      lbl_focus_toolbar: 'Focus / unfocus toolbar', lbl_toggle_draw: 'Toggle draw mode', lbl_toggle_pan: 'Toggle pan mode',
+      lbl_toggle_delete: 'Toggle delete mode', lbl_hide_show: 'Hide / show overlay', lbl_undo: 'Undo last stroke',
+      lbl_clear_all: 'Clear all', lbl_pen: 'Pen', lbl_eraser: 'Eraser', lbl_line: 'Line', lbl_arrow: 'Arrow',
+      lbl_rect: 'Rectangle', lbl_ellipse: 'Ellipse', lbl_size: 'Decrease / increase size',
+      lbl_cycle: 'Cycle palette colors', kbd_scroll: 'Scroll', lbl_exit: 'Exit active mode', kbd_rclick: 'Right-click', lbl_quit: 'Quit',
+      footer_license: 'PayBack License (PBL) — free for personal, academic, and non-commercial use.',
+      footer_built_pre: 'Built by ', footer_built_mid: ' · part of ',
+      theme_light: 'Switch to light mode', theme_dark: 'Switch to dark mode'
+    },
+    gl: {
+      nav_features: 'Funcionalidades', nav_shortcuts: 'Atallos', nav_source: 'Código', nav_breren: 'Breren ↗',
+      hero_tagline: 'A túa pantalla, con **memoria**. Debuxa sobre o teu escritorio en vivo — queda aí, transparente ao rato, entre reinicios.',
+      btn_download: 'Descargar para Windows', btn_source: 'Código en GitHub',
+      version_link: 'Ver todas as versións', version_rest: ' · Licenza PayBack',
+      eyebrow_what: 'Que fai', features_h2: 'Unha superficie que está aí sen estorbar',
+      features_p: 'Unha superposición transparente e sempre visible que cobre todos os monitores. É transparente ao rato o resto do tempo — usa o teu ordenador con normalidade — e só captura a túa entrada mentres estás a debuxar.',
+      pane1_t: 'Seis ferramentas de debuxo', pane1_d: 'Pluma a man alzada, goma, rectángulo, elipse, liña e frecha — cada unha remata automaticamente despois dun trazo.',
+      pane2_t: 'Control total da cor', pane2_d: 'Unha paleta seleccionada, un selector de cor personalizado, tamaño de trazo axustable e cambio de cor coa roda do rato.',
+      pane3_t: 'Desfacer, eliminar, desprazar', pane3_d: 'Desfacer por trazo, eliminar cun clic trazos individuais, e un modo de desprazamento para mover todos os debuxos á vez.',
+      pane4_t: 'Persiste entre reinicios', pane4_d: 'Os trazos gárdanse nun ficheiro JSON por monitor. Pecha a app, reinicia o equipo — as túas anotacións seguen onde as deixaches.',
+      pane5_t: 'Oculta sen perder o traballo', pane5_d: 'Oculta e mostra toda a superposición cando queiras — os debuxos nunca se borran só por necesitar unha pantalla limpa un momento.',
+      pane6_t: 'Vive na bandexa do sistema', pane6_d: 'Unha icona discreta na bandexa e un panel de información con versión, autor e licenza — a app queda fóra da vista ata premer F8.',
+      eyebrow_short: 'Ao alcance da man', shortcuts_h2: 'Cada acción ten unha tecla',
+      shortcuts_p: 'Un atallo global para invocar a barra de ferramentas desde calquera lugar; o resto funciona con Vitralis enfocado.',
+      kbd_global_h: 'Global — desde calquera app', kbd_modes_h: 'Modos', kbd_tools_h: 'Ferramentas', kbd_fine_h: 'Axuste fino',
+      lbl_focus_toolbar: 'Enfocar / desenfocar a barra', lbl_toggle_draw: 'Cambiar modo debuxo', lbl_toggle_pan: 'Cambiar modo desprazamento',
+      lbl_toggle_delete: 'Cambiar modo eliminación', lbl_hide_show: 'Ocultar / mostrar superposición', lbl_undo: 'Desfacer o último trazo',
+      lbl_clear_all: 'Limpar todo', lbl_pen: 'Pluma', lbl_eraser: 'Goma', lbl_line: 'Liña', lbl_arrow: 'Frecha',
+      lbl_rect: 'Rectángulo', lbl_ellipse: 'Elipse', lbl_size: 'Reducir / aumentar tamaño',
+      lbl_cycle: 'Percorrer as cores da paleta', kbd_scroll: 'Roda', lbl_exit: 'Saír do modo activo', kbd_rclick: 'Clic dereito', lbl_quit: 'Saír',
+      footer_license: 'Licenza PayBack (PBL) — gratuíta para uso persoal, académico e non comercial.',
+      footer_built_pre: 'Feito por ', footer_built_mid: ' · parte de ',
+      theme_light: 'Cambiar a modo claro', theme_dark: 'Cambiar a modo escuro'
+    },
+    es: {
+      nav_features: 'Funciones', nav_shortcuts: 'Atajos', nav_source: 'Código', nav_breren: 'Breren ↗',
+      hero_tagline: 'Tu pantalla, con **memoria**. Dibuja sobre tu escritorio en vivo — se queda ahí, transparente al ratón, entre reinicios.',
+      btn_download: 'Descargar para Windows', btn_source: 'Código en GitHub',
+      version_link: 'Ver todas las versiones', version_rest: ' · Licencia PayBack',
+      eyebrow_what: 'Qué hace', features_h2: 'Una superficie que está ahí sin estorbar',
+      features_p: 'Una superposición transparente y siempre visible que cubre todos los monitores. Es transparente al ratón el resto del tiempo — usa tu ordenador con normalidad — y solo captura tu entrada mientras estás dibujando.',
+      pane1_t: 'Seis herramientas de dibujo', pane1_d: 'Lápiz a mano alzada, goma, rectángulo, elipse, línea y flecha — cada una termina automáticamente tras un trazo.',
+      pane2_t: 'Control total del color', pane2_d: 'Una paleta seleccionada, un selector de color personalizado, tamaño de trazo ajustable y cambio de color con la rueda del ratón.',
+      pane3_t: 'Deshacer, eliminar, desplazar', pane3_d: 'Deshacer por trazo, eliminar con un clic trazos individuales, y un modo de desplazamiento para mover todos los dibujos a la vez.',
+      pane4_t: 'Persiste entre reinicios', pane4_d: 'Los trazos se guardan en un archivo JSON por monitor. Cierra la app, reinicia el equipo — tus anotaciones siguen donde las dejaste.',
+      pane5_t: 'Oculta sin perder el trabajo', pane5_d: 'Oculta y muestra toda la superposición cuando quieras — los dibujos nunca se borran solo por necesitar una pantalla limpia un momento.',
+      pane6_t: 'Vive en la bandeja del sistema', pane6_d: 'Un icono discreto en la bandeja y un panel de información con versión, autor y licencia — la app queda fuera de la vista hasta pulsar F8.',
+      eyebrow_short: 'Al alcance de la mano', shortcuts_h2: 'Cada acción tiene una tecla',
+      shortcuts_p: 'Un atajo global para invocar la barra de herramientas desde cualquier lugar; el resto funciona con Vitralis enfocado.',
+      kbd_global_h: 'Global — desde cualquier app', kbd_modes_h: 'Modos', kbd_tools_h: 'Herramientas', kbd_fine_h: 'Ajuste fino',
+      lbl_focus_toolbar: 'Enfocar / desenfocar la barra', lbl_toggle_draw: 'Cambiar modo dibujo', lbl_toggle_pan: 'Cambiar modo desplazamiento',
+      lbl_toggle_delete: 'Cambiar modo eliminación', lbl_hide_show: 'Ocultar / mostrar superposición', lbl_undo: 'Deshacer el último trazo',
+      lbl_clear_all: 'Limpiar todo', lbl_pen: 'Lápiz', lbl_eraser: 'Goma', lbl_line: 'Línea', lbl_arrow: 'Flecha',
+      lbl_rect: 'Rectángulo', lbl_ellipse: 'Elipse', lbl_size: 'Reducir / aumentar tamaño',
+      lbl_cycle: 'Recorrer los colores de la paleta', kbd_scroll: 'Rueda', lbl_exit: 'Salir del modo activo', kbd_rclick: 'Clic derecho', lbl_quit: 'Salir',
+      footer_license: 'Licencia PayBack (PBL) — gratuita para uso personal, académico y no comercial.',
+      footer_built_pre: 'Hecho por ', footer_built_mid: ' · parte de ',
+      theme_light: 'Cambiar a modo claro', theme_dark: 'Cambiar a modo oscuro'
+    },
+    pt: {
+      nav_features: 'Funcionalidades', nav_shortcuts: 'Atalhos', nav_source: 'Código', nav_breren: 'Breren ↗',
+      hero_tagline: 'O seu ecrã, com **memória**. Desenhe sobre o seu ambiente de trabalho ao vivo — fica lá, transparente ao rato, entre reinícios.',
+      btn_download: 'Transferir para Windows', btn_source: 'Código no GitHub',
+      version_link: 'Ver todas as versões', version_rest: ' · Licença PayBack',
+      eyebrow_what: 'O que faz', features_h2: 'Uma superfície que está lá sem atrapalhar',
+      features_p: 'Uma sobreposição transparente e sempre visível que cobre todos os monitores. É transparente ao rato o resto do tempo — use o seu computador normalmente — e só captura a sua entrada enquanto está a desenhar.',
+      pane1_t: 'Seis ferramentas de desenho', pane1_d: 'Caneta à mão livre, borracha, retângulo, elipse, linha e seta — cada uma termina automaticamente após um traço.',
+      pane2_t: 'Controlo total da cor', pane2_d: 'Uma paleta selecionada, um seletor de cor personalizado, tamanho de traço ajustável e mudança de cor com a roda do rato.',
+      pane3_t: 'Desfazer, eliminar, mover', pane3_d: 'Desfazer por traço, eliminar com um clique traços individuais, e um modo de movimento para arrastar todos os desenhos de uma vez.',
+      pane4_t: 'Persiste entre reinícios', pane4_d: 'Os traços são gravados num ficheiro JSON por monitor. Feche a app, reinicie a máquina — as suas anotações continuam onde as deixou.',
+      pane5_t: 'Oculta sem perder o trabalho', pane5_d: 'Oculte e mostre toda a sobreposição quando quiser — os desenhos nunca são apagados só por precisar de um ecrã limpo por um momento.',
+      pane6_t: 'Vive na bandeja do sistema', pane6_d: 'Um ícone discreto na bandeja e um painel de informação com versão, autor e licença — a app fica fora de vista até premir F8.',
+      eyebrow_short: 'Ao alcance da mão', shortcuts_h2: 'Cada ação tem uma tecla',
+      shortcuts_p: 'Um atalho global para chamar a barra de ferramentas de qualquer lugar; o resto funciona com o Vitralis focado.',
+      kbd_global_h: 'Global — de qualquer app', kbd_modes_h: 'Modos', kbd_tools_h: 'Ferramentas', kbd_fine_h: 'Ajuste fino',
+      lbl_focus_toolbar: 'Focar / desfocar a barra', lbl_toggle_draw: 'Alternar modo de desenho', lbl_toggle_pan: 'Alternar modo de movimento',
+      lbl_toggle_delete: 'Alternar modo de eliminação', lbl_hide_show: 'Ocultar / mostrar sobreposição', lbl_undo: 'Desfazer o último traço',
+      lbl_clear_all: 'Limpar tudo', lbl_pen: 'Caneta', lbl_eraser: 'Borracha', lbl_line: 'Linha', lbl_arrow: 'Seta',
+      lbl_rect: 'Retângulo', lbl_ellipse: 'Elipse', lbl_size: 'Reduzir / aumentar tamanho',
+      lbl_cycle: 'Percorrer as cores da paleta', kbd_scroll: 'Roda', lbl_exit: 'Sair do modo ativo', kbd_rclick: 'Clique direito', lbl_quit: 'Sair',
+      footer_license: 'Licença PayBack (PBL) — gratuita para uso pessoal, académico e não comercial.',
+      footer_built_pre: 'Criado por ', footer_built_mid: ' · parte de ',
+      theme_light: 'Mudar para o modo claro', theme_dark: 'Mudar para o modo escuro'
+    },
+    fr: {
+      nav_features: 'Fonctionnalités', nav_shortcuts: 'Raccourcis', nav_source: 'Code source', nav_breren: 'Breren ↗',
+      hero_tagline: "Votre écran, avec de la **mémoire**. Dessinez sur votre bureau en direct — ça reste, transparent à la souris, entre les redémarrages.",
+      btn_download: 'Télécharger pour Windows', btn_source: 'Code source sur GitHub',
+      version_link: 'Voir toutes les versions', version_rest: ' · Licence PayBack',
+      eyebrow_what: 'Ce que ça fait', features_h2: 'Une surface présente sans jamais gêner',
+      features_p: "Une superposition transparente et toujours au premier plan couvrant tous les écrans. Elle est transparente à la souris le reste du temps — utilisez votre ordinateur normalement — et ne capte votre saisie que lorsque vous dessinez activement.",
+      pane1_t: 'Six outils de dessin', pane1_d: 'Stylo à main levée, gomme, rectangle, ellipse, ligne et flèche — chacun se termine automatiquement après un trait.',
+      pane2_t: 'Contrôle total de la couleur', pane2_d: 'Une palette sélectionnée, un sélecteur de couleur personnalisé, une taille de trait ajustable et un défilement à la molette pour changer de couleur.',
+      pane3_t: 'Annuler, supprimer, déplacer', pane3_d: 'Annulation par trait, suppression au clic pour des traits individuels, et un mode déplacement pour glisser tous les dessins à la fois.',
+      pane4_t: 'Persiste entre les redémarrages', pane4_d: "Les traits sont écrits dans un fichier JSON par écran. Fermez l'app, redémarrez la machine — vos annotations restent là où vous les avez laissées.",
+      pane5_t: 'Se masque sans perdre le travail', pane5_d: "Masquez et affichez toute la superposition à volonté — vos dessins ne sont jamais effacés juste parce que vous vouliez un écran net un instant.",
+      pane6_t: 'Vit dans la barre système', pane6_d: "Une icône discrète dans la barre système et un panneau d'informations avec version, auteur et licence — l'app reste hors de vue jusqu'à ce que vous appuyiez sur F8.",
+      eyebrow_short: 'À portée de main', shortcuts_h2: 'Chaque action a sa touche',
+      shortcuts_p: "Un raccourci global pour invoquer la barre d'outils depuis n'importe où ; le reste fonctionne quand Vitralis est actif.",
+      kbd_global_h: "Global — depuis n'importe quelle app", kbd_modes_h: 'Modes', kbd_tools_h: 'Outils', kbd_fine_h: 'Réglages fins',
+      lbl_focus_toolbar: "Activer / désactiver la barre d'outils", lbl_toggle_draw: 'Basculer mode dessin', lbl_toggle_pan: 'Basculer mode déplacement',
+      lbl_toggle_delete: 'Basculer mode suppression', lbl_hide_show: "Masquer / afficher l'incrustation", lbl_undo: 'Annuler le dernier trait',
+      lbl_clear_all: 'Tout effacer', lbl_pen: 'Stylo', lbl_eraser: 'Gomme', lbl_line: 'Ligne', lbl_arrow: 'Flèche',
+      lbl_rect: 'Rectangle', lbl_ellipse: 'Ellipse', lbl_size: 'Réduire / augmenter la taille',
+      lbl_cycle: 'Parcourir les couleurs de la palette', kbd_scroll: 'Molette', lbl_exit: 'Quitter le mode actif', kbd_rclick: 'Clic droit', lbl_quit: 'Quitter',
+      footer_license: 'Licence PayBack (PBL) — gratuite pour un usage personnel, académique et non commercial.',
+      footer_built_pre: 'Créé par ', footer_built_mid: ' · fait partie de ',
+      theme_light: 'Passer en mode clair', theme_dark: 'Passer en mode sombre'
+    },
+    de: {
+      nav_features: 'Funktionen', nav_shortcuts: 'Tastenkürzel', nav_source: 'Quellcode', nav_breren: 'Breren ↗',
+      hero_tagline: 'Dein Bildschirm, mit **Gedächtnis**. Zeichne über deinen Live-Desktop — es bleibt, klickdurchlässig, über Neustarts hinweg.',
+      btn_download: 'Für Windows herunterladen', btn_source: 'Quellcode auf GitHub',
+      version_link: 'Alle Versionen ansehen', version_rest: ' · PayBack-Lizenz',
+      eyebrow_what: 'Was es tut', features_h2: 'Eine Oberfläche, die da ist, ohne im Weg zu sein',
+      features_p: 'Ein transparentes, immer im Vordergrund liegendes Overlay über alle Monitore hinweg. Die restliche Zeit ist es klickdurchlässig — nutze deinen Computer ganz normal — und fängt deine Eingabe nur ein, wenn du aktiv zeichnest.',
+      pane1_t: 'Sechs Zeichenwerkzeuge', pane1_d: 'Freihandstift, Radierer, Rechteck, Ellipse, Linie und Pfeil — jedes endet automatisch nach einem Strich.',
+      pane2_t: 'Volle Farbkontrolle', pane2_d: 'Eine kuratierte Palette, ein benutzerdefinierter Farbwähler, einstellbare Strichgröße und Mausrad-Zyklen zum Farbwechsel ohne Menü.',
+      pane3_t: 'Rückgängig, löschen, verschieben', pane3_d: 'Rückgängig pro Strich, Löschen einzelner Markierungen per Klick, und ein Verschiebemodus, um alle Zeichnungen auf einmal zu ziehen.',
+      pane4_t: 'Bleibt über Neustarts erhalten', pane4_d: 'Striche werden in einer JSON-Datei pro Monitor gespeichert. App schließen, Rechner neu starten — deine Anmerkungen sind genau dort, wo du sie gelassen hast.',
+      pane5_t: 'Ausblenden ohne Datenverlust', pane5_d: 'Blende das gesamte Overlay ein und aus, wann immer du willst — deine Zeichnungen werden niemals nur deshalb gelöscht, weil du kurz einen sauberen Bildschirm brauchst.',
+      pane6_t: 'Lebt im Systemtray', pane6_d: 'Ein unaufdringliches Tray-Symbol und ein Infofenster mit Version, Autor und Lizenz — die App bleibt unsichtbar, bis du F8 drückst.',
+      eyebrow_short: 'Griffbereit', shortcuts_h2: 'Jede Aktion hat eine Taste',
+      shortcuts_p: 'Ein globales Tastenkürzel, um die Symbolleiste von überall aufzurufen; der Rest funktioniert, wenn Vitralis fokussiert ist.',
+      kbd_global_h: 'Global — aus jeder App', kbd_modes_h: 'Modi', kbd_tools_h: 'Werkzeuge', kbd_fine_h: 'Feineinstellung',
+      lbl_focus_toolbar: 'Symbolleiste fokussieren / defokussieren', lbl_toggle_draw: 'Zeichenmodus umschalten', lbl_toggle_pan: 'Verschiebemodus umschalten',
+      lbl_toggle_delete: 'Löschmodus umschalten', lbl_hide_show: 'Überlagerung aus-/einblenden', lbl_undo: 'Letzten Strich rückgängig machen',
+      lbl_clear_all: 'Alles löschen', lbl_pen: 'Stift', lbl_eraser: 'Radierer', lbl_line: 'Linie', lbl_arrow: 'Pfeil',
+      lbl_rect: 'Rechteck', lbl_ellipse: 'Ellipse', lbl_size: 'Größe verringern / erhöhen',
+      lbl_cycle: 'Palettenfarben durchblättern', kbd_scroll: 'Mausrad', lbl_exit: 'Aktiven Modus verlassen', kbd_rclick: 'Rechtsklick', lbl_quit: 'Beenden',
+      footer_license: 'PayBack-Lizenz (PBL) — kostenlos für den persönlichen, akademischen und nicht-kommerziellen Gebrauch.',
+      footer_built_pre: 'Erstellt von ', footer_built_mid: ' · Teil von ',
+      theme_light: 'Zum hellen Modus wechseln', theme_dark: 'Zum dunklen Modus wechseln'
+    },
+    zh: {
+      nav_features: '功能', nav_shortcuts: '快捷键', nav_source: '源代码', nav_breren: 'Breren ↗',
+      hero_tagline: '你的屏幕,拥有**记忆**。在实时桌面上绘图——即使重启,它依然保留,鼠标可穿透。',
+      btn_download: '下载 Windows 版', btn_source: '在 GitHub 上查看源代码',
+      version_link: '查看所有版本', version_rest: ' · PayBack 许可证',
+      eyebrow_what: '它能做什么', features_h2: '一层存在却不碍事的表面',
+      features_p: '一个透明、始终置顶的覆盖层,覆盖所有显示器。其余时间它对鼠标完全穿透——正常使用你的电脑即可——只有在你主动绘制时才会捕获输入。',
+      pane1_t: '六种绘图工具', pane1_d: '手绘钢笔、橡皮、矩形、椭圆、直线和箭头——每一笔结束后自动退出绘制状态。',
+      pane2_t: '完整的颜色控制', pane2_d: '精选调色板、自定义颜色选择器、可调笔触大小,以及无需打开菜单即可用鼠标滚轮切换颜色。',
+      pane3_t: '撤销、删除、平移', pane3_d: '按笔画撤销、点击单个笔迹即可删除,以及可一次性拖动所有绘图的平移模式。',
+      pane4_t: '重启后依然保留', pane4_d: '笔画会写入每个显示器各自的 JSON 文件。关闭应用、重启电脑——你的批注仍在原处。',
+      pane5_t: '隐藏而不丢失内容', pane5_d: '随时隐藏和恢复整个覆盖层——绝不会因为你临时需要一个干净的屏幕就清空你的绘图。',
+      pane6_t: '静静驻留在系统托盘', pane6_d: '低调的系统托盘图标,以及显示版本、作者和许可证的信息面板——应用一直隐藏,直到你按下 F8。',
+      eyebrow_short: '触手可及', shortcuts_h2: '每个操作都有对应的按键',
+      shortcuts_p: '一个全局快捷键可从任何地方唤出工具栏;其余操作在 Vitralis 获得焦点时可用。',
+      kbd_global_h: '全局 — 来自任意应用', kbd_modes_h: '模式', kbd_tools_h: '工具', kbd_fine_h: '精细调整',
+      lbl_focus_toolbar: '聚焦 / 取消聚焦工具栏', lbl_toggle_draw: '切换绘制模式', lbl_toggle_pan: '切换平移模式',
+      lbl_toggle_delete: '切换删除模式', lbl_hide_show: '隐藏 / 显示覆盖层', lbl_undo: '撤销上一笔',
+      lbl_clear_all: '清除全部', lbl_pen: '钢笔', lbl_eraser: '橡皮', lbl_line: '直线', lbl_arrow: '箭头',
+      lbl_rect: '矩形', lbl_ellipse: '椭圆', lbl_size: '缩小 / 放大',
+      lbl_cycle: '循环切换调色板颜色', kbd_scroll: '滚轮', lbl_exit: '退出当前模式', kbd_rclick: '右键', lbl_quit: '退出',
+      footer_license: 'PayBack 许可证 (PBL) — 个人、学术及非商业用途免费。',
+      footer_built_pre: '开发者：', footer_built_mid: ' · 隶属于 ',
+      theme_light: '切换到浅色模式', theme_dark: '切换到深色模式'
+    },
+    ja: {
+      nav_features: '機能', nav_shortcuts: 'ショートカット', nav_source: 'ソース', nav_breren: 'Breren ↗',
+      hero_tagline: 'あなたの画面に、**記憶**を。ライブデスクトップの上に描く — それは残り、マウスをクリックスルーし、再起動をまたいでも消えません。',
+      btn_download: 'Windows 版をダウンロード', btn_source: 'GitHub でソースを見る',
+      version_link: 'すべてのリリースを見る', version_rest: ' · PayBack ライセンス',
+      eyebrow_what: 'できること', features_h2: '邪魔をせずそこにある表面',
+      features_p: 'すべてのモニターに広がる、透明で常に最前面のオーバーレイ。それ以外の時間は完全にマウスをクリックスルーし——普段どおりパソコンを使えます——描画しているときだけ入力を受け取ります。',
+      pane1_t: '6つの描画ツール', pane1_d: 'フリーハンドペン、消しゴム、長方形、楕円、直線、矢印 — それぞれ一筆ごとに自動的に描画モードが終了します。',
+      pane2_t: '自在なカラー操作', pane2_d: '厳選されたパレット、カスタムカラーピッカー、調整可能な線の太さ、そしてメニューを開かずにマウスホイールで色を切り替え。',
+      pane3_t: '元に戻す・削除・パン', pane3_d: 'ストロークごとの元に戻す、クリックで個別の線を削除、そしてすべての描画を一度に動かせるパンモード。',
+      pane4_t: '再起動後も保持', pane4_d: 'ストロークはモニターごとの JSON ファイルに保存されます。アプリを閉じても、マシンを再起動しても — 注釈は残した場所そのままです。',
+      pane5_t: '作業を失わずに非表示', pane5_d: 'オーバーレイ全体をいつでも表示・非表示にできます — 一瞬きれいな画面が必要なだけで描画が消えることはありません。',
+      pane6_t: 'システムトレイに常駐', pane6_d: '控えめなトレイアイコンと、バージョン・作者・ライセンスを表示する情報パネル — F8 を押すまでアプリは目に入りません。',
+      eyebrow_short: 'すぐ手の届くところに', shortcuts_h2: 'すべての操作にキーがある',
+      shortcuts_p: 'どこからでもツールバーを呼び出せるグローバルホットキーが1つ。それ以外は Vitralis にフォーカスがある間に使えます。',
+      kbd_global_h: 'グローバル — どのアプリからでも', kbd_modes_h: 'モード', kbd_tools_h: 'ツール', kbd_fine_h: '微調整',
+      lbl_focus_toolbar: 'ツールバーのフォーカス切替', lbl_toggle_draw: '描画モード切替', lbl_toggle_pan: 'パンモード切替',
+      lbl_toggle_delete: '削除モード切替', lbl_hide_show: 'オーバーレイ 非表示 / 表示', lbl_undo: '直前のストロークを元に戻す',
+      lbl_clear_all: 'すべてクリア', lbl_pen: 'ペン', lbl_eraser: '消しゴム', lbl_line: '直線', lbl_arrow: '矢印',
+      lbl_rect: '長方形', lbl_ellipse: '楕円', lbl_size: 'サイズを縮小 / 拡大',
+      lbl_cycle: 'パレットの色を切り替える', kbd_scroll: 'スクロール', lbl_exit: '現在のモードを終了', kbd_rclick: '右クリック', lbl_quit: '終了',
+      footer_license: 'PayBack ライセンス (PBL) — 個人・学術・非商業利用は無料。',
+      footer_built_pre: '制作: ', footer_built_mid: ' · ',
+      theme_light: 'ライトモードに切り替える', theme_dark: 'ダークモードに切り替える'
+    }
+  };
+
+  var currentLang = detectLang();
+
+  function detectLang() {
+    var stored = localStorage.getItem('vitralis-lang');
+    if (stored && SUPPORTED.indexOf(stored) !== -1) return stored;
+    var candidates = navigator.languages || [navigator.language || 'en'];
+    for (var i = 0; i < candidates.length; i++) {
+      var code = (candidates[i] || '').slice(0, 2).toLowerCase();
+      if (SUPPORTED.indexOf(code) !== -1) return code;
+    }
+    return 'en';
+  }
+
+  function t(key) {
+    var dict = STRINGS[currentLang] || STRINGS.en;
+    return dict[key] || STRINGS.en[key] || key;
+  }
+
+  function boldify(str) {
+    var out = document.createElement('span');
+    var parts = str.split('**');
+    parts.forEach(function (part, i) {
+      if (i % 2 === 1) {
+        var strong = document.createElement('strong');
+        strong.textContent = part;
+        out.appendChild(strong);
+      } else {
+        out.appendChild(document.createTextNode(part));
+      }
+    });
+    return out;
+  }
+
+  function applyTexts() {
+    document.getElementById('nav-features').textContent = t('nav_features');
+    document.getElementById('nav-shortcuts').textContent = t('nav_shortcuts');
+    document.getElementById('nav-source').textContent = t('nav_source');
+    document.getElementById('nav-breren').textContent = t('nav_breren');
+
+    var tagline = document.getElementById('hero-tagline');
+    tagline.innerHTML = '';
+    tagline.appendChild(boldify(t('hero_tagline')));
+
+    var dlLabel = document.getElementById('download-label');
+    if (dlLabel.dataset.version) {
+      dlLabel.textContent = t('btn_download') + ' (' + dlLabel.dataset.version + ')';
+    } else {
+      dlLabel.textContent = t('btn_download');
+    }
+    document.getElementById('btn-source-label').textContent = t('btn_source');
+    document.getElementById('version-link').textContent = t('version_link');
+    document.getElementById('version-rest').textContent = t('version_rest');
+
+    document.getElementById('eyebrow-what').textContent = t('eyebrow_what');
+    document.getElementById('features-h2').textContent = t('features_h2');
+    document.getElementById('features-p').textContent = t('features_p');
+
+    for (var i = 1; i <= 6; i++) {
+      document.getElementById('pane' + i + '-t').textContent = t('pane' + i + '_t');
+      document.getElementById('pane' + i + '-d').textContent = t('pane' + i + '_d');
+    }
+
+    document.getElementById('eyebrow-short').textContent = t('eyebrow_short');
+    document.getElementById('shortcuts-h2').textContent = t('shortcuts_h2');
+    document.getElementById('shortcuts-p').textContent = t('shortcuts_p');
+
+    document.getElementById('kbd-global-h').textContent = t('kbd_global_h');
+    document.getElementById('kbd-modes-h').textContent = t('kbd_modes_h');
+    document.getElementById('kbd-tools-h').textContent = t('kbd_tools_h');
+    document.getElementById('kbd-fine-h').textContent = t('kbd_fine_h');
+
+    document.getElementById('lbl-focus-toolbar').textContent = t('lbl_focus_toolbar');
+    document.getElementById('lbl-toggle-draw').textContent = t('lbl_toggle_draw');
+    document.getElementById('lbl-toggle-pan').textContent = t('lbl_toggle_pan');
+    document.getElementById('lbl-toggle-delete').textContent = t('lbl_toggle_delete');
+    document.getElementById('lbl-hide-show').textContent = t('lbl_hide_show');
+    document.getElementById('lbl-undo').textContent = t('lbl_undo');
+    document.getElementById('lbl-clear-all').textContent = t('lbl_clear_all');
+    document.getElementById('lbl-pen').textContent = t('lbl_pen');
+    document.getElementById('lbl-eraser').textContent = t('lbl_eraser');
+    document.getElementById('lbl-line').textContent = t('lbl_line');
+    document.getElementById('lbl-arrow').textContent = t('lbl_arrow');
+    document.getElementById('lbl-rect').textContent = t('lbl_rect');
+    document.getElementById('lbl-ellipse').textContent = t('lbl_ellipse');
+    document.getElementById('lbl-size').textContent = t('lbl_size');
+    document.getElementById('lbl-cycle').textContent = t('lbl_cycle');
+    document.getElementById('kbd-scroll').textContent = t('kbd_scroll');
+    document.getElementById('lbl-exit').textContent = t('lbl_exit');
+    document.getElementById('kbd-rclick').textContent = t('kbd_rclick');
+    document.getElementById('lbl-quit').textContent = t('lbl_quit');
+
+    document.getElementById('footer-license').textContent = t('footer_license');
+    document.getElementById('footer-built-pre').textContent = t('footer_built_pre');
+    document.getElementById('footer-built-mid').textContent = t('footer_built_mid');
+
+    updateThemeButtonLabel();
+  }
+
+  // ---- language picker --------------------------------------------------
+
+  function setupLangPicker() {
+    var trigger = document.getElementById('lang-trigger');
+    var menu = document.getElementById('lang-menu');
+    var triggerFlag = document.getElementById('lang-trigger-flag');
+    var triggerName = document.getElementById('lang-trigger-name');
+
+    LANGUAGES.forEach(function (lang) {
+      var li = document.createElement('li');
+      li.setAttribute('role', 'presentation');
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'lang-option';
+      btn.setAttribute('role', 'option');
+      btn.setAttribute('aria-selected', String(lang.code === currentLang));
+      btn.innerHTML = '<span class="flag">' + lang.flag + '</span><span>' + lang.name + '</span>';
+      btn.addEventListener('click', function () {
+        selectLang(lang.code);
+        closeMenu();
+      });
+      li.appendChild(btn);
+      menu.appendChild(li);
+    });
+
+    updateTrigger();
+
+    trigger.addEventListener('click', function () {
+      if (menu.hidden) openMenu(); else closeMenu();
+    });
+    document.addEventListener('click', function (e) {
+      if (!menu.hidden && !e.target.closest('.lang-picker')) closeMenu();
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !menu.hidden) { closeMenu(); trigger.focus(); }
+    });
+
+    function openMenu() { menu.hidden = false; trigger.setAttribute('aria-expanded', 'true'); }
+    function closeMenu() { menu.hidden = true; trigger.setAttribute('aria-expanded', 'false'); }
+    function updateTrigger() {
+      var lang = BY_CODE[currentLang];
+      triggerFlag.innerHTML = lang.flag;
+      triggerName.textContent = lang.name;
+      Array.prototype.forEach.call(menu.querySelectorAll('.lang-option'), function (btn, i) {
+        btn.setAttribute('aria-selected', String(LANGUAGES[i].code === currentLang));
+      });
+    }
+    setupLangPicker._update = updateTrigger;
+  }
+
+  function selectLang(code) {
+    currentLang = code;
+    localStorage.setItem('vitralis-lang', code);
+    document.documentElement.lang = code;
+    setupLangPicker._update();
+    applyTexts();
+  }
+
+  // ---- theme ----------------------------------------------------------
+
+  function effectiveTheme() {
+    var stored = localStorage.getItem('vitralis-theme');
+    if (stored) return stored;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    document.getElementById('theme-toggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+    updateThemeButtonLabel();
+  }
+  function updateThemeButtonLabel() {
+    var theme = document.documentElement.getAttribute('data-theme');
+    var btn = document.getElementById('theme-toggle');
+    var label = theme === 'dark' ? t('theme_light') : t('theme_dark');
+    btn.setAttribute('aria-label', label);
+    btn.title = label;
+  }
+  function setupThemeToggle() {
+    document.getElementById('theme-toggle').addEventListener('click', function () {
+      var next = effectiveTheme() === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('vitralis-theme', next);
+      applyTheme(next);
+    });
+  }
+
+  setupLangPicker();
+  setupThemeToggle();
+  applyTheme(effectiveTheme());
+  document.documentElement.lang = currentLang;
+  applyTexts();
+
+  // ---- latest release -----------------------------------------------
+
+  var REPO = 'Ran-n/vitralis';
   fetch('https://api.github.com/repos/' + REPO + '/releases/latest')
     .then(function (r) { if (!r.ok) throw new Error('bad status'); return r.json(); })
     .then(function (release) {
       var exe = (release.assets || []).find(function (a) { return /\.exe$/i.test(a.name); });
-      if (exe) {
-        document.getElementById('download-btn').href = exe.browser_download_url;
+      if (exe) document.getElementById('download-btn').href = exe.browser_download_url;
+      if (release.tag_name) {
+        document.getElementById('download-label').dataset.version = release.tag_name;
+        applyTexts();
       }
-      var label = document.getElementById('download-label');
-      if (release.tag_name) label.textContent = 'Download for Windows (' + release.tag_name + ')';
     })
     .catch(function () {}); // fall back to the static "latest" releases link already in the markup
 
-  // Subtle glass glint that follows the pointer across the hero shards.
+  // ---- hero shard glint ------------------------------------------------
+
   if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
     var svg = document.querySelector('.hero-shards svg');
     if (svg) {
@@ -509,7 +1060,7 @@
           var cx = [0.23, 0.45, 0.65, 0.83][i] || 0.5;
           var dist = Math.abs(mx - cx);
           var glow = Math.max(0, 1 - dist * 3.2);
-          p.style.opacity = 0.55 + glow * 0.45;
+          p.style.opacity = 0.6 + glow * 0.4;
         });
       });
     }
