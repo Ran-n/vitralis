@@ -445,8 +445,8 @@
     <nav class="site-links">
       <a href="#features" id="nav-features">Features</a>
       <a href="#shortcuts" id="nav-shortcuts">Shortcuts</a>
-      <a href="https://github.com/Ran-n/vitralis" id="nav-source">Source</a>
-      <a href="https://breren.com" id="nav-breren">Breren ↗</a>
+      <a href="https://github.com/Ran-n/vitralis" id="nav-source" target="_top">Source</a>
+      <a href="https://breren.com" id="nav-breren" target="_top">Breren ↗</a>
     </nav>
     <div class="toolbar">
       <div class="lang-picker">
@@ -506,17 +506,25 @@
       <h1 class="wordmark">VITRALIS</h1>
       <p class="tagline" id="hero-tagline"></p>
       <div class="cta-row">
-        <a class="btn btn-primary" id="download-btn" href="https://github.com/Ran-n/vitralis/releases/latest">
+        <a class="btn btn-primary" id="download-btn" href="https://github.com/Ran-n/vitralis/releases/latest" target="_top">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 11 5 5 5-5"/><path d="M5 21h14"/></svg>
           <span id="download-label">Download for Windows</span>
         </a>
-        <a class="btn btn-ghost" href="https://github.com/Ran-n/vitralis" id="btn-source">
+        <a class="btn btn-ghost" href="https://github.com/Ran-n/vitralis" id="btn-source" target="_top">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2.2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1.1-.8.1-.7.1-.7 1.2.1 1.9 1.3 1.9 1.3 1.1 1.9 2.9 1.3 3.6 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.4-1.3-5.4-5.9 0-1.3.5-2.4 1.3-3.2-.1-.3-.6-1.6.1-3.2 0 0 1.1-.3 3.5 1.3a12 12 0 0 1 6.4 0c2.4-1.6 3.5-1.3 3.5-1.3.7 1.6.2 2.9.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.7 5.6-5.4 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3Z"/></svg>
           <span id="btn-source-label">Source on GitHub</span>
         </a>
+        <a class="btn btn-ghost" href="https://gitlab.com/Ran-n/vitralis" id="btn-source-gitlab" target="_top">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9v1a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9"/><path d="M12 12v3"/></svg>
+          <span id="btn-source-gitlab-label">Source on GitLab</span>
+        </a>
+        <a class="btn btn-ghost" href="https://codeberg.org/ran-n/vitralis" id="btn-source-codeberg" target="_top">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="18" r="3"/><circle cx="6" cy="6" r="3"/><circle cx="18" cy="6" r="3"/><path d="M18 9v1a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9"/><path d="M12 12v3"/></svg>
+          <span id="btn-source-codeberg-label">Source on Codeberg</span>
+        </a>
       </div>
       <p class="version-note">
-        <a href="https://github.com/Ran-n/vitralis/releases" id="version-link">See all releases</a>
+        <a href="https://github.com/Ran-n/vitralis/releases" id="version-link" target="_top">See all releases</a>
         <span id="version-rest"> · PayBack License</span>
       </p>
     </section>
@@ -604,7 +612,7 @@
   <footer class="site">
     <div class="wrap">
       <p id="footer-license"></p>
-      <p><span id="footer-built-pre"></span><a href="https://github.com/Ran-n">Ran#</a><span id="footer-built-mid"></span><a href="https://breren.com">Breren</a></p>
+      <p><span id="footer-built-pre"></span><a href="https://github.com/Ran-n" target="_top">Ran#</a><span id="footer-built-mid"></span><a href="https://breren.com" target="_top">Breren</a></p>
     </div>
   </footer>
 </main>
@@ -639,6 +647,7 @@
       nav_features: 'Features', nav_shortcuts: 'Shortcuts', nav_source: 'Source', nav_breren: 'Breren ↗',
       hero_tagline: "Your screen, with **memory**. Draw over your live desktop — it stays, click-through, across reboots.",
       btn_download: 'Download for Windows', btn_source: 'Source on GitHub',
+      btn_source_gitlab: 'Source on GitLab', btn_source_codeberg: 'Source on Codeberg',
       version_link: 'See all releases', version_rest: ' · PayBack License',
       eyebrow_what: 'What it does', features_h2: "A surface that's there without being in the way",
       features_p: "A transparent, always-on-top overlay spanning every monitor. It's click-through the rest of the time — use your computer exactly as normal — and only catches your input when you're actively drawing.",
@@ -664,6 +673,7 @@
       nav_features: 'Funcionalidades', nav_shortcuts: 'Atallos', nav_source: 'Código', nav_breren: 'Breren ↗',
       hero_tagline: 'A túa pantalla, con **memoria**. Debuxa sobre o teu escritorio en vivo — queda aí, transparente ao rato, entre reinicios.',
       btn_download: 'Descargar para Windows', btn_source: 'Código en GitHub',
+      btn_source_gitlab: 'Código en GitLab', btn_source_codeberg: 'Código en Codeberg',
       version_link: 'Ver todas as versións', version_rest: ' · Licenza PayBack',
       eyebrow_what: 'Que fai', features_h2: 'Unha superficie que está aí sen estorbar',
       features_p: 'Unha superposición transparente e sempre visible que cobre todos os monitores. É transparente ao rato o resto do tempo — usa o teu ordenador con normalidade — e só captura a túa entrada mentres estás a debuxar.',
@@ -689,6 +699,7 @@
       nav_features: 'Funciones', nav_shortcuts: 'Atajos', nav_source: 'Código', nav_breren: 'Breren ↗',
       hero_tagline: 'Tu pantalla, con **memoria**. Dibuja sobre tu escritorio en vivo — se queda ahí, transparente al ratón, entre reinicios.',
       btn_download: 'Descargar para Windows', btn_source: 'Código en GitHub',
+      btn_source_gitlab: 'Código en GitLab', btn_source_codeberg: 'Código en Codeberg',
       version_link: 'Ver todas las versiones', version_rest: ' · Licencia PayBack',
       eyebrow_what: 'Qué hace', features_h2: 'Una superficie que está ahí sin estorbar',
       features_p: 'Una superposición transparente y siempre visible que cubre todos los monitores. Es transparente al ratón el resto del tiempo — usa tu ordenador con normalidad — y solo captura tu entrada mientras estás dibujando.',
@@ -714,6 +725,7 @@
       nav_features: 'Funcionalidades', nav_shortcuts: 'Atalhos', nav_source: 'Código', nav_breren: 'Breren ↗',
       hero_tagline: 'O seu ecrã, com **memória**. Desenhe sobre o seu ambiente de trabalho ao vivo — fica lá, transparente ao rato, entre reinícios.',
       btn_download: 'Transferir para Windows', btn_source: 'Código no GitHub',
+      btn_source_gitlab: 'Código no GitLab', btn_source_codeberg: 'Código no Codeberg',
       version_link: 'Ver todas as versões', version_rest: ' · Licença PayBack',
       eyebrow_what: 'O que faz', features_h2: 'Uma superfície que está lá sem atrapalhar',
       features_p: 'Uma sobreposição transparente e sempre visível que cobre todos os monitores. É transparente ao rato o resto do tempo — use o seu computador normalmente — e só captura a sua entrada enquanto está a desenhar.',
@@ -739,6 +751,7 @@
       nav_features: 'Fonctionnalités', nav_shortcuts: 'Raccourcis', nav_source: 'Code source', nav_breren: 'Breren ↗',
       hero_tagline: "Votre écran, avec de la **mémoire**. Dessinez sur votre bureau en direct — ça reste, transparent à la souris, entre les redémarrages.",
       btn_download: 'Télécharger pour Windows', btn_source: 'Code source sur GitHub',
+      btn_source_gitlab: 'Code source sur GitLab', btn_source_codeberg: 'Code source sur Codeberg',
       version_link: 'Voir toutes les versions', version_rest: ' · Licence PayBack',
       eyebrow_what: 'Ce que ça fait', features_h2: 'Une surface présente sans jamais gêner',
       features_p: "Une superposition transparente et toujours au premier plan couvrant tous les écrans. Elle est transparente à la souris le reste du temps — utilisez votre ordinateur normalement — et ne capte votre saisie que lorsque vous dessinez activement.",
@@ -764,6 +777,7 @@
       nav_features: 'Funktionen', nav_shortcuts: 'Tastenkürzel', nav_source: 'Quellcode', nav_breren: 'Breren ↗',
       hero_tagline: 'Dein Bildschirm, mit **Gedächtnis**. Zeichne über deinen Live-Desktop — es bleibt, klickdurchlässig, über Neustarts hinweg.',
       btn_download: 'Für Windows herunterladen', btn_source: 'Quellcode auf GitHub',
+      btn_source_gitlab: 'Quellcode auf GitLab', btn_source_codeberg: 'Quellcode auf Codeberg',
       version_link: 'Alle Versionen ansehen', version_rest: ' · PayBack-Lizenz',
       eyebrow_what: 'Was es tut', features_h2: 'Eine Oberfläche, die da ist, ohne im Weg zu sein',
       features_p: 'Ein transparentes, immer im Vordergrund liegendes Overlay über alle Monitore hinweg. Die restliche Zeit ist es klickdurchlässig — nutze deinen Computer ganz normal — und fängt deine Eingabe nur ein, wenn du aktiv zeichnest.',
@@ -789,6 +803,7 @@
       nav_features: '功能', nav_shortcuts: '快捷键', nav_source: '源代码', nav_breren: 'Breren ↗',
       hero_tagline: '你的屏幕,拥有**记忆**。在实时桌面上绘图——即使重启,它依然保留,鼠标可穿透。',
       btn_download: '下载 Windows 版', btn_source: '在 GitHub 上查看源代码',
+      btn_source_gitlab: '在 GitLab 上查看源代码', btn_source_codeberg: '在 Codeberg 上查看源代码',
       version_link: '查看所有版本', version_rest: ' · PayBack 许可证',
       eyebrow_what: '它能做什么', features_h2: '一层存在却不碍事的表面',
       features_p: '一个透明、始终置顶的覆盖层,覆盖所有显示器。其余时间它对鼠标完全穿透——正常使用你的电脑即可——只有在你主动绘制时才会捕获输入。',
@@ -814,6 +829,7 @@
       nav_features: '機能', nav_shortcuts: 'ショートカット', nav_source: 'ソース', nav_breren: 'Breren ↗',
       hero_tagline: 'あなたの画面に、**記憶**を。ライブデスクトップの上に描く — それは残り、マウスをクリックスルーし、再起動をまたいでも消えません。',
       btn_download: 'Windows 版をダウンロード', btn_source: 'GitHub でソースを見る',
+      btn_source_gitlab: 'GitLab でソースを見る', btn_source_codeberg: 'Codeberg でソースを見る',
       version_link: 'すべてのリリースを見る', version_rest: ' · PayBack ライセンス',
       eyebrow_what: 'できること', features_h2: '邪魔をせずそこにある表面',
       features_p: 'すべてのモニターに広がる、透明で常に最前面のオーバーレイ。それ以外の時間は完全にマウスをクリックスルーし——普段どおりパソコンを使えます——描画しているときだけ入力を受け取ります。',
@@ -909,6 +925,8 @@
       dlLabel.textContent = t('btn_download');
     }
     document.getElementById('btn-source-label').textContent = t('btn_source');
+    document.getElementById('btn-source-gitlab-label').textContent = t('btn_source_gitlab');
+    document.getElementById('btn-source-codeberg-label').textContent = t('btn_source_codeberg');
     document.getElementById('version-link').textContent = t('version_link');
     document.getElementById('version-rest').textContent = t('version_rest');
 

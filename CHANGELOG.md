@@ -1,3 +1,9 @@
+[//]: # ( ---------------------------------------------------------------------- )
+[//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
+[//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
+[//]: # (+ Revised: 	2026/08/04 12:03:36.212196 )
+[//]: # ( ---------------------------------------------------------------------- )
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -9,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- GitLab and Codeberg source links next to the existing GitHub one in
+  the hero CTA row, localized across all eight supported languages.
 - When embedded in an iframe, the landing page listens for a
   `vitralis-preset` `postMessage` from `https://breren.com` and applies
   the visitor's language/theme from it on every load — lets
@@ -27,3 +35,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The landing page now defaults to dark mode regardless of system
   preference; the visitor's choice is remembered from the first
   toggle onward.
+
+### Fixed
+
+- External links (GitHub, GitLab, Codeberg, Breren) now target `_top`
+  instead of `_blank`, so when the landing page is running inside
+  breren.com's iframe they break out to the same tab instead of
+  attempting to load the external site framed — which those sites
+  refuse, since it's a top-level navigation now, back/forward and the
+  URL bar behave normally.
