@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 16:06:25.762869
-Revised: 2026/04/29 15:08:10.369133
+Revised: 2026/08/04 10:34:00.155758
 """
 
 import os
@@ -61,6 +61,9 @@ def main() -> None:
 
     with open(os.path.join(root, "pyproject.toml"), "rb") as f:
         version = tomllib.load(f)["project"]["version"]
+
+    with open(os.path.join(here, "_version.py"), "w") as f:
+        f.write(f'__version__ = "{version}"\n')
 
     exe_name = f"vitralis-{version}"
     script   = os.path.join(here, "__main__.py")

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.341523
-Revised: 2026/05/03 12:16:45.571169
+Revised: 2026/08/04 10:34:08.156077
 """
 
 import ctypes
@@ -784,12 +784,15 @@ class Toolbar(QWidget):
 
     def _open_info(self) -> None:
         if self._info_win is None or not self._info_win.isVisible():
-            from importlib.metadata import version as pkg_version
-
             try:
-                ver = pkg_version("vitralis")
-            except Exception:
-                ver = "?"
+                from vitralis._version import __version__ as ver
+            except ImportError:
+                from importlib.metadata import version as pkg_version
+
+                try:
+                    ver = pkg_version("vitralis")
+                except Exception:
+                    ver = "?"
             self._info_win = InfoWindow(ver, parent=None)
             self._info_win.closed.connect(self._on_info_closed)
             geo = self.frameGeometry()
