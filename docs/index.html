@@ -619,7 +619,7 @@
   <footer class="site">
     <div class="wrap">
       <p><span id="footer-license"></span> <a href="https://ran-n.github.io/doc/" target="_top" id="footer-license-link"></a></p>
-      <p><span id="footer-built-pre"></span><a href="https://github.com/Ran-n" target="_top">Ran#</a><span id="footer-built-mid"></span><a href="https://breren.com" target="_top">Breren</a></p>
+      <p><span id="footer-built-pre"></span><a href="https://github.com/Ran-n" target="_top">Ran#</a><span id="footer-built-mid"></span><a href="https://breren.com" target="_top" id="footer-breren-link">Breren</a></p>
     </div>
   </footer>
 </main>
@@ -989,6 +989,21 @@
     document.getElementById('footer-built-mid').textContent = t('footer_built_mid');
 
     updateThemeButtonLabel();
+    updateBrerenLinks();
+  }
+
+  // A plain top-level navigation (target="_top" link click) can't carry a
+  // postMessage — the page unloads before any message would matter. So the
+  // reverse hand-off (vitralis -> breren.com) rides along as query params
+  // instead; breren.com reads them on load and applies+strips them.
+  function updateBrerenLinks() {
+    var theme = document.documentElement.getAttribute('data-theme') || effectiveTheme();
+    var qs = '?lang=' + encodeURIComponent(currentLang) + '&theme=' + encodeURIComponent(theme);
+    var href = 'https://breren.com/' + qs;
+    var nav = document.getElementById('nav-breren');
+    var footer = document.getElementById('footer-breren-link');
+    if (nav) nav.href = href;
+    if (footer) footer.href = href;
   }
 
   // ---- language picker --------------------------------------------------
@@ -1062,6 +1077,7 @@
     document.documentElement.setAttribute('data-theme', theme);
     document.getElementById('theme-toggle').textContent = theme === 'dark' ? '☀️' : '🌙';
     updateThemeButtonLabel();
+    updateBrerenLinks();
   }
   function updateThemeButtonLabel() {
     var theme = document.documentElement.getAttribute('data-theme');
