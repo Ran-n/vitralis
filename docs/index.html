@@ -998,7 +998,9 @@
   function effectiveTheme() {
     var stored = localStorage.getItem('vitralis-theme');
     if (stored) return stored;
-    return 'dark'; // default look; remembered once the visitor toggles it
+    // Follow the OS unless it explicitly asks for light; unknown/no
+    // preference falls back to dark, which is this page's default look.
+    return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   }
   function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
