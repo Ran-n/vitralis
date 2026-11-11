@@ -8,10 +8,20 @@ dependencies = [
     "pyqt6>=6.11.0",
     "pywin32>=308; sys_platform == 'win32'",
     "keyboard>=0.13",
+    "cryptography>=50.0.2",
+    "blake3>=1.0.11",
+    "httpx>=0.28.1",
 ]
 
 [dependency-groups]
-dev = ["pyinstaller>=6.0", "ruff>=0.11.0"]
+dev = [
+    "hypothesis>=6.170.15",
+    "pyinstaller>=6.0",
+    "pytest>=9.2.0",
+    "pytest-cov>=7.1.0",
+    "respx>=0.23.1",
+    "ruff>=0.11.0",
+]
 
 [build-system]
 requires = ["setuptools"]
@@ -31,6 +41,10 @@ target-version = "py313"
 select = ["E", "F", "I", "B", "UP", "SIM"]
 ignore = ["E402"]
 
+[tool.ruff.lint.per-file-ignores]
+# translation tables: one sentence per line reads better than wrapped string pieces
+"src/vitralis/translations.py" = ["E501"]
+
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
@@ -41,3 +55,12 @@ docstring-code-format = true
 this = "vitralis.app:main"
 vitralis = "vitralis.app:main"
 build = "vitralis.build:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib -m 'not live'"
+markers = [
+    "property: property-based (hypothesis)",
+    "ui: drives real Qt widgets offscreen",
+    "live: talks to the real licence server (clavren.breren.com); deselected unless run with -m live",
+]

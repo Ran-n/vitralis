@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/08/04 12:15:27.447546 )
+[//]: # (+ Revised: 	2026/11/11 11:06:52.689467 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -14,6 +14,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
+- Vitralis now requires a license key from Clavren (`clavren.breren.com`).
+  On first start a license window asks for the key instead of showing the
+  overlay; the key is bound to this computer, checked online once a day,
+  and keeps working offline for up to 30 days. If the license is revoked,
+  expires, is withdrawn, or needs an online check (30 days offline, or the
+  clock set back), the overlay closes and the window says why, offering
+  **Check again** where a check can unlock it. The saved license is
+  encrypted for the Windows account (DPAPI).
+- Settings → License: test or full license, valid until, works offline
+  until (highlighted under 5 days), and **Check now**. All license texts
+  are translated into every UI language.
+- Logging to `%APPDATA%\Vitralis\vitralis.log`.
+- A test suite (`uv run pytest`), with a contract test against the real
+  license server behind `-m live` and `VITRALIS_LICENCE_TEST_KEY`.
 
 - GitLab and Codeberg source links next to the existing GitHub one in
   the hero CTA row, localized across all eight supported languages,

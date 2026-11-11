@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.341523
-Revised: 2026/08/04 10:34:08.156077
+Revised: 2026/11/11 11:06:53.082235
 """
 
 import ctypes
@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
 from vitralis.canvas import Canvas, DrawCapture
 from vitralis.hotkeys import GlobalHotkeyThread, GlobalMouseWheelThread
 from vitralis.icons import media_base, svg_icon
+from vitralis.licence.gate import LicenceGate
 from vitralis.models import Tool
 from vitralis.persistence import (
     _screen_key,
@@ -47,6 +48,7 @@ from vitralis.styles import (
     swatch_style,
 )
 from vitralis.translations import set_language, t
+from vitralis.version import app_version
 
 
 class _Divider(QWidget):
@@ -405,8 +407,9 @@ class SnapshotWindow(QWidget):
 
 
 class Toolbar(QWidget):
-    def __init__(self, canvases: list[Canvas], captures: list[DrawCapture]) -> None:
+    def __init__(self, canvases: list[Canvas], captures: list[DrawCapture], licence: LicenceGate | None = None) -> None:
         super().__init__()
+        self._licence = licence
         self.canvases = canvases
         self.captures = captures
         self._drawing_active = False
@@ -784,16 +787,7 @@ class Toolbar(QWidget):
 
     def _open_info(self) -> None:
         if self._info_win is None or not self._info_win.isVisible():
-            try:
-                from vitralis._version import __version__ as ver
-            except ImportError:
-                from importlib.metadata import version as pkg_version
-
-                try:
-                    ver = pkg_version("vitralis")
-                except Exception:
-                    ver = "?"
-            self._info_win = InfoWindow(ver, parent=None)
+            self._info_win = InfoWindow(app_version(), parent=None)
             self._info_win.closed.connect(self._on_info_closed)
             geo = self.frameGeometry()
             self._info_win.move(geo.right() + 8, geo.top())
@@ -807,7 +801,7 @@ class Toolbar(QWidget):
 
     def _open_settings(self) -> None:
         if self._settings_win is None or not self._settings_win.isVisible():
-            self._settings_win = SettingsWindow(self._settings_manager, parent=None)
+            self._settings_win = SettingsWindow(self._settings_manager, parent=None, licence=self._licence)
             self._settings_win.shortcuts_changed.connect(self._restart_global_hotkey)
             self._settings_win.language_changed.connect(self._on_language_changed)
             self._settings_win.closed.connect(self._on_settings_closed)
@@ -1042,10 +1036,9 @@ class Toolbar(QWidget):
     def closeEvent(self, event) -> None:
         self._hotkey_thread.stop()
         self._wheel_thread.stop()
-        if self._snapshot_win:
-            self._snapshot_win.close()
-        if self._info_win:
-            self._info_win.close()
+        for window in (self._snapshot_win, self._info_win, self._settings_win):
+            if window:
+                window.close()
         event.accept()
 
     def mousePressEvent(self, event) -> None:

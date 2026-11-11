@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 07:52:06.389478
-Revised: 2026/04/29 09:31:05.436794
+Revised: 2026/11/11 11:06:53.012253
 """
 
 import json
@@ -20,6 +20,8 @@ from PyQt6.QtWidgets import (
 )
 
 from vitralis.icons import flag_icon
+from vitralis.licence.gate import LicenceGate
+from vitralis.licence.section import LicenceSection
 from vitralis.persistence import DATA_DIR
 from vitralis.styles import base_btn, danger_btn, muted_btn
 from vitralis.translations import set_language, t
@@ -180,9 +182,13 @@ class SettingsWindow(QWidget):
     activation_changed = pyqtSignal(bool)
     closed = pyqtSignal()
 
-    def __init__(self, manager: SettingsManager, parent: QWidget | None = None) -> None:
+    def __init__(
+        self, manager: SettingsManager, parent: QWidget | None = None, licence: LicenceGate | None = None
+    ) -> None:
         super().__init__(parent, Qt.WindowType.Window | Qt.WindowType.WindowStaysOnTopHint)
         self._manager = manager
+        self._licence = licence
+        self._licence_section: LicenceSection | None = None
         self._shortcuts = dict(manager.shortcuts())
         self._captures: dict[str, _KeyCapture] = {}
         self._dragging = False
@@ -225,6 +231,10 @@ class SettingsWindow(QWidget):
         self._add_shortcuts_rows(inner)
         self._add_section(inner, "Language")
         self._add_language_row(inner)
+        if self._licence is not None:
+            self._add_section(inner, "License")
+            self._licence_section = LicenceSection(self._licence)
+            inner.addWidget(self._licence_section)
         self._add_footer(inner)
 
         root.addWidget(panel)
@@ -240,6 +250,8 @@ class SettingsWindow(QWidget):
             self._reset_all_btn.setText(t("Reset all"))
         for _action, cap in self._captures.items():
             cap.setToolTip(t("Reset to default"))
+        if self._licence_section is not None:
+            self._licence_section.retranslate()
 
     def _add_title_row(self, layout: QVBoxLayout) -> None:
         row = QHBoxLayout()
