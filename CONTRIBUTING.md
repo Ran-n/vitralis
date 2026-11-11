@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:07:07.959602 )
-[//]: # (+ Revised: 	2026/11/11 11:06:52.770423 )
+[//]: # (+ Revised: 	2026/11/11 17:31:20.863493 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 Thank you for your interest in contributing.
@@ -12,6 +12,7 @@ Thank you for your interest in contributing.
 - [Reporting Bugs](#reporting-bugs)
 - [Suggesting Features](#suggesting-features)
 - [Submitting Changes](#submitting-changes)
+- [Backlog](#backlog)
 - [Commit Style](#commit-style)
 - [License](#license)
 
@@ -57,6 +58,13 @@ Open an issue with:
 6. Describe why the change is needed, not just what it does
 
 Keep one concern per pull request.
+
+---
+
+## Backlog
+
+Planned work lives in [TODO.md](TODO.md): one self-contained item per
+change, top to bottom in priority order.
 
 ---
 
