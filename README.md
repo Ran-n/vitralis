@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/04/27 10:48:03.565778 )
-[//]: # (+ Revised: 	2026/05/03 12:07:50.447427 )
+[//]: # (+ Revised: 	2026/11/11 11:06:52.854330 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 ![Vitralis icon](src/vitralis/media/logo/icon_title.png)
@@ -27,6 +27,18 @@ Draw annotations, shapes, and marks directly over your live desktop. They stay �
 - Show/hide overlay without losing drawings
 - System tray icon — lives quietly in the background
 - Info panel — version, author, and license at a glance
+- License key — activated once per computer, works offline for up to 30 days
+
+## License key
+
+Vitralis needs a license key (`BRN-XXXX-XXXX-XXXX-XXXX`). On first start it shows a license window instead of the overlay: type the key and press **Activate**. No key yet? Ask ran.hash@proton.me for one.
+
+- **One key, one computer.** A key works on the first computer it's activated on. After a reinstall or a new PC, ask for a reset and enter the same key again.
+- **Works offline.** Vitralis checks the license once a day when online, and keeps working on its saved license for up to 30 days without internet.
+- **Settings → License** shows whether it's a test license, until when it's valid, and until when it works offline (highlighted when under 5 days away), with **Check now**.
+- If the license is revoked, expires, or needs an online check, Vitralis closes the overlay and shows the license window again with the reason.
+
+**What is sent, and where.** Keys are checked by Clavren at `clavren.breren.com`. Activating sends the key; after that, once a day, Vitralis sends a check signed by this computer, with the computer's name and the app version. The saved license (`%APPDATA%\Vitralis\licence.dat`) is encrypted for your Windows account and useless when copied to another account or computer.
 
 ## Setup
 
@@ -44,6 +56,20 @@ Or directly:
 
 ```
 uv run python -m vitralis
+```
+
+Logs go to `%APPDATA%\Vitralis\vitralis.log`.
+
+## Tests
+
+```
+uv run pytest
+```
+
+The contract test against the real license server is left out of the default run. Run it with a Vitralis test license's key in an environment variable (never write a key in the repository; each run adds an activation named `<computer> (live test)`):
+
+```
+VITRALIS_LICENCE_TEST_KEY=BRN-... uv run pytest -m live
 ```
 
 ## Keyboard shortcuts

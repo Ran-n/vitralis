@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:07:07.959602 )
-[//]: # (+ Revised: 	2026/08/04 12:07:07.959602 )
+[//]: # (+ Revised: 	2026/11/11 11:06:52.770423 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 Thank you for your interest in contributing.
@@ -49,7 +49,9 @@ Open an issue with:
 
 1. Fork the repository
 2. Branch from `main`
-3. Make your change
+3. Make your change, with tests; `uv run pytest` must pass (the live
+   license test runs only with `-m live` and `VITRALIS_LICENCE_TEST_KEY`;
+   never commit a license key)
 4. Commit following the [Commit Style](#commit-style) below
 5. Open a pull request against `main`
 6. Describe why the change is needed, not just what it does

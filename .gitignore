@@ -9,3 +9,6 @@ build/
 *.spec
 .ruff_cache/
 src/vitralis/_version.py
+.coverage
+.pytest_cache/
+.hypothesis/
