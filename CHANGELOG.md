@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/11 11:06:52.689467 )
+[//]: # (+ Revised: 	2026/11/11 16:21:54.399396 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -26,6 +26,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings → License: test or full license, valid until, works offline
   until (highlighted under 5 days), and **Check now**. All license texts
   are translated into every UI language.
+- The landing page says, under the download button, that Vitralis needs a
+  license key and whom to write to for one, in all eight page languages.
 - Logging to `%APPDATA%\Vitralis\vitralis.log`.
 - A test suite (`uv run pytest`), with a contract test against the real
   license server behind `-m live` and `VITRALIS_LICENCE_TEST_KEY`.
