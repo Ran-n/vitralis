@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/11/11 17:31:20.784664 )
-[//]: # (+ Revised: 	2026/11/11 17:31:20.784664 )
+[//]: # (+ Revised: 	2026/11/12 10:33:14.441712 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # TODO
@@ -10,12 +10,13 @@ The backlog. Each item is self-contained: reading it alone is enough to
 implement it fully, without asking anything. Work top to bottom unless an item
 says otherwise.
 
-Next item number: 3
+Next item number: 4
 
 ## Index
 
 1. [Tell the user when a new version is out](#1-tell-the-user-when-a-new-version-is-out)
 2. [Download and install an update from inside the app](#2-download-and-install-an-update-from-inside-the-app)
+3. [Name the PBL version wherever the licence is mentioned](#3-name-the-pbl-version-wherever-the-licence-is-mentioned)
 
 ## Adding an item
 
@@ -280,3 +281,47 @@ Next item number: 3
 - [ ] Quitting during a download leaves no `.part` file.
 - [ ] `uv run pytest` passes, with every new string in every language.
 - [ ] README, CONTRIBUTING and CHANGELOG are updated.
+
+## 3. Name the PBL version wherever the licence is mentioned
+
+**Why:** The About window (toolbar ⓘ button → `InfoWindow` in `src/vitralis/toolbar.py:188`) shows the LICENSE field as "PayBack License (PBL)" with no version. PBL v1 and v2 are legally different licences, so naming one without its version doesn't say which terms apply. `LICENSE` says `Version 2.0` and `CONTRIBUTORS` already says "PayBack License (PBL) v2.0", but the other mentions don't: `README.md:99`, `CONTRIBUTING.md:95` and the landing page `docs/index.html` (`version_rest` and `footer_license`, in all 8 languages). The user's rule is that every mention of a licence names its version.
+**Goal:** Everywhere Vitralis names its licence (the About window, README, CONTRIBUTING, the landing page in every language) it reads "PayBack License (PBL) v2.0", or the translated name plus "v2.0". A test fails if the app's string and `LICENSE` stop agreeing.
+
+### Behaviour
+- About window, LICENSE field: `PayBack License (PBL) v2.0`, the same in every UI language (it's a proper name, like "Ran#" in the Author field, so it isn't translated).
+- Landing page, the link after the version under the download button (`#version-rest`): `PayBack License v2.0` (en), `Licenza PayBack v2.0` (gl), `Licencia PayBack v2.0` (es), `Licença PayBack v2.0` (pt), `Licence PayBack v2.0` (fr), `PayBack-Lizenz v2.0` (de), `PayBack 许可证 v2.0` (zh), `PayBack ライセンス v2.0` (ja).
+- Landing page footer (`#footer-license`): the version goes right after "(PBL)" in every language, e.g. `PayBack License (PBL) v2.0 — free for personal, academic, and non-commercial use.`, `PayBack ライセンス (PBL) v2.0 — 個人・学術・非商業利用は無料。`.
+- README `## License`: `[PayBack License (PBL) v2.0](LICENSE) — …`. CONTRIBUTING `## License`: "licensed under the PayBack License (PBL) v2.0:".
+- When `LICENSE` moves to a new version, `test_the_about_licence_names_the_version_in_LICENSE` fails until `LICENCE_NAME` is updated. The README, CONTRIBUTING and landing page are updated by hand in the same change.
+
+### Out of scope
+- The link targets (`https://ran-n.github.io/doc/`, `https://breren.com/licenses/pbl` in `docs/index.html:565,652,1148`). They point at the licence page, not a versioned copy. Changing them would need a versioned URL on those sites, which is a separate job.
+- Licence-*key* wording ("License key", Settings → License). That is the Clavren key, not the software licence.
+- `CONTRIBUTORS`, which already says v2.0.
+
+### Implementation
+1. `src/vitralis/version.py`: add `LICENCE_NAME = "PayBack License (PBL) v2.0"` next to `UNKNOWN`, with a one-line comment saying it must match the `Version X.Y` line of `LICENSE` (checked by a test). It goes here because this module already holds "what this build is" facts for the About window, and one constant avoids a second copy of the string (DRY).
+2. `src/vitralis/toolbar.py`: import `LICENCE_NAME` next to the existing `app_version` import and replace the literal `"PayBack License (PBL)"` at line 188 with it. `git grep -n "PayBack License (PBL)\"" src` must then find nothing.
+3. `README.md:99`: change the link text to `PayBack License (PBL) v2.0`.
+4. `CONTRIBUTING.md:95`: "This project is licensed under the PayBack License (PBL) v2.0:".
+5. `docs/index.html`: in each of the 8 language blocks (en ~689/707, gl ~717/735, es ~745/763, pt ~773/791, fr ~801/819, de ~829/847, zh ~857/875, ja ~885/903), append ` v2.0` to `version_rest` and insert ` v2.0` after `(PBL)` in `footer_license`, as listed under Behaviour. Don't touch the `t()` keys or the JS that fills them.
+6. Run `metadata -m` on every edited file (`version.py`, `toolbar.py`, `README.md`, `CONTRIBUTING.md`, `docs/index.html`, the test file), and `uv run ruff format` then `uv run ruff check` on the two `.py` files, fixing by hand (never `--fix`).
+
+### Tests
+- `tests/test_version.py` (new, header via `metadata -c`):
+  - `test_the_about_licence_names_the_version_in_LICENSE`: reads the repo's `LICENSE` (path from `Path(__file__).parents[1] / "LICENSE"`), takes the version from the line matching `^Version (\d+\.\d+)$`, and asserts `LICENCE_NAME == f"PayBack License (PBL) v{version}"`. Proves the app can't drift from the licence file.
+  - `test_LICENSE_has_a_version_line`: asserts that regex matches exactly once. If the file's format changes, this fails loudly instead of the test above passing on nothing.
+- `tests/test_app.py` or a new `tests/test_toolbar.py`, using the existing `qapp` fixture from `tests/conftest.py`: `test_the_about_window_shows_the_versioned_licence` builds `InfoWindow("1.3.0")` and asserts some `QLabel` in it has text `LICENCE_NAME`. Proves the window uses the constant and not a stale literal.
+- Landing page: after editing, `grep -c "v2.0" docs/index.html` must count 16 more than before (2 per language × 8). Open `docs/index.html` in a browser, switch through all 8 languages and check the link under the download button and the footer both show v2.0, in light and dark themes.
+- Full suite: `uv run pytest` passes.
+
+### Docs
+- `README.md`, `CONTRIBUTING.md`, `docs/index.html`, as in the steps above.
+- Changelog under `[Unreleased]` → `### Fixed`: "The About window, README and landing page name the license version: PayBack License (PBL) v2.0."
+
+### Done when
+- [ ] About window shows `PayBack License (PBL) v2.0` (screenshot, with the UI in English and in one other language).
+- [ ] `git grep -nE "PayBack License \(PBL\)($|[^ ]| [^v])" -- . ':!CHANGELOG.md' ':!TODO.md'` finds no unversioned mention (CONTRIBUTORS and LICENSE excepted where they already carry the version).
+- [ ] All 8 landing-page languages show v2.0 in both spots (checked in the browser).
+- [ ] `tests/test_version.py` and the About-window test pass; the full `uv run pytest` passes.
+- [ ] ruff format/check clean; `metadata -m` run on every edited file.
