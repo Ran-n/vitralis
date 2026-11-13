@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.433417
-Revised: 2026/11/13 09:11:16.336523
+Revised: 2026/11/13 19:56:13.013912
 
 The overlay session behind the licence: nothing of the overlay exists while locked, it starts once the licence
 holds, and locking tears it all down (toolbar with its global hooks, canvases, captures, tray). The real toolbar
@@ -320,16 +320,18 @@ def test_wait_pid_quits_when_the_old_process_never_ends(monkeypatch, quiet_main,
 
 
 def test_cleanup_runs_only_in_the_packaged_exe(monkeypatch, tmp_path):
-    calls = []
+    calls, synced = [], []
     monkeypatch.setattr(app_module, "clean_leftovers", lambda *a: calls.append(a))
+    monkeypatch.setattr(app_module, "sync_installed_version", lambda *a: synced.append(a))
     monkeypatch.setattr(app_module, "is_packaged", lambda: False)
     app_module.clean_after_updates("1.4.0")
-    assert calls == []
+    assert calls == [] and synced == []
     monkeypatch.setattr(app_module, "is_packaged", lambda: True)
     monkeypatch.setattr(app_module.sys, "executable", str(tmp_path / "vitralis-1.3.0.exe"))
     app_module.clean_after_updates("1.4.0")
     deadline = time.monotonic() + 5
-    while not calls and time.monotonic() < deadline:
+    while not synced and time.monotonic() < deadline:
         time.sleep(0.01)
     running, updates_dir, current = calls[0]
     assert running == tmp_path / "vitralis-1.3.0.exe" and updates_dir.name == "updates" and str(current) == "1.4.0"
+    assert synced == [(tmp_path / "vitralis-1.3.0.exe", "1.4.0")]  # the installed-apps entry follows the update

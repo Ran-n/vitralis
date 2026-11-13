@@ -1156,7 +1156,10 @@
   fetch('https://api.github.com/repos/' + REPO + '/releases/latest')
     .then(function (r) { if (!r.ok) throw new Error('bad status'); return r.json(); })
     .then(function (release) {
-      var exe = (release.assets || []).find(function (a) { return /\.exe$/i.test(a.name); });
+      var assets = release.assets || [];
+      // the installer first; a release without one still offers its portable exe
+      var exe = assets.find(function (a) { return /-setup\.exe$/i.test(a.name); })
+        || assets.find(function (a) { return /\.exe$/i.test(a.name); });
       if (exe) document.getElementById('download-btn').href = exe.browser_download_url;
       if (release.tag_name) {
         document.getElementById('download-label').dataset.version = release.tag_name;

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:03.794151
-Revised: 2026/11/13 09:11:13.594354
+Revised: 2026/11/13 19:56:12.638481
 
 Starts Vitralis behind its licence: the licence window first when no key is active on this computer, the
 overlay (``Session``) once the licence holds, and back to the licence window if it stops holding.
@@ -34,6 +34,7 @@ from vitralis.updates import UPDATES_DIR, build_updates, is_packaged
 from vitralis.updates.checker import UpdateChecker, UpdateStatus
 from vitralis.updates.install import clean_leftovers, wait_for_exit
 from vitralis.updates.messages import out_message, updated_message
+from vitralis.updates.registration import sync_installed_version
 from vitralis.updates.rules import Version, parse_version_or_none
 from vitralis.version import app_version
 
@@ -168,16 +169,18 @@ def parse_arguments(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
 
 
 def clean_after_updates(current: str) -> None:
-    """In the packaged exe, delete the previous version (``<exe>.old``) and stale downloads, off the UI thread."""
+    """In the packaged exe, off the UI thread: delete the previous version (``<exe>.old``) and stale downloads,
+    and, when this is the installed exe, show ``current`` in Windows's installed apps (an in-app update doesn't
+    run the installer, which wrote the version it installed)."""
     if not is_packaged():
         return
     running = Path(sys.executable)
-    threading.Thread(
-        target=clean_leftovers,
-        args=(running, DATA_DIR / UPDATES_DIR, parse_version_or_none(current)),
-        name="vitralis-update-cleanup",
-        daemon=True,
-    ).start()
+
+    def tidy() -> None:
+        clean_leftovers(running, DATA_DIR / UPDATES_DIR, parse_version_or_none(current))
+        sync_installed_version(running, current)
+
+    threading.Thread(target=tidy, name="vitralis-update-cleanup", daemon=True).start()
 
 
 def main() -> None:

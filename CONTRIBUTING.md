@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:07:07.959602 )
-[//]: # (+ Revised: 	2026/11/13 09:11:17.900677 )
+[//]: # (+ Revised: 	2026/11/13 19:58:14.840746 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 Thank you for your interest in contributing.
@@ -75,6 +75,19 @@ To check the in-app updater end to end, on Windows:
    that `<exe>.old` and `%APPDATA%\Vitralis\updates` are gone, and that only
    one Vitralis is running; serving an exe with one changed byte must give
    the checksum error and swap nothing
+
+To check the installer, on Windows, after `uv run build`:
+
+1. `dist\vitralis-<version>-setup.exe /VERYSILENT /DIR=<scratch folder>
+   /TASKS=desktopicon`
+2. Confirm `Vitralis.exe` is in the folder, the Start menu and desktop
+   shortcuts exist, and Settings → Apps lists Vitralis with the version
+3. Run the same installer again with `/VERYSILENT`: it must reuse the folder
+4. `<scratch folder>\unins000.exe /VERYSILENT`: the folder, both shortcuts
+   and the Settings → Apps entry are gone, `%APPDATA%\Vitralis` is kept
+
+Never change `INSTALLER_GUID` in `src/vitralis/updates/registration.py`:
+Windows tells installs apart by it.
 
 ---
 

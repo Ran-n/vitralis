@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/04/27 10:48:03.565778 )
-[//]: # (+ Revised: 	2026/11/13 09:11:16.681732 )
+[//]: # (+ Revised: 	2026/11/13 19:58:13.338025 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 ![Vitralis icon](src/vitralis/media/logo/icon_title.png)
@@ -30,6 +30,15 @@ Draw annotations, shapes, and marks directly over your live desktop. They stay �
 - License key — activated once per computer, works offline for up to 30 days
 - Tells you when a new version is out (Settings → Updates), and installs it from inside the app
 
+## Install
+
+From the [latest release](https://github.com/Ran-n/vitralis/releases/latest), on Windows (64-bit):
+
+- **`vitralis-<version>-setup.exe`**, the installer. It installs for your account only, with no admin prompt, in `%LOCALAPPDATA%\Programs\Vitralis`, adds Vitralis to the Start menu, and can add a desktop shortcut and start Vitralis when you sign in. Uninstall it from Windows's Settings → Apps. Your settings, drawings and license (`%APPDATA%\Vitralis`) stay, so installing again needs no new key. Running a newer version's installer updates it in place.
+- **`vitralis-<version>.exe`**, the portable version: one file, nothing installed. Put it in a folder of your own and run it.
+
+Both update themselves from inside the app (see [Updates](#updates)). Every file has a `.b3` BLAKE3 checksum next to it (`b3sum -c vitralis-<version>-setup.exe.b3`).
+
 ## License key
 
 Vitralis needs a license key (`BRN-XXXX-XXXX-XXXX-XXXX`). On first start it shows a license window instead of the overlay: type the key and press **Activate**. No key yet? Ask ran.hash@proton.me for one.
@@ -45,7 +54,7 @@ Vitralis needs a license key (`BRN-XXXX-XXXX-XXXX-XXXX`). On first start it show
 
 At start (after 10 seconds) and then once a day, Vitralis asks GitHub for the latest release. When a newer one is out, the toolbar's Settings button gets an orange dot, the tray says **Vitralis {version} is out** once, and **Settings → Updates** shows it with **Release notes** and **Skip this version** (a skipped version stays quiet until a newer one comes out; **Don't skip** undoes it). The **Check for new versions** switch turns the automatic checks off; **Check now** still works. If a check fails (offline, GitHub's hourly limit), Settings → Updates says why.
 
-**Updating.** In the Windows exe, Settings → Updates (or a click on the tray message) offers **Install {version}**. It downloads the new exe to `%APPDATA%\Vitralis\updates`, showing the progress, and checks it against the release's BLAKE3 checksum; a damaged download is deleted and you can try again. **Restart to update** then quits Vitralis cleanly, puts the new exe at the same path as the old one (so shortcuts and pinned icons keep working, even though the file name keeps the old version), and starts it; it says **Updated to {version}** once and needs no new license key. If anything goes wrong, the old exe is put back and keeps running. The exe's folder must be writable: under `C:\Program Files`, move Vitralis to a folder of your own or update by hand. Running from source, only Release notes is offered.
+**Updating.** In the Windows exe, Settings → Updates (or a click on the tray message) offers **Install {version}**. It downloads the new exe to `%APPDATA%\Vitralis\updates`, showing the progress, and checks it against the release's BLAKE3 checksum; a damaged download is deleted and you can try again. **Restart to update** then quits Vitralis cleanly, puts the new exe at the same path as the old one (so shortcuts and pinned icons keep working, even though the file name keeps the old version), and starts it; it says **Updated to {version}** once and needs no new license key. If anything goes wrong, the old exe is put back and keeps running. The exe's folder must be writable, as the installer's is: under `C:\Program Files`, move Vitralis to a folder of your own or update by hand. In an installed Vitralis, Settings → Apps shows the new version after the restart. Running from source, only Release notes is offered.
 
 ## Setup
 
@@ -78,6 +87,14 @@ The contract test against the real license server is left out of the default run
 ```
 VITRALIS_LICENCE_TEST_KEY=BRN-... uv run pytest -m live
 ```
+
+## Build
+
+```
+uv run build
+```
+
+It builds the one-file exe `dist/vitralis-<version>.exe` (PyInstaller) and, from [installer/vitralis.iss](installer/vitralis.iss), the installer `dist/vitralis-<version>-setup.exe`. The installer needs [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`): `build` looks for `ISCC.exe` on PATH and in Inno Setup's usual folders, or takes its path from `ISCC`. `uv run build --no-installer` builds only the exe.
 
 ## Keyboard shortcuts
 
