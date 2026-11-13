@@ -2,10 +2,12 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 07:52:06.389478
-Revised: 2026/11/11 11:06:53.012253
+Revised: 2026/11/13 09:11:14.333792
 """
 
 import json
+import logging
+from collections.abc import Callable
 
 from PyQt6.QtCore import QEvent, QPoint, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QKeySequence, QShortcut
@@ -25,6 +27,11 @@ from vitralis.licence.section import LicenceSection
 from vitralis.persistence import DATA_DIR
 from vitralis.styles import base_btn, danger_btn, muted_btn
 from vitralis.translations import set_language, t
+from vitralis.updates.checker import UpdateChecker
+from vitralis.updates.messages import UPDATES
+from vitralis.updates.section import UpdatesSection
+
+logger = logging.getLogger("vitralis.settings")
 
 SETTINGS_FILE = DATA_DIR / "settings.json"
 
@@ -88,34 +95,67 @@ def ACTION_LABELS() -> dict[str, str]:
 
 
 class SettingsManager:
+    """``settings.json``. Several managers may be alive at once (the toolbar's, the updater's), so every write
+    reads the file again first and changes only its own key: one never undoes another's change."""
+
     def __init__(self) -> None:
         self._data: dict = {}
         self._load()
 
     def _load(self) -> None:
-        if SETTINGS_FILE.exists():
-            try:
-                self._data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
-            except Exception:
-                self._data = {}
+        if not SETTINGS_FILE.exists():
+            return
+        try:
+            data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as ex:
+            logger.warning("couldn't read %s, using the defaults: %s", SETTINGS_FILE, ex)
+            return
+        if isinstance(data, dict):
+            self._data = data
+        else:
+            logger.warning("%s isn't a JSON object, using the defaults", SETTINGS_FILE)
 
-    def _save(self) -> None:
-        SETTINGS_FILE.write_text(json.dumps(self._data, indent=2), encoding="utf-8")
+    def _put(self, key: str, value) -> None:
+        self._load()
+        self._data[key] = value
+        try:
+            SETTINGS_FILE.write_text(json.dumps(self._data, indent=2), encoding="utf-8")
+        except OSError as ex:
+            logger.error("couldn't save %s: %s", SETTINGS_FILE, ex)
 
     def shortcuts(self) -> dict[str, str]:
         saved = self._data.get("shortcuts", {})
         return {**DEFAULT_SHORTCUTS, **saved}
 
     def set_shortcuts(self, shortcuts: dict[str, str]) -> None:
-        self._data["shortcuts"] = shortcuts
-        self._save()
+        self._put("shortcuts", shortcuts)
 
     def language(self) -> str:
         return self._data.get("language", "English")
 
     def set_language(self, lang: str) -> None:
-        self._data["language"] = lang
-        self._save()
+        self._put("language", lang)
+
+    def _updates(self) -> dict:
+        saved = self._data.get("updates", {})
+        return saved if isinstance(saved, dict) else {}
+
+    def update_check(self) -> bool:
+        """Whether Vitralis looks for new versions by itself (at start and once a day)."""
+        return bool(self._updates().get("check", True))
+
+    def set_update_check(self, enabled: bool) -> None:
+        self._load()
+        self._put("updates", {**self._updates(), "check": enabled})
+
+    def skipped_version(self) -> str:
+        """The release the user chose to skip, ``""`` for none."""
+        skipped = self._updates().get("skipped", "")
+        return skipped if isinstance(skipped, str) else ""
+
+    def set_skipped_version(self, version: str) -> None:
+        self._load()
+        self._put("updates", {**self._updates(), "skipped": version})
 
 
 class _KeyCapture(QPushButton):
@@ -183,12 +223,20 @@ class SettingsWindow(QWidget):
     closed = pyqtSignal()
 
     def __init__(
-        self, manager: SettingsManager, parent: QWidget | None = None, licence: LicenceGate | None = None
+        self,
+        manager: SettingsManager,
+        parent: QWidget | None = None,
+        licence: LicenceGate | None = None,
+        updates: UpdateChecker | None = None,
+        quit_app: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(parent, Qt.WindowType.Window | Qt.WindowType.WindowStaysOnTopHint)
         self._manager = manager
         self._licence = licence
         self._licence_section: LicenceSection | None = None
+        self._updates = updates
+        self._quit_app = quit_app
+        self.updates_section: UpdatesSection | None = None
         self._shortcuts = dict(manager.shortcuts())
         self._captures: dict[str, _KeyCapture] = {}
         self._dragging = False
@@ -231,6 +279,10 @@ class SettingsWindow(QWidget):
         self._add_shortcuts_rows(inner)
         self._add_section(inner, "Language")
         self._add_language_row(inner)
+        if self._updates is not None:
+            self._add_section(inner, UPDATES)
+            self.updates_section = UpdatesSection(self._updates, quit_app=self._quit_app)
+            inner.addWidget(self.updates_section)
         if self._licence is not None:
             self._add_section(inner, "License")
             self._licence_section = LicenceSection(self._licence)
@@ -250,6 +302,8 @@ class SettingsWindow(QWidget):
             self._reset_all_btn.setText(t("Reset all"))
         for _action, cap in self._captures.items():
             cap.setToolTip(t("Reset to default"))
+        if self.updates_section is not None:
+            self.updates_section.retranslate()
         if self._licence_section is not None:
             self._licence_section.retranslate()
 

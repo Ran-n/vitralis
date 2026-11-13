@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.370504
-Revised: 2026/11/11 11:06:54.245361
+Revised: 2026/11/13 09:11:15.676292
 
 Shared fixtures for the licence's Qt tests: one offscreen ``QApplication``, a clock, an in-memory Clavren and
 store, a gate wired to them with a fake daily checker, and a way to wait for a worker thread's answer.
@@ -17,6 +17,7 @@ import pytest
 from PyQt6.QtWidgets import QApplication
 
 from tests.licence.fakes import KEY, START, FakeClavren, FakeClock, MemoryLicenceStore, licence_config
+from vitralis.icons import init_icons_dir
 from vitralis.licence.client import Licence
 from vitralis.licence.gate import LicenceGate
 from vitralis.licence.rules import LicenceStatus
@@ -28,6 +29,12 @@ def qapp():
     app = QApplication.instance() or QApplication([])
     app.setQuitOnLastWindowClosed(False)
     return app
+
+
+@pytest.fixture(scope="session")
+def icons():
+    """The icon folders, which ``main()`` sets up before building any window."""
+    init_icons_dir()
 
 
 @pytest.fixture(autouse=True)
