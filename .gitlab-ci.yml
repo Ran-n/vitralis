@@ -7,8 +7,9 @@ lint:
   stage: check
   image: ghcr.io/astral-sh/uv:python3.13-bookworm-slim
   script:
-    - uv run --only-group dev --no-install-project ruff format --check .
-    - uv run --only-group dev --no-install-project ruff check .
+    # the version uv.lock pins: a newer ruff may format differently
+    - uvx ruff@0.15.12 format --check .
+    - uvx ruff@0.15.12 check .
 
 pages:
   stage: deploy
