@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/04/27 10:48:03.565778 )
-[//]: # (+ Revised: 	2026/11/13 19:58:13.338025 )
+[//]: # (+ Revised: 	2026/11/13 20:12:34.123466 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 ![Vitralis icon](src/vitralis/media/logo/icon_title.png)
@@ -34,7 +34,7 @@ Draw annotations, shapes, and marks directly over your live desktop. They stay �
 
 From the [latest release](https://github.com/Ran-n/vitralis/releases/latest), on Windows (64-bit):
 
-- **`vitralis-<version>-setup.exe`**, the installer. It installs for your account only, with no admin prompt, in `%LOCALAPPDATA%\Programs\Vitralis`, adds Vitralis to the Start menu, and can add a desktop shortcut and start Vitralis when you sign in. Uninstall it from Windows's Settings → Apps. Your settings, drawings and license (`%APPDATA%\Vitralis`) stay, so installing again needs no new key. Running a newer version's installer updates it in place.
+- **`vitralis-<version>-setup.exe`**, the installer. It installs for your account only, with no admin prompt, in `%LOCALAPPDATA%\Programs\Vitralis`, adds Vitralis to the Start menu, and can add a desktop shortcut and start Vitralis when you sign in. Uninstall it from Windows's Settings → Apps. Your settings, drawings and license (`%APPDATA%\Vitralis`) stay, so installing again needs no new key. Running a newer version's installer updates it in place. It speaks every language Vitralis does, and Vitralis starts in the one you install in until you pick another in Settings.
 - **`vitralis-<version>.exe`**, the portable version: one file, nothing installed. Put it in a folder of your own and run it.
 
 Both update themselves from inside the app (see [Updates](#updates)). Every file has a `.b3` BLAKE3 checksum next to it (`b3sum -c vitralis-<version>-setup.exe.b3`).

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 07:52:06.389478
-Revised: 2026/11/13 09:11:14.333792
+Revised: 2026/11/13 20:11:34.490782
 """
 
 import json
@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
 )
 
 from vitralis.icons import flag_icon
+from vitralis.installed import installer_language
 from vitralis.licence.gate import LicenceGate
 from vitralis.licence.section import LicenceSection
 from vitralis.persistence import DATA_DIR
@@ -47,6 +48,8 @@ LANGUAGES: list[tuple[str, str]] = [
     ("zh", "中文"),
     ("ja", "日本語"),
 ]
+
+DEFAULT_LANGUAGE = "English"
 
 _LANG_CODE: dict[str, str] = {label: code for code, label in LANGUAGES}
 _LANG_LABELS: list[str] = [label for _, label in LANGUAGES]
@@ -98,8 +101,9 @@ class SettingsManager:
     """``settings.json``. Several managers may be alive at once (the toolbar's, the updater's), so every write
     reads the file again first and changes only its own key: one never undoes another's change."""
 
-    def __init__(self) -> None:
+    def __init__(self, language_source: Callable[[], str | None] | None = None) -> None:
         self._data: dict = {}
+        self._installer_language = language_source or installer_language
         self._load()
 
     def _load(self) -> None:
@@ -131,7 +135,16 @@ class SettingsManager:
         self._put("shortcuts", shortcuts)
 
     def language(self) -> str:
-        return self._data.get("language", "English")
+        """The one picked in Settings; before that, the installer's (see ``vitralis.installed``); else English."""
+        if "language" in self._data:
+            return self._data["language"]
+        installed = self._installer_language()
+        if installed is None:
+            return DEFAULT_LANGUAGE
+        if installed not in _LANG_LABELS:
+            logger.warning("the installer's language %r isn't one Vitralis has; using %s", installed, DEFAULT_LANGUAGE)
+            return DEFAULT_LANGUAGE
+        return installed
 
     def set_language(self, lang: str) -> None:
         self._put("language", lang)

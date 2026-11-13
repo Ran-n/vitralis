@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.370504
-Revised: 2026/11/13 09:11:15.676292
+Revised: 2026/11/13 20:11:38.431067
 
 Shared fixtures for the licence's Qt tests: one offscreen ``QApplication``, a clock, an in-memory Clavren and
 store, a gate wired to them with a fake daily checker, and a way to wait for a worker thread's answer.
@@ -38,7 +38,9 @@ def icons():
 
 
 @pytest.fixture(autouse=True)
-def english():
+def english(monkeypatch):
+    """English, and no installer language: an installed Vitralis on the test machine changes nothing."""
+    monkeypatch.setattr("vitralis.settings.installer_language", lambda: None)
     set_language("English")
     yield
     set_language("English")

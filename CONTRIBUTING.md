@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:07:07.959602 )
-[//]: # (+ Revised: 	2026/11/13 19:58:14.840746 )
+[//]: # (+ Revised: 	2026/11/13 20:12:35.250163 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 Thank you for your interest in contributing.
@@ -83,10 +83,16 @@ To check the installer, on Windows, after `uv run build`:
 2. Confirm `Vitralis.exe` is in the folder, the Start menu and desktop
    shortcuts exist, and Settings → Apps lists Vitralis with the version
 3. Run the same installer again with `/VERYSILENT`: it must reuse the folder
-4. `<scratch folder>\unins000.exe /VERYSILENT`: the folder, both shortcuts
-   and the Settings → Apps entry are gone, `%APPDATA%\Vitralis` is kept
+4. `<scratch folder>\unins000.exe /VERYSILENT`: the folder, both shortcuts,
+   the Settings → Apps entry and `HKCU\Software\Vitralis` are gone,
+   `%APPDATA%\Vitralis` is kept
+5. With `/LANG=glr` (or `gl`, `zh`, `ja`, …), `HKCU\Software\Vitralis`
+   holds that language as Settings names it, and a fresh Vitralis starts in
+   it. A new app language needs an installer one too: a `[Languages]` line
+   and its `StartWithWindows` and `AppLanguage` messages in
+   `installer/vitralis.iss` (the tests check they match)
 
-Never change `INSTALLER_GUID` in `src/vitralis/updates/registration.py`:
+Never change `INSTALLER_GUID` in `src/vitralis/installed.py`:
 Windows tells installs apart by it.
 
 ---

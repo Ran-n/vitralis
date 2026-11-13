@@ -2,12 +2,13 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 19:56:04.526845
-Revised: 2026/11/13 19:56:11.641168
+Revised: 2026/11/13 20:11:36.531653
 
 ``uv run build``'s installer step: finding Inno Setup, the command it runs, the installer's name (never taken
 for the exe the updater swaps in), and a real compile of ``installer/vitralis.iss`` around a stand-in exe.
 """
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -15,7 +16,8 @@ from pathlib import Path
 import pytest
 
 from vitralis import build
-from vitralis.updates.registration import INSTALLER_GUID
+from vitralis.installed import INSTALLER_GUID
+from vitralis.settings import LANGUAGES
 from vitralis.updates.rules import exe_name, exe_version, parse_version
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -111,3 +113,65 @@ def test_the_script_compiles_into_a_versioned_installer(tmp_path, qapp):
     setup = build.build_installer(ROOT, "9.8.7", exe, ico, out)
     assert setup == out / "vitralis-9.8.7-setup.exe"
     assert setup.is_file() and setup.read_bytes()[:2] == b"MZ"
+
+
+SCRIPT = ROOT / "installer" / "vitralis.iss"
+LANGUAGE_FILES = ROOT / "installer" / "languages"
+PLACEHOLDER = re.compile(r"%\d|%n|\[[a-z/]+\]|&")
+
+
+def script_section(name: str) -> list[str]:
+    """The lines of one ``[section]`` of ``installer/vitralis.iss``, without comments or blank lines."""
+    lines, inside = [], False
+    for line in SCRIPT.read_text(encoding="utf-8").splitlines():
+        if line.startswith("["):
+            inside = line.strip() == f"[{name}]"
+            continue
+        if inside and line.strip() and not line.startswith(";"):
+            lines.append(line)
+    return lines
+
+
+def installer_languages() -> list[str]:
+    return [re.match(r'Name: "([^"]+)"', line).group(1) for line in script_section("Languages")]
+
+
+def custom_messages(message: str) -> dict[str, str]:
+    found = (line.split("=", 1) for line in script_section("CustomMessages"))
+    return {key.split(".")[0]: value for key, value in found if key.endswith("." + message)}
+
+
+def messages(path: Path) -> dict[str, str]:
+    return dict(
+        line.split("=", 1) for line in path.read_text(encoding="utf-8").splitlines() if re.match(r"[A-Za-z0-9]+=", line)
+    )
+
+
+def test_the_installer_speaks_every_language_vitralis_does():
+    """Each installer language saves a name Settings has, and every Settings language has its installer one."""
+    names = custom_messages("AppLanguage")
+    assert set(names) == set(installer_languages())
+    assert sorted(names.values()) == sorted(label for _, label in LANGUAGES)
+
+
+def test_every_installer_language_has_every_custom_message():
+    for message in ("StartWithWindows", "AppLanguage"):
+        assert set(custom_messages(message)) == set(installer_languages()), message
+
+
+def test_every_bundled_messages_file_is_there():
+    for line in script_section("Languages"):
+        file = re.search(r'MessagesFile: "([^"]+)"', line).group(1)
+        if not file.startswith("compiler:"):
+            assert (SCRIPT.parent / file).is_file(), file
+
+
+def test_the_reintegrated_galician_has_every_message_with_its_placeholders():
+    """Vitralis's own translation, checked against the Galician one it was written from."""
+    galician = messages(LANGUAGE_FILES / "Galician.isl")
+    reintegrated = messages(LANGUAGE_FILES / "GalicianReintegrated.isl")
+    assert set(reintegrated) == set(galician)
+    for key, text in galician.items():
+        if key in ("LanguageName", "LanguageCodePage"):
+            continue
+        assert sorted(PLACEHOLDER.findall(reintegrated[key])) == sorted(PLACEHOLDER.findall(text)), key
