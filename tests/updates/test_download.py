@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:07.122997
-Revised: 2026/11/13 09:11:07.718339
+Revised: 2026/11/14 00:23:20.484713
 
 Downloading a release (respx, real bytes in ``tmp_path``): the verified exe lands with its checksum beside it;
 a checksum mismatch, a truncated or failed stream, a bad checksum file and stopping mid-way each raise and leave
@@ -18,7 +18,14 @@ import respx
 from blake3 import blake3
 
 from vitralis.updates.download import CHUNK_BYTES, download_release, file_hash
-from vitralis.updates.rules import ChecksumMismatch, Release, UpdateCancelled, UpdateError, Version
+from vitralis.updates.rules import (
+    ChecksumMismatch,
+    DownloadUnreachable,
+    Release,
+    UpdateCancelled,
+    UpdateError,
+    Version,
+)
 
 EXE_URL = "https://github.com/Ran-n/vitralis/releases/download/v1.4.0/vitralis-1.4.0.exe"
 B3_URL = EXE_URL + ".b3"
@@ -133,8 +140,25 @@ def test_server_failures_raise_a_reason(tmp_path, b3, exe, match):
 @respx.mock
 def test_no_connection_raises_an_update_error(tmp_path):
     respx.get(B3_URL).mock(side_effect=httpx.ConnectError("offline"))
-    with pytest.raises(UpdateError, match="ConnectError"):
+    with pytest.raises(DownloadUnreachable, match="ConnectError"):
         run(tmp_path)
+
+
+@respx.mock
+def test_a_connection_lost_mid_download_is_unreachable_and_leaves_no_part_file(tmp_path):
+    respx.get(B3_URL).mock(return_value=httpx.Response(200, text=f"{HASH}  vitralis-1.4.0.exe\n"))
+    respx.get(EXE_URL).mock(side_effect=httpx.ReadError("reset"))
+    with pytest.raises(DownloadUnreachable, match="ReadError"):
+        run(tmp_path)
+    assert leftovers(tmp_path) == []
+
+
+@respx.mock
+def test_a_protocol_failure_is_an_update_error_but_not_unreachable(tmp_path):
+    respx.get(B3_URL).mock(side_effect=httpx.TooManyRedirects("loop"))
+    with pytest.raises(UpdateError, match="TooManyRedirects") as raised:
+        run(tmp_path)
+    assert not isinstance(raised.value, DownloadUnreachable)
 
 
 def test_a_release_without_exe_or_off_https_is_refused(tmp_path):

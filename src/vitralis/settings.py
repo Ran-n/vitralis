@@ -2,11 +2,15 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 07:52:06.389478
-Revised: 2026/11/13 20:11:34.490782
+Revised: 2026/11/14 00:23:16.160398
+
+``settings.json`` (``SettingsManager``) and the settings window: the keyboard shortcuts, the language, the
+updates and the licence.
 """
 
 import json
 import logging
+import re
 from collections.abc import Callable
 
 from PyQt6.QtCore import QEvent, QPoint, QSize, Qt, pyqtSignal
@@ -21,11 +25,13 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from vitralis.hotkeys import is_valid_hotkey
 from vitralis.icons import flag_icon
 from vitralis.installed import installer_language
 from vitralis.licence.gate import LicenceGate
 from vitralis.licence.section import LicenceSection
-from vitralis.persistence import DATA_DIR
+from vitralis.models import MAX_WIDTH, TOOL_NAMES
+from vitralis.persistence import DATA_DIR, write_json_atomic
 from vitralis.styles import base_btn, danger_btn, muted_btn
 from vitralis.translations import set_language, t
 from vitralis.updates.checker import UpdateChecker
@@ -33,6 +39,8 @@ from vitralis.updates.messages import UPDATES
 from vitralis.updates.section import UpdatesSection
 
 logger = logging.getLogger("vitralis.settings")
+
+_HEX_COLOR = re.compile(r"#[0-9a-fA-F]{6}")
 
 SETTINGS_FILE = DATA_DIR / "settings.json"
 
@@ -93,8 +101,8 @@ _ACTION_KEYS: dict[str, str] = {
 }
 
 
-def ACTION_LABELS() -> dict[str, str]:
-    return {k: t(v) for k, v in _ACTION_KEYS.items()}
+GLOBAL_ACTION = "focus_toggle"
+"""The one shortcut that works from any app: it goes through the ``keyboard`` library, not Qt."""
 
 
 class SettingsManager:
@@ -123,21 +131,30 @@ class SettingsManager:
         self._load()
         self._data[key] = value
         try:
-            SETTINGS_FILE.write_text(json.dumps(self._data, indent=2), encoding="utf-8")
+            write_json_atomic(SETTINGS_FILE, self._data)
         except OSError as ex:
             logger.error("couldn't save %s: %s", SETTINGS_FILE, ex)
 
     def shortcuts(self) -> dict[str, str]:
+        """The saved shortcuts over the defaults; saved entries that aren't a known action with a text key are
+        ignored. An empty key means the action has no shortcut."""
         saved = self._data.get("shortcuts", {})
-        return {**DEFAULT_SHORTCUTS, **saved}
+        if not isinstance(saved, dict):
+            logger.warning("the saved shortcuts aren't a table, using the defaults")
+            saved = {}
+        known = {a: k for a, k in saved.items() if a in DEFAULT_SHORTCUTS and isinstance(k, str)}
+        return {**DEFAULT_SHORTCUTS, **known}
 
     def set_shortcuts(self, shortcuts: dict[str, str]) -> None:
         self._put("shortcuts", shortcuts)
 
     def language(self) -> str:
         """The one picked in Settings; before that, the installer's (see ``vitralis.installed``); else English."""
-        if "language" in self._data:
-            return self._data["language"]
+        saved = self._data.get("language")
+        if saved in _LANG_LABELS:
+            return saved
+        if saved is not None:
+            logger.warning("the saved language %r isn't one Vitralis has", saved)
         installed = self._installer_language()
         if installed is None:
             return DEFAULT_LANGUAGE
@@ -170,6 +187,40 @@ class SettingsManager:
         self._load()
         self._put("updates", {**self._updates(), "skipped": version})
 
+    def toolbar_state(self) -> dict:
+        """What the toolbar was left at: any of ``tool`` (a ``Tool`` name), ``color`` (``#rrggbb``), ``size``
+        (a stroke width) and ``position`` (``[x, y]``). Damaged entries are left out, so the toolbar falls back
+        to its defaults for them."""
+        saved = self._data.get("toolbar", {})
+        if not isinstance(saved, dict):
+            return {}
+        state: dict = {}
+        if saved.get("tool") in TOOL_NAMES:
+            state["tool"] = saved["tool"]
+        color = saved.get("color")
+        if isinstance(color, str) and _HEX_COLOR.fullmatch(color):
+            state["color"] = color.lower()
+        size = saved.get("size")
+        if isinstance(size, int) and not isinstance(size, bool) and 1 <= size <= MAX_WIDTH:
+            state["size"] = size
+        position = saved.get("position")
+        if (
+            isinstance(position, list)
+            and len(position) == 2
+            and all(isinstance(part, int) and not isinstance(part, bool) for part in position)
+        ):
+            state["position"] = position
+        return state
+
+    def set_toolbar_state(self, **changes) -> None:
+        """Remember the given parts of the toolbar's state; nothing is written when nothing changed."""
+        self._load()
+        saved = self._data.get("toolbar", {})
+        current = saved if isinstance(saved, dict) else {}
+        merged = {**current, **changes}
+        if merged != current:
+            self._put("toolbar", merged)
+
 
 class _KeyCapture(QPushButton):
     captured = pyqtSignal(str)
@@ -182,8 +233,13 @@ class _KeyCapture(QPushButton):
         self.setStyleSheet(muted_btn())
         self.clicked.connect(self._start_listen)
 
-    def _display(self, key: str) -> str:
+    @staticmethod
+    def _display(key: str) -> str:
         return key.upper() if key else "—"
+
+    def show_key(self, key: str) -> None:
+        """Show ``key`` as this action's shortcut (``—`` for none)."""
+        self.setText(self._display(key))
 
     def _start_listen(self) -> None:
         self._listening = True
@@ -255,6 +311,8 @@ class SettingsWindow(QWidget):
         self._dragging = False
         self._drag_pos = QPoint()
         self._action_labels: dict[str, QLabel] = {}
+        self._reset_buttons: list[QPushButton] = []
+        self._title: QLabel | None = None
         self._section_labels: list[tuple[QLabel, str]] = []
         self._lang_label: QLabel | None = None
         self._reset_all_btn: QPushButton | None = None
@@ -313,8 +371,10 @@ class SettingsWindow(QWidget):
             self._lang_label.setText(t("UI Language"))
         if self._reset_all_btn:
             self._reset_all_btn.setText(t("Reset all"))
-        for _action, cap in self._captures.items():
-            cap.setToolTip(t("Reset to default"))
+        if self._title:
+            self._title.setText(t("Settings"))
+        for button in self._reset_buttons:
+            button.setToolTip(t("Reset to default"))
         if self.updates_section is not None:
             self.updates_section.retranslate()
         if self._licence_section is not None:
@@ -324,8 +384,9 @@ class SettingsWindow(QWidget):
         row = QHBoxLayout()
         row.setContentsMargins(0, 0, 0, 0)
 
-        title = QLabel("Settings")
+        title = QLabel(t("Settings"))
         title.setStyleSheet("color: white; font-size: 13px; font-weight: 700; background: transparent;")
+        self._title = title
 
         close_btn = QPushButton("✕")
         close_btn.setFixedSize(22, 22)
@@ -371,6 +432,7 @@ class SettingsWindow(QWidget):
             reset_btn.setToolTip(t("Reset to default"))
             reset_btn.setStyleSheet(muted_btn())
             reset_btn.clicked.connect(lambda _, a=action: self._reset_action(a))
+            self._reset_buttons.append(reset_btn)
 
             row.addWidget(lbl)
             row.addWidget(cap)
@@ -429,7 +491,23 @@ class SettingsWindow(QWidget):
         layout.addLayout(row)
 
     def _on_captured(self, action: str, key: str) -> None:
+        self._assign(action, key)
+
+    def _assign(self, action: str, key: str) -> None:
+        """Give ``action`` the shortcut ``key``. A key the global hook can't take is refused for the focus
+        shortcut (the old one stays); an action that already had ``key`` loses it, since one key for two
+        actions would work for neither."""
+        if action == GLOBAL_ACTION and not is_valid_hotkey(key):
+            logger.warning("%r can't be a global shortcut: keeping %r", key, self._shortcuts[action])
+            self._captures[action].show_key(self._shortcuts[action])
+            return
+        for other, other_key in self._shortcuts.items():
+            if other != action and other_key == key:
+                logger.info("%r moves from %s to %s", key, other, action)
+                self._shortcuts[other] = ""
+                self._captures[other].show_key("")
         self._shortcuts[action] = key
+        self._captures[action].show_key(key)
         self._manager.set_shortcuts(self._shortcuts)
         self.shortcuts_changed.emit(dict(self._shortcuts))
 
@@ -440,16 +518,12 @@ class SettingsWindow(QWidget):
         self.language_changed.emit(lang)
 
     def _reset_action(self, action: str) -> None:
-        default = DEFAULT_SHORTCUTS[action]
-        self._shortcuts[action] = default
-        self._captures[action].setText(default.upper())
-        self._manager.set_shortcuts(self._shortcuts)
-        self.shortcuts_changed.emit(dict(self._shortcuts))
+        self._assign(action, DEFAULT_SHORTCUTS[action])
 
     def _reset_all(self) -> None:
         self._shortcuts = dict(DEFAULT_SHORTCUTS)
         for action, cap in self._captures.items():
-            cap.setText(DEFAULT_SHORTCUTS[action].upper())
+            cap.show_key(DEFAULT_SHORTCUTS[action])
         self._manager.set_shortcuts(self._shortcuts)
         self.shortcuts_changed.emit(dict(self._shortcuts))
 

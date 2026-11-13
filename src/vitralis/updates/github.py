@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:10:59.086594
-Revised: 2026/11/13 09:10:59.453239
+Revised: 2026/11/14 00:23:16.710796
 
 The latest Vitralis release, from GitHub's REST API (``GET /repos/Ran-n/vitralis/releases/latest``: the newest
 release that is neither a draft nor a pre-release). GitHub only: GitLab and Codeberg carry the same releases,
@@ -15,7 +15,7 @@ from typing import Protocol
 import httpx
 
 from vitralis.net import is_secure_url
-from vitralis.updates.rules import Release, checksum_name, exe_name, parse_version
+from vitralis.updates.rules import FeedFailure, Release, checksum_name, exe_name, parse_version
 from vitralis.version import USER_AGENT
 
 logger = logging.getLogger("vitralis.updates.github")
@@ -27,7 +27,11 @@ RATE_LIMITED = frozenset({403, 429})
 
 
 class ReleaseFeedError(Exception):
-    """The latest release couldn't be read; the message is a one-line reason."""
+    """The latest release couldn't be read; the message is a one-line reason, ``kind`` what the user is told."""
+
+    def __init__(self, message: str, kind: FeedFailure = FeedFailure.OTHER) -> None:
+        super().__init__(message)
+        self.kind = kind
 
 
 class ReleaseFeed(Protocol):
@@ -57,9 +61,12 @@ class GitHubReleases:
                 follow_redirects=True,
             )
         except httpx.HTTPError as ex:
-            raise ReleaseFeedError(f"{type(ex).__name__}: {ex}" if str(ex) else type(ex).__name__) from ex
+            kind = FeedFailure.OFFLINE if isinstance(ex, httpx.TransportError) else FeedFailure.OTHER
+            raise ReleaseFeedError(f"{type(ex).__name__}: {ex}" if str(ex) else type(ex).__name__, kind) from ex
         if response.status_code in RATE_LIMITED:
-            raise ReleaseFeedError(f"GitHub's rate limit was reached (HTTP {response.status_code}); try later")
+            raise ReleaseFeedError(
+                f"GitHub's rate limit was reached (HTTP {response.status_code}); try later", FeedFailure.RATE_LIMITED
+            )
         if response.status_code != 200:
             raise ReleaseFeedError(f"HTTP {response.status_code}")
         try:

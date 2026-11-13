@@ -1,3 +1,15 @@
+stages:
+  - check
+  - deploy
+
+# the tests need Windows (see .github/workflows/ci.yml); the linter runs anywhere
+lint:
+  stage: check
+  image: ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+  script:
+    - uv run --only-group dev --no-install-project ruff format --check .
+    - uv run --only-group dev --no-install-project ruff check .
+
 pages:
   stage: deploy
   script:

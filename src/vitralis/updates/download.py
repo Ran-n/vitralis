@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:10:59.829681
-Revised: 2026/11/13 09:11:00.247372
+Revised: 2026/11/14 00:23:16.527646
 
 Downloads a release's exe into ``%APPDATA%\\Vitralis\\updates`` and checks it against the release's BLAKE3
 checksum before it may be installed. The exe streams to ``<name>.part`` and only becomes ``<name>`` once its
@@ -21,6 +21,7 @@ from blake3 import blake3
 from vitralis.net import is_secure_url
 from vitralis.updates.rules import (
     ChecksumMismatch,
+    DownloadUnreachable,
     Release,
     UpdateCancelled,
     UpdateError,
@@ -74,7 +75,10 @@ def download_release(
     except UpdateError:
         raise
     except httpx.HTTPError as ex:
-        raise UpdateError(f"{type(ex).__name__}: {ex}" if str(ex) else type(ex).__name__) from ex
+        reason = f"{type(ex).__name__}: {ex}" if str(ex) else type(ex).__name__
+        if isinstance(ex, httpx.TransportError):
+            raise DownloadUnreachable(reason) from ex
+        raise UpdateError(reason) from ex
     except ValueError as ex:
         raise UpdateError(str(ex)) from ex
     except OSError as ex:

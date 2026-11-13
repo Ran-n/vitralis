@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.433417
-Revised: 2026/11/13 19:56:13.013912
+Revised: 2026/11/14 00:23:19.878379
 
 The overlay session behind the licence: nothing of the overlay exists while locked, it starts once the licence
 holds, and locking tears it all down (toolbar with its global hooks, canvases, captures, tray). The real toolbar
@@ -13,6 +13,7 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+import contextlib
 import logging
 import time
 
@@ -85,18 +86,46 @@ class FakeTray(FakeWidget):
         super().__init__(*args, **kwargs)
         self.messageClicked = FakeSignal()
         self.messages: list[str] = []
+        self.retranslated = 0
 
     def showMessage(self, title, text, icon=None) -> None:
         self.messages.append(text)
+
+    def retranslate(self) -> None:
+        self.retranslated += 1
+
+    def close(self) -> None:
+        self.shown = False
+        self.closed = self.deleted = True
 
 
 class FakeToolbar(FakeWidget):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.settings_opened = 0
+        self.language_changed = FakeSignal()
+        self.placed = None
+        self.modes_stopped = 0
+        self.synced = 0
+        self.raised = self.activated = False
 
     def open_settings(self) -> None:
         self.settings_opened += 1
+
+    def place(self, default) -> None:
+        self.placed = default
+
+    def stop_modes(self) -> None:
+        self.modes_stopped += 1
+
+    def sync_canvases(self) -> None:
+        self.synced += 1
+
+    def raise_(self) -> None:
+        self.raised = True
+
+    def activateWindow(self) -> None:
+        self.activated = True
 
 
 class FakeCanvas(FakeWidget):
@@ -117,12 +146,17 @@ def session(qapp, monkeypatch):
     trays = []
     monkeypatch.setattr(app_module, "make_tray_icon", lambda app, toolbar: trays.append(FakeTray()) or trays[-1])
 
+    sessions = []
+
     def make(**kwargs) -> Session:
         made = Session(qapp, **kwargs)
         made.trays = trays
+        sessions.append(made)
         return made
 
-    return make
+    yield make
+    for made in sessions:  # a session left running would go on answering the app's screen signals
+        made.stop()
 
 
 def of(kind) -> list:
@@ -207,13 +241,19 @@ def test_setup_logging_writes_to_the_data_folder(monkeypatch, tmp_path):
     try:
         app_module.setup_logging()
         logging.getLogger("vitralis.test").info("hello")
+        logging.getLogger("httpx").info("HTTP Request: POST https://clavren.breren.com/api/v1/activations/id/checks")
+        logging.getLogger("httpx").warning("slow answer")
         for handler in root.handlers:
             handler.flush()
-        assert "vitralis.test: hello" in (tmp_path / "vitralis.log").read_text(encoding="utf-8")
+        written = (tmp_path / "vitralis.log").read_text(encoding="utf-8")
+        assert "vitralis.test: hello" in written and "httpx: slow answer" in written
+        assert "activations" not in written  # the activation id stays out of the log
     finally:
         for handler in root.handlers:
             handler.close()
         root.handlers = before
+        for name in app_module.QUIET_LOGGERS:
+            logging.getLogger(name).setLevel(logging.NOTSET)
 
 
 # --- updates ----------------------------------------------------------------------------------------------------
@@ -335,3 +375,273 @@ def test_cleanup_runs_only_in_the_packaged_exe(monkeypatch, tmp_path):
     running, updates_dir, current = calls[0]
     assert running == tmp_path / "vitralis-1.3.0.exe" and updates_dir.name == "updates" and str(current) == "1.4.0"
     assert synced == [(tmp_path / "vitralis-1.3.0.exe", "1.4.0")]  # the installed-apps entry follows the update
+
+
+# --- the overlay follows the screens and the toolbar ----------------------------------------------------------
+
+
+def test_the_toolbar_is_placed_near_the_primary_screens_corner(qapp, session):
+    session = session()
+    session.start()
+    corner = qapp.primaryScreen().geometry().topLeft()
+    placed = of(FakeToolbar)[0].placed
+    assert (placed.x() - corner.x(), placed.y() - corner.y()) == (app_module.TOOLBAR_MARGIN, app_module.TOOLBAR_MARGIN)
+
+
+def test_a_capture_leaves_its_mode_through_the_toolbar(session):
+    session = session()
+    session.start()
+    capture = of(FakeCapture)[0]
+    capture.kwargs["stop_active"]()
+    assert of(FakeToolbar)[0].modes_stopped == 1
+    assert capture.kwargs["toolbar"] == [of(FakeToolbar)[0]]
+    session.stop()
+    capture.kwargs["stop_active"]()  # a late click on a closing capture: nothing to stop, nothing raised
+    assert capture.kwargs["toolbar"] == []
+
+
+def test_a_change_of_screens_rebuilds_the_overlay_under_the_same_toolbar(qapp, session, caplog):
+    session = session()
+    session.start()
+    old = [*of(FakeCanvas), *of(FakeCapture)]
+    canvases, captures = session.canvases, session.captures
+    with caplog.at_level(logging.INFO, "vitralis.app"):
+        qapp.screenAdded.emit(qapp.primaryScreen())
+    toolbar = of(FakeToolbar)[0]
+    assert all(w.closed and w.deleted for w in old)
+    assert session.canvases is canvases and session.captures is captures  # the lists the toolbar holds
+    assert len(canvases) == len(captures) == len(qapp.screens()) and not any(w.closed for w in canvases)
+    assert len(of(FakeToolbar)) == 1 and not toolbar.closed
+    assert (toolbar.modes_stopped, toolbar.synced) == (1, 1)
+    assert any("screens changed" in r.getMessage() for r in caplog.records)
+    qapp.primaryScreen().geometryChanged.emit(qapp.primaryScreen().geometry())  # a resolution change does too
+    assert toolbar.synced == 2 and len(session.canvases) == len(qapp.screens())
+
+
+def test_screens_changing_after_the_session_stopped_build_nothing(qapp, session):
+    session = session()
+    session.start()
+    session.stop()
+    made = len(FakeWidget.made)
+    qapp.screenAdded.emit(qapp.primaryScreen())
+    qapp.screenRemoved.emit(qapp.primaryScreen())
+    qapp.primaryScreen().geometryChanged.emit(qapp.primaryScreen().geometry())
+    session._on_screens_changed()
+    assert len(FakeWidget.made) == made
+
+
+def test_another_start_of_vitralis_brings_the_toolbar_to_the_front(session):
+    session = session()
+    session.show_toolbar()  # locked: no toolbar, nothing happens
+    session.start()
+    toolbar = of(FakeToolbar)[0]
+    toolbar.hide()
+    session.show_toolbar()
+    assert toolbar.shown and toolbar.raised and toolbar.activated
+
+
+def test_a_language_change_reaches_the_tray(session):
+    session = session()
+    session.start()
+    of(FakeToolbar)[0].language_changed.emit()
+    assert session.trays[0].retranslated == 1
+
+
+# --- errors nothing caught, signals, the taskbar identity -----------------------------------------------------
+
+
+def test_an_error_nothing_caught_goes_to_the_log_with_its_traceback(caplog):
+    try:
+        raise RuntimeError("boom")
+    except RuntimeError as ex:
+        with caplog.at_level(logging.CRITICAL, "vitralis.app"):
+            app_module.log_unhandled(type(ex), ex, ex.__traceback__)
+    record = caplog.records[0]
+    assert record.levelno == logging.CRITICAL and record.exc_info[1].args == ("boom",)
+
+
+def test_ctrl_c_is_left_to_python(monkeypatch, caplog):
+    seen = []
+    monkeypatch.setattr(app_module.sys, "__excepthook__", lambda *args: seen.append(args[0]))
+    with caplog.at_level(logging.CRITICAL, "vitralis.app"):
+        app_module.log_unhandled(KeyboardInterrupt, KeyboardInterrupt(), None)
+    assert seen == [KeyboardInterrupt] and caplog.records == []
+
+
+def test_an_error_in_a_thread_is_logged_with_the_threads_name(caplog):
+    import threading
+
+    args = threading.ExceptHookArgs((ValueError, ValueError("bad"), None, threading.Thread(name="vitralis-worker")))
+    with caplog.at_level(logging.CRITICAL, "vitralis.app"):
+        app_module.log_unhandled_in_thread(args)
+        app_module.log_unhandled_in_thread(threading.ExceptHookArgs((ValueError, ValueError("bad"), None, None)))
+    assert "vitralis-worker" in caplog.records[0].getMessage() and "thread ?" in caplog.records[1].getMessage()
+
+
+def test_the_error_hooks_are_installed(monkeypatch):
+    import threading
+
+    monkeypatch.setattr(app_module.sys, "excepthook", None)
+    monkeypatch.setattr(threading, "excepthook", None)
+    app_module.install_error_logging()
+    assert app_module.sys.excepthook is app_module.log_unhandled
+    assert threading.excepthook is app_module.log_unhandled_in_thread
+
+
+def test_a_signal_quits_through_the_clean_shutdown(qapp, monkeypatch, caplog):
+    import signal
+
+    quits = []
+    monkeypatch.setattr(qapp, "quit", lambda: quits.append(1), raising=False)
+    names = [name for name in ("SIGINT", "SIGTERM", "SIGBREAK") if hasattr(signal, name)]
+    before = {name: signal.getsignal(getattr(signal, name)) for name in names}
+    try:
+        timer = app_module.quit_on_signals(qapp)
+        assert timer.isActive() and timer.interval() == app_module.SIGNAL_POLL_MS
+        with caplog.at_level(logging.INFO, "vitralis.app"):
+            for name in names:
+                signal.getsignal(getattr(signal, name))(int(getattr(signal, name)), None)
+        timer.stop()
+        timer.deleteLater()
+    finally:
+        for name, handler in before.items():
+            signal.signal(getattr(signal, name), handler)
+    assert quits == [1] * len(names) and len(names) >= 2
+    assert sum("quitting" in r.getMessage() for r in caplog.records) == len(names)
+
+
+def test_the_taskbar_identity_is_set_and_a_refusal_only_logged(monkeypatch, caplog):
+    from types import SimpleNamespace
+
+    given = []
+    shell = SimpleNamespace(SetCurrentProcessExplicitAppUserModelID=given.append)
+    monkeypatch.setattr(app_module.ctypes, "windll", SimpleNamespace(shell32=shell), raising=False)
+    app_module.set_app_user_model_id()
+    assert given == [app_module.APP_USER_MODEL_ID]
+
+    def refuse(_id):
+        raise OSError("refused")
+
+    shell.SetCurrentProcessExplicitAppUserModelID = refuse
+    with caplog.at_level(logging.WARNING, "vitralis.app"):
+        app_module.set_app_user_model_id()
+    assert any("taskbar identity" in r.getMessage() for r in caplog.records)
+
+
+# --- main ---------------------------------------------------------------------------------------------------
+
+
+class FakeInstance:
+    def __init__(self, order, running: bool) -> None:
+        self.order, self.running = order, running
+        self.activated = FakeSignal()
+
+    def notify_running(self) -> bool:
+        self.order.append("notify")
+        return self.running
+
+    def listen(self) -> bool:
+        self.order.append("listen")
+        return True
+
+    def close(self) -> None:
+        self.order.append("instance closed")
+
+
+@pytest.fixture
+def wired_main(qapp, monkeypatch, tmp_path):
+    """``main()`` on the test's QApplication with every part it wires replaced by a recorder."""
+    from types import SimpleNamespace
+
+    order = []
+    record = order.append
+    monkeypatch.setattr(app_module.sys, "argv", ["vitralis.exe"])
+    monkeypatch.setattr(app_module, "setup_logging", lambda: record("logging"))
+    monkeypatch.setattr(app_module, "install_error_logging", lambda: record("error logging"))
+    monkeypatch.setattr(app_module, "clean_after_updates", lambda current: record("clean"))
+    monkeypatch.setattr(app_module, "set_app_user_model_id", lambda: record("identity"))
+    monkeypatch.setattr(app_module, "init_icons_dir", lambda: record("icons"))
+    monkeypatch.setattr(app_module, "QApplication", lambda argv: record("app") or qapp)
+    monkeypatch.setattr(app_module, "make_app_icon", lambda: qapp.windowIcon())
+    monkeypatch.setattr(qapp, "exec", lambda: record("exec") or 0, raising=False)
+    style = qapp.styleSheet()
+    timer = SimpleNamespace(stop=lambda: record("timer stopped"))
+    monkeypatch.setattr(app_module, "quit_on_signals", lambda app: record("signals") or timer)
+    parts = SimpleNamespace(licence="licence", checks="checks", close=lambda: record("licence closed"))
+    monkeypatch.setattr(app_module, "build_licence", lambda data_dir: record("licence") or parts)
+    updates = SimpleNamespace(checker=None, close=lambda: record("updates closed"))
+    monkeypatch.setattr(app_module, "build_updates", lambda data_dir, settings: record("updates") or updates)
+
+    class Gate:
+        def __init__(self, licence, checks, on_unlock, on_lock, make_prompt) -> None:
+            order.append(("gate", licence, checks, make_prompt))
+
+        def begin(self) -> None:
+            record("begin")
+
+        def shutdown(self) -> None:
+            record("gate shut down")
+
+    monkeypatch.setattr(app_module, "LicenceGate", Gate)
+
+    class RecordedSession(Session):
+        def stop(self) -> None:
+            record("session stopped")
+            super().stop()
+
+    monkeypatch.setattr(app_module, "Session", RecordedSession)
+    made = SimpleNamespace(order=order, instance=None)
+
+    def instance(running: bool) -> None:
+        made.instance = FakeInstance(order, running)
+        monkeypatch.setattr(app_module, "SingleInstance", lambda: made.instance)
+
+    made.use_instance = instance
+    yield made
+    with contextlib.suppress(TypeError):  # main() quit before connecting its shutdown
+        qapp.aboutToQuit.disconnect()
+    qapp.setStyleSheet(style)
+
+
+def test_main_wires_everything_in_order_and_shuts_it_all_down_on_quit(qapp, wired_main):
+    wired_main.use_instance(running=False)
+    with pytest.raises(SystemExit) as raised:
+        app_module.main()
+    assert raised.value.code == 0
+    gate = ("gate", "licence", "checks", app_module.LicenceWindow)
+    assert wired_main.order == [
+        "logging",
+        "error logging",
+        "clean",
+        "identity",
+        "icons",
+        "app",
+        "notify",
+        "listen",
+        "signals",
+        "licence",
+        "updates",
+        gate,
+        "begin",
+        "exec",
+    ]
+    assert len(wired_main.instance.activated.slots) == 1  # a second start shows this one's toolbar
+    del wired_main.order[:]
+    qapp.aboutToQuit.emit()
+    assert wired_main.order == [
+        "timer stopped",
+        "instance closed",
+        "session stopped",
+        "gate shut down",
+        "licence closed",
+        "updates closed",
+    ]
+
+
+def test_a_second_start_asks_the_first_to_show_itself_and_builds_nothing(wired_main, caplog):
+    wired_main.use_instance(running=True)
+    with caplog.at_level(logging.INFO, "vitralis.app"), pytest.raises(SystemExit) as raised:
+        app_module.main()
+    assert raised.value.code == 0
+    assert wired_main.order[-2:] == ["app", "notify"]
+    assert any("already running" in r.getMessage() for r in caplog.records)

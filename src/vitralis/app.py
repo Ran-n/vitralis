@@ -2,22 +2,23 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:03.794151
-Revised: 2026/11/13 20:11:34.973667
+Revised: 2026/11/14 00:23:15.605847
 
 Starts Vitralis behind its licence: the licence window first when no key is active on this computer, the
 overlay (``Session``) once the licence holds, and back to the licence window if it stops holding.
 """
 
 import argparse
-import contextlib
 import ctypes
 import logging
+import signal
 import sys
 import threading
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QPoint, Qt, QTimer
+from PyQt6.QtGui import QScreen
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon
 
 from vitralis.canvas import Canvas, DrawCapture
@@ -28,6 +29,7 @@ from vitralis.licence.gate import LicenceGate
 from vitralis.licence.window import LicenceWindow
 from vitralis.persistence import DATA_DIR, load_strokes_for
 from vitralis.settings import SettingsManager
+from vitralis.single_instance import SingleInstance
 from vitralis.toolbar import Toolbar
 from vitralis.translations import set_language
 from vitralis.tray import make_app_icon, make_tray_icon
@@ -39,6 +41,13 @@ from vitralis.updates.rules import Version, parse_version_or_none
 from vitralis.version import app_version
 
 logger = logging.getLogger("vitralis.app")
+
+APP_USER_MODEL_ID = "ran.vitralis"
+"""What Windows groups Vitralis's windows and tray messages under."""
+TOOLBAR_MARGIN = 20
+"""Where the toolbar first shows: this far from the primary screen's top-left corner."""
+SIGNAL_POLL_MS = 200
+"""How often Qt's event loop lets Python run, so Ctrl+C and a termination signal are noticed."""
 
 
 class Session:
@@ -56,6 +65,9 @@ class Session:
         self.canvases: list[Canvas] = []
         self.captures: list[DrawCapture] = []
         self.toolbar: Toolbar | None = None
+        self._toolbar_ref: list[Toolbar] = []
+        """What the captures reach the toolbar through: it is built after them."""
+        self._watched: list[QScreen] = []
         self._tray: QSystemTrayIcon | None = None
 
     def attach(self, gate: LicenceGate) -> None:
@@ -68,33 +80,19 @@ class Session:
     def start(self) -> None:
         if self.running:
             return
-        toolbar_ref: list[Toolbar] = []
-
-        def _stop_active():
-            toolbar_ref[0].stop_drawing()
-            toolbar_ref[0].stop_pan()
-            toolbar_ref[0].stop_delete()
-
-        for screen in self._app.screens():
-            geo = screen.geometry()
-            canvas = Canvas(geo)
-            canvas.load(load_strokes_for(geo))
-            canvas.show()
-            capture = DrawCapture(canvas, geo, stop_active=_stop_active, toolbar=toolbar_ref)
-            capture.setWindowFlags(capture.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
-            self.canvases.append(canvas)
-            self.captures.append(capture)
-
-        app_icon = make_app_icon()
+        self._build_overlay()
         toolbar = Toolbar(self.canvases, self.captures, licence=self._gate, updates=self._updates)
-        toolbar.setWindowIcon(app_icon)
-        toolbar_ref.append(toolbar)
+        toolbar.setWindowIcon(make_app_icon())
+        self._toolbar_ref.append(toolbar)
         primary = self._app.primaryScreen().geometry()
-        toolbar.move(primary.x() + 20, primary.y() + 20)
+        toolbar.place(QPoint(primary.x() + TOOLBAR_MARGIN, primary.y() + TOOLBAR_MARGIN))
         toolbar.show()
         self.toolbar = toolbar
         self._tray = make_tray_icon(self._app, toolbar)
         self._tray.messageClicked.connect(self._on_message_clicked)
+        toolbar.language_changed.connect(self._tray.retranslate)
+        self._app.screenAdded.connect(self._on_screens_changed)
+        self._app.screenRemoved.connect(self._on_screens_changed)
         if self._announce_updated:
             self._announce_updated = False
             self._show_message(updated_message(app_version()), about_update=False)
@@ -102,6 +100,55 @@ class Session:
             self._updates.changed.connect(self._on_update_status)
             self._updates.start()
         logger.info("overlay started on %d screen(s)", len(self.canvases))
+
+    def _stop_active(self) -> None:
+        if self.toolbar is not None:
+            self.toolbar.stop_modes()
+
+    def _build_overlay(self) -> None:
+        """A canvas and a capture on every screen, into the lists the toolbar works on."""
+        for screen in self._app.screens():
+            geo = screen.geometry()
+            canvas = Canvas(geo)
+            canvas.load(load_strokes_for(geo))
+            canvas.show()
+            capture = DrawCapture(canvas, geo, stop_active=self._stop_active, toolbar=self._toolbar_ref)
+            capture.setWindowFlags(capture.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
+            self.canvases.append(canvas)
+            self.captures.append(capture)
+            screen.geometryChanged.connect(self._on_screens_changed)
+            self._watched.append(screen)
+
+    def _close_overlay(self) -> None:
+        for screen in self._watched:
+            try:
+                screen.geometryChanged.disconnect(self._on_screens_changed)
+            except (TypeError, RuntimeError):  # the screen is gone, and its connections with it
+                logger.debug("a removed screen was already disconnected")
+        self._watched.clear()
+        for widget in (*self.captures, *self.canvases):
+            widget.close()
+            widget.deleteLater()
+        self.captures.clear()
+        self.canvases.clear()
+
+    def _on_screens_changed(self, *_) -> None:
+        """A monitor was plugged in, unplugged, moved or resized: cover the screens as they are now. Strokes are
+        saved per screen as they are drawn, so each screen gets its own back."""
+        if not self.running:
+            return
+        self.toolbar.stop_modes()
+        self._close_overlay()
+        self._build_overlay()
+        self.toolbar.sync_canvases()
+        logger.info("the screens changed: overlay rebuilt on %d screen(s)", len(self.canvases))
+
+    def show_toolbar(self) -> None:
+        """Bring the toolbar to the front (another start of Vitralis asked for it); nothing while locked."""
+        if self.toolbar is not None:
+            self.toolbar.show()
+            self.toolbar.raise_()
+            self.toolbar.activateWindow()
 
     def _show_message(self, text: str, about_update: bool) -> None:
         self._tray_says_update = about_update
@@ -126,23 +173,23 @@ class Session:
         if self._updates is not None:
             self._updates.changed.disconnect(self._on_update_status)
             self._updates.stop()
+        self._app.screenAdded.disconnect(self._on_screens_changed)
+        self._app.screenRemoved.disconnect(self._on_screens_changed)
         if self._tray is not None:
-            self._tray.hide()
-            self._tray.deleteLater()
+            self._tray.close()
             self._tray = None
         self.toolbar.close()  # stops the global hotkey and wheel threads, closes its panels
         self.toolbar.deleteLater()
         self.toolbar = None
-        for widget in (*self.captures, *self.canvases):
-            widget.close()
-            widget.deleteLater()
-        self.captures.clear()
-        self.canvases.clear()
+        self._toolbar_ref.clear()
+        self._close_overlay()
         logger.info("overlay stopped")
 
 
 LOG_FILE = DATA_DIR / "vitralis.log"
 LOG_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+QUIET_LOGGERS = ("httpx", "httpcore")
+"""Their INFO lines write every request's address, and the licence's carry this computer's activation id."""
 
 
 def setup_logging() -> None:
@@ -154,6 +201,53 @@ def setup_logging() -> None:
     if sys.stderr is not None:
         handlers.append(logging.StreamHandler())
     logging.basicConfig(level=logging.INFO, format=LOG_FORMAT, handlers=handlers)
+    for name in QUIET_LOGGERS:
+        logging.getLogger(name).setLevel(logging.WARNING)
+
+
+def log_unhandled(kind: type[BaseException], error: BaseException, trace) -> None:
+    """``sys.excepthook``: an error nothing caught goes to the log (the packaged exe has no console) and the
+    app keeps running, instead of PyQt ending the process without a word."""
+    if issubclass(kind, KeyboardInterrupt):
+        sys.__excepthook__(kind, error, trace)
+        return
+    logger.critical("unhandled error", exc_info=(kind, error, trace))
+
+
+def log_unhandled_in_thread(args: threading.ExceptHookArgs) -> None:
+    """``threading.excepthook``: the same for worker threads."""
+    name = args.thread.name if args.thread is not None else "?"
+    logger.critical("unhandled error in thread %s", name, exc_info=(args.exc_type, args.exc_value, args.exc_traceback))
+
+
+def install_error_logging() -> None:
+    sys.excepthook = log_unhandled
+    threading.excepthook = log_unhandled_in_thread
+
+
+def quit_on_signals(app: QApplication) -> QTimer:
+    """Ctrl+C, Ctrl+Break and a termination signal quit through the clean shutdown. Qt's event loop never lets
+    Python look at its signals by itself, so the returned timer wakes it up to; keep it alive."""
+
+    def handle(number: int, _frame) -> None:
+        logger.info("signal %d: quitting", number)
+        app.quit()
+
+    for name in ("SIGINT", "SIGTERM", "SIGBREAK"):
+        number = getattr(signal, name, None)
+        if number is not None:
+            signal.signal(number, handle)
+    timer = QTimer(app)
+    timer.timeout.connect(lambda: None)
+    timer.start(SIGNAL_POLL_MS)
+    return timer
+
+
+def set_app_user_model_id() -> None:
+    try:
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(APP_USER_MODEL_ID)
+    except (AttributeError, OSError) as ex:  # not Windows, or the shell refused: only the taskbar grouping is lost
+        logger.warning("couldn't set the app's taskbar identity: %s", ex)
 
 
 WAIT_FOR_OLD_SECONDS = 30.0
@@ -185,6 +279,7 @@ def clean_after_updates(current: str) -> None:
 
 def main() -> None:
     setup_logging()
+    install_error_logging()
     args, qt_args = parse_arguments(sys.argv)
     # two overlays, two sets of global hooks or two writers of licence.dat must never run at once
     if args.wait_pid is not None and not wait_for_exit(args.wait_pid, WAIT_FOR_OLD_SECONDS):
@@ -197,11 +292,16 @@ def main() -> None:
     if args.updated:
         logger.info("updated from %s to %s", args.updated, app_version())
     clean_after_updates(app_version())
-    with contextlib.suppress(Exception):
-        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("ran.vitralis")
+    set_app_user_model_id()
 
     init_icons_dir()
     app = QApplication(sys.argv[:1] + qt_args)
+    instance = SingleInstance()
+    if instance.notify_running():
+        logger.info("Vitralis is already running: asked it to show its toolbar")
+        sys.exit(0)
+    instance.listen()
+    signal_timer = quit_on_signals(app)
     app.setQuitOnLastWindowClosed(False)
     app.setStyleSheet(
         "QToolTip { background: #1e1e26; color: #f0f0f0; border: 1px solid rgba(255,255,255,40);"
@@ -216,12 +316,16 @@ def main() -> None:
     session = Session(app, updates=updates.checker, updated=bool(args.updated))
     gate = LicenceGate(parts.licence, parts.checks, session.start, session.stop, LicenceWindow)
     session.attach(gate)
+    instance.activated.connect(session.show_toolbar)
 
     def _shutdown() -> None:
+        signal_timer.stop()
+        instance.close()
         session.stop()  # stops the update checks and any download
         gate.shutdown()
         parts.close()
         updates.close()
+        logger.info("Vitralis quit")
 
     app.aboutToQuit.connect(_shutdown)
     gate.begin()

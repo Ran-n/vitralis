@@ -2,11 +2,15 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.341523
-Revised: 2026/11/13 09:11:14.673890
+Revised: 2026/11/14 00:23:16.234716
+
+The floating toolbar that drives the overlay (modes, tools, colours, size, undo, clear, hide), with its About
+and Snapshots windows. The tool, colour, size and position it is left at are remembered for the next start.
 """
 
 import contextlib
 import ctypes
+import logging
 
 from PyQt6.QtCore import QPoint, Qt, QTimer, pyqtSignal
 from PyQt6.QtGui import QColor, QKeySequence, QPainter, QPen, QPixmap, QShortcut
@@ -29,18 +33,18 @@ from vitralis.icons import media_base, svg_icon
 from vitralis.licence.gate import LicenceGate
 from vitralis.models import Tool
 from vitralis.persistence import (
-    _screen_key,
+    SnapshotError,
     delete_snapshot,
     list_snapshots,
     load_snapshot,
     save_snapshot,
     save_strokes_for,
+    screen_key,
 )
 from vitralis.settings import SettingsManager, SettingsWindow
 from vitralis.styles import (
     BTN_CHECKED,
     PALETTE,
-    PANEL_BORDER,
     SIZES,
     TOOL_ICONS,
     accent_btn,
@@ -54,6 +58,14 @@ from vitralis.updates.checker import UpdateChecker, UpdateStatus
 from vitralis.updates.messages import settings_tooltip
 from vitralis.version import LICENCE_NAME, app_version
 
+logger = logging.getLogger("vitralis.toolbar")
+
+DEFAULT_SIZE = 5
+"""The stroke width a first start draws with."""
+SNAPSHOT_SAVE_FAILED = "The snapshot couldn't be saved. Try another name."
+SNAPSHOT_LOAD_FAILED = "The snapshot couldn't be loaded: its file is damaged or gone."
+SNAPSHOT_DELETE_FAILED = "The snapshot couldn't be deleted."
+PICK_COLOR = "Pick color"
 UPDATE_DOT_SIZE = 6
 UPDATE_DOT_MARGIN = 2
 
@@ -273,6 +285,7 @@ class SnapshotWindow(QWidget):
         "border-radius: 6px; color: #f0f0f0; font-size: 12px; padding: 5px 8px; }"
         "QLineEdit:focus { border-color: rgba(255,255,255,60); }"
     )
+    _ERROR_STYLE = "color: #ff8a65; font-size: 11px; background: transparent;"
 
     def __init__(self, canvases: list, parent=None) -> None:
         super().__init__(
@@ -284,6 +297,7 @@ class SnapshotWindow(QWidget):
         self._dragging = False
         self._drag_pos = QPoint()
         self._all_names: list[str] = []
+        self._error_key = ""
         self._build_ui()
         self._refresh_list()
         QShortcut(QKeySequence("Escape"), self, activated=self.close)
@@ -299,6 +313,7 @@ class SnapshotWindow(QWidget):
         title_row.setSpacing(8)
         title_lbl = QLabel(t("Snapshots"))
         title_lbl.setStyleSheet("color: white; font-size: 13px; font-weight: 700; background: transparent;")
+        self._title_lbl = title_lbl
         close_btn = QPushButton("✕")
         close_btn.setFixedSize(22, 22)
         close_btn.setStyleSheet(danger_btn())
@@ -349,6 +364,12 @@ class SnapshotWindow(QWidget):
             btn_row.addWidget(b)
         root.addLayout(btn_row)
 
+        self._error_lbl = QLabel()
+        self._error_lbl.setWordWrap(True)
+        self._error_lbl.setStyleSheet(self._ERROR_STYLE)
+        self._error_lbl.hide()
+        root.addWidget(self._error_lbl)
+
         self._list.itemSelectionChanged.connect(self._update_buttons)
         self._name_edit.textChanged.connect(self._update_buttons)
         self._update_buttons()
@@ -378,6 +399,13 @@ class SnapshotWindow(QWidget):
             if self._list.item(i).text() in selected:
                 self._list.item(i).setSelected(True)
 
+    def _show_error(self, key: str) -> None:
+        """Say what went wrong (``key`` is the English sentence), or clear the line with ``""``."""
+        self._error_key = key
+        self._error_lbl.setText(t(key) if key else "")
+        self._error_lbl.setVisible(bool(key))
+        self.adjustSize()
+
     def _save(self) -> None:
         name = self._name_edit.text().strip()
         if not name:
@@ -386,8 +414,13 @@ class SnapshotWindow(QWidget):
                 name = items[0].text()
         if not name:
             return
-        screens = {_screen_key(c._geo): c.strokes for c in self.canvases}
-        save_snapshot(name, screens)
+        screens = {screen_key(c.screen_geometry): c.strokes for c in self.canvases}
+        try:
+            save_snapshot(name, screens)
+        except SnapshotError:
+            self._show_error(SNAPSHOT_SAVE_FAILED)
+            return
+        self._show_error("")
         self._name_edit.clear()
         self._refresh_list()
 
@@ -395,24 +428,35 @@ class SnapshotWindow(QWidget):
         items = self._list.selectedItems()
         if len(items) != 1:
             return
-        data = load_snapshot(items[0].text())
-        if not data:
+        try:
+            data = load_snapshot(items[0].text())
+        except SnapshotError:
+            self._show_error(SNAPSHOT_LOAD_FAILED)
+            self._refresh_list(keep_filter=True)
             return
+        self._show_error("")
         for canvas in self.canvases:
-            key = _screen_key(canvas._geo)
+            key = screen_key(canvas.screen_geometry)
             if key in data:
                 canvas.load(data[key])
-                save_strokes_for(canvas._geo, canvas.strokes)
+                save_strokes_for(canvas.screen_geometry, canvas.strokes)
 
     def _delete(self) -> None:
         items = self._list.selectedItems()
         if not items:
             return
+        failed = False
         for item in items:
-            delete_snapshot(item.text())
+            try:
+                delete_snapshot(item.text())
+            except SnapshotError:
+                failed = True
+        self._show_error(SNAPSHOT_DELETE_FAILED if failed else "")
         self._refresh_list(keep_filter=True)
 
     def retranslate(self) -> None:
+        self._title_lbl.setText(t("Snapshots"))
+        self._error_lbl.setText(t(self._error_key) if self._error_key else "")
         self._name_edit.setPlaceholderText(t("Snapshot name…"))
         self._save_btn.setText("  " + t("Save"))
         self._load_btn.setText("  " + t("Load"))
@@ -444,6 +488,9 @@ class SnapshotWindow(QWidget):
 
 
 class Toolbar(QWidget):
+    language_changed = pyqtSignal()
+    """The UI language changed in Settings, after the toolbar and its windows took it."""
+
     def __init__(
         self,
         canvases: list[Canvas],
@@ -460,9 +507,17 @@ class Toolbar(QWidget):
         self._drawing_active = False
         self._pan_active = False
         self._delete_active = False
-        self._size_index = 3
         self._prev_hwnd: int | None = None
+        self._quitting = False
         self._settings_manager = SettingsManager()
+        saved = self._settings_manager.toolbar_state()
+        self._tool = Tool[saved.get("tool", Tool.PEN.name)]
+        self._color = saved.get("color", PALETTE[0])
+        size = saved.get("size", DEFAULT_SIZE)
+        self._size_index = SIZES.index(size if size in SIZES else DEFAULT_SIZE)
+        self._saved_position: list[int] | None = saved.get("position")
+        self._restoring = True
+        """While the saved state is applied, nothing is written back."""
         self._settings_win: SettingsWindow | None = None
         self._snapshot_win: SnapshotWindow | None = None
         self._info_win: InfoWindow | None = None
@@ -477,6 +532,8 @@ class Toolbar(QWidget):
         self.setWindowTitle("Vitralis")
 
         self._build_ui()
+        self._restoring = False
+        self.sync_canvases()
         self.resize(self.sizeHint())
         self.setFixedWidth(self.width())
         if updates is not None:
@@ -534,9 +591,8 @@ class Toolbar(QWidget):
 
     def _toggle_focus(self) -> None:
         if self._is_vitralis_focused():
+            self.stop_modes()  # a hidden toolbar must not come back saying "Drawing…" over hidden captures
             self.hide()
-            for cap in self.captures:
-                cap.hide()
             if self._prev_hwnd:
                 ctypes.windll.user32.SetForegroundWindow(self._prev_hwnd)
                 self._prev_hwnd = None
@@ -576,9 +632,9 @@ class Toolbar(QWidget):
         root.addWidget(_Divider())
         self._add_snapshot_row(root)
 
-        self._set_panel_style(active=False)
-        self._select_tool(Tool.PEN)
-        self._select_color(PALETTE[0], self._swatch_btns[0])
+        self._select_tool(self._tool)
+        swatch = self._swatch_btns[PALETTE.index(self._color)] if self._color in PALETTE else None
+        self._select_color(self._color, swatch)
         self._setup_shortcuts()
 
     def _add_title_row(self, root: QVBoxLayout) -> None:
@@ -608,7 +664,7 @@ class Toolbar(QWidget):
         self._quit_btn.setToolTip(t("Quit  [Esc / Ctrl+Q]"))
         self._quit_btn.setFixedSize(26, 26)
         self._quit_btn.setStyleSheet(danger_btn())
-        self._quit_btn.clicked.connect(self._quit)
+        self._quit_btn.clicked.connect(self.quit)
 
         header = _TitleHeader(
             icon_path=base / "media" / "logo" / "icon.png",
@@ -663,8 +719,7 @@ class Toolbar(QWidget):
             root.addLayout(row_layout)
 
     def _add_color_palette(self, root: QVBoxLayout) -> None:
-        self._color = PALETTE[0]
-        self._color_index = 0
+        self._color_index = -1
         self._swatch_btns: list[QPushButton] = []
         for row_start in range(0, len(PALETTE), 5):
             swatch_row = QHBoxLayout()
@@ -779,30 +834,32 @@ class Toolbar(QWidget):
             f"QLabel {{ background: {color}; border-radius: 5px; border: 1px solid {glow}; }}"
         )
 
-    def _set_panel_style(self, active: bool) -> None:
-        border_color = "#e07020" if active else PANEL_BORDER
-        border_width = "2px" if active else "1px"
-        self.setStyleSheet(
-            f"QWidget#toolbar_panel {{"
-            f"  background: rgba(18,18,22,218);"
-            f"  border-radius: 10px;"
-            f"  border: {border_width} solid {border_color};"
-            f"}}"
-        )
-
     def _setup_shortcuts(self) -> None:
         QShortcut(QKeySequence("Escape"), self, activated=self._esc)
         self._apply_shortcuts(self._settings_manager.shortcuts())
 
+    @property
+    def mode_active(self) -> bool:
+        return self._drawing_active or self._pan_active or self._delete_active
+
+    def stop_modes(self) -> None:
+        """Leave draw, pan and delete mode, whichever is on."""
+        self.stop_drawing()
+        self.stop_pan()
+        self.stop_delete()
+
     def _esc(self) -> None:
+        """Esc closes the topmost panel, else leaves the active mode, and only quits when idle."""
         if self._info_win and self._info_win.isVisible():
             self._info_win.close()
         elif self._snapshot_win and self._snapshot_win.isVisible():
             self._snapshot_win.close()
         elif self._settings_win and self._settings_win.isVisible():
             self._settings_win.close()
+        elif self.mode_active:
+            self.stop_modes()
         else:
-            self._quit()
+            self.quit()
 
     def _apply_shortcuts(self, sc_map: dict) -> None:
         for s in self._shortcuts:
@@ -823,7 +880,7 @@ class Toolbar(QWidget):
         sc(sc_map.get("undo", "z"), self._undo)
         sc(sc_map.get("clear", "delete"), self._clear)
         sc(sc_map.get("hide", "h"), lambda: self._toggle_visibility(not self._vis_btn.isChecked()))
-        sc(sc_map.get("quit", "ctrl+q"), self._quit)
+        sc(sc_map.get("quit", "ctrl+q"), self.quit)
         sc(sc_map.get("tool_pen", "p"), lambda: self._select_tool(Tool.PEN))
         sc(sc_map.get("tool_eraser", "e"), lambda: self._select_tool(Tool.ERASER))
         sc(sc_map.get("tool_line", "l"), lambda: self._select_tool(Tool.LINE))
@@ -856,7 +913,7 @@ class Toolbar(QWidget):
     def open_settings(self) -> None:
         if self._settings_win is None or not self._settings_win.isVisible():
             self._settings_win = SettingsWindow(
-                self._settings_manager, parent=None, licence=self._licence, updates=self._updates, quit_app=self._quit
+                self._settings_manager, parent=None, licence=self._licence, updates=self._updates, quit_app=self.quit
             )
             self._settings_win.shortcuts_changed.connect(self._restart_global_hotkey)
             self._settings_win.language_changed.connect(self._on_language_changed)
@@ -874,6 +931,7 @@ class Toolbar(QWidget):
             self._snapshot_win.retranslate()
         if self._info_win and self._info_win.isVisible():
             self._info_win.retranslate()
+        self.language_changed.emit()
 
     def _on_settings_closed(self) -> None:
         self._settings_win = None
@@ -907,29 +965,44 @@ class Toolbar(QWidget):
         self._plus_btn.setToolTip(t("Increase stroke size  []]"))
         self._undo_btn.setToolTip(t("Undo  [Z]"))
         self._clear_btn.setToolTip(t("Clear all  [Del]"))
+        self._vis_btn.setToolTip(t("Show overlay  [H]") if self._vis_btn.isChecked() else t("Hide overlay  [H]"))
         self._custom_btn.setToolTip(t("Custom color…"))
         for tool, btn in self._tool_btns.items():
             _, tip = TOOL_ICONS[tool]
             btn.setToolTip(t(tip))
-        # mode button labels: only update if not in active state
-        if not self._drawing_active:
-            self._draw_btn.setText(t("Draw"))
-        if not self._pan_active:
-            self._pan_btn.setText(t("Pan"))
-        if not self._delete_active:
-            self._del_btn.setText(t("Delete"))
+        self._draw_btn.setText(t("Drawing…") if self._drawing_active else t("Draw"))
+        self._pan_btn.setText(t("Panning…") if self._pan_active else t("Pan"))
+        self._del_btn.setText(t("Deleting…") if self._delete_active else t("Delete"))
 
     # ------------------------------------------------------------------
     # Tool / color / size
     # ------------------------------------------------------------------
 
+    def sync_canvases(self) -> None:
+        """Give every canvas the toolbar's tool, colour, size and visibility: at start, and again whenever the
+        screens (and so the canvases) change."""
+        hidden = self._vis_btn.isChecked()
+        for canvas in self.canvases:
+            canvas.active_tool = self._tool
+            canvas.active_color = self._color
+            canvas.active_width = SIZES[self._size_index]
+            if hidden:
+                canvas.hide()
+
+    def _remember(self, **changes) -> None:
+        if not self._restoring:
+            self._settings_manager.set_toolbar_state(**changes)
+
     def _select_tool(self, tool: Tool) -> None:
+        self._tool = tool
         for key, btn in self._tool_btns.items():
             btn.setChecked(key == tool)
         for canvas in self.canvases:
             canvas.active_tool = tool
+        self._remember(tool=tool.name)
 
     def _select_color(self, color: str, source_btn: QPushButton | None) -> None:
+        """Draw in ``color``; ``source_btn`` is its palette swatch, ``None`` for a custom colour."""
         self._color = color
         self._color_index = self._swatch_btns.index(source_btn) if source_btn in self._swatch_btns else -1
         for i, btn in enumerate(self._swatch_btns):
@@ -939,18 +1012,12 @@ class Toolbar(QWidget):
             btn.setStyleSheet(swatch_style(PALETTE[i], selected))
         for canvas in self.canvases:
             canvas.active_color = color
+        self._remember(color=color)
 
     def _pick_custom_color(self) -> None:
-        color = QColorDialog.getColor(QColor(self._color), self, "Pick color")
+        color = QColorDialog.getColor(QColor(self._color), self, t(PICK_COLOR))
         if color.isValid():
-            self._color = color.name()
-            self._color_index = -1
-            for i, btn in enumerate(self._swatch_btns):
-                btn.setChecked(False)
-                btn.setFixedSize(18, 18)
-                btn.setStyleSheet(swatch_style(PALETTE[i], False))
-            for canvas in self.canvases:
-                canvas.active_color = self._color
+            self._select_color(color.name(), None)
 
     def _size_down(self) -> None:
         if self._size_index > 0:
@@ -967,6 +1034,7 @@ class Toolbar(QWidget):
         self._size_lbl.setText(str(size))
         for canvas in self.canvases:
             canvas.active_width = size
+        self._remember(size=size)
 
     # ------------------------------------------------------------------
     # Mode toggles
@@ -986,7 +1054,7 @@ class Toolbar(QWidget):
         else:
             self._draw_btn.setText(t("Draw"))
             self._draw_btn.setStyleSheet(accent_btn())
-        self._set_panel_style(active=checked)
+        self.update()  # the border is orange while drawing
         for cap in self.captures:
             cap.pan_mode = False
             if checked:
@@ -1058,8 +1126,10 @@ class Toolbar(QWidget):
     # ------------------------------------------------------------------
 
     def _undo(self) -> None:
-        for canvas in self.canvases:
-            canvas.undo()
+        """Take back the latest stroke, on whichever screen it was drawn."""
+        drawn = [canvas for canvas in self.canvases if canvas.strokes]
+        if drawn:
+            max(drawn, key=lambda canvas: canvas.last_drawn_at()).undo()
 
     def _clear(self) -> None:
         for canvas in self.canvases:
@@ -1082,14 +1152,32 @@ class Toolbar(QWidget):
     # Lifecycle
     # ------------------------------------------------------------------
 
-    def _quit(self) -> None:
-        if not self._hotkey_thread.isRunning():
+    def quit(self) -> None:
+        """Quit Vitralis through the application's clean shutdown (which closes this toolbar and stops its
+        hooks); a second call does nothing."""
+        if self._quitting:
             return
-        self._hotkey_thread.stop()
-        self._wheel_thread.stop()
+        self._quitting = True
+        logger.info("quitting")
         QApplication.instance().quit()
 
+    def place(self, default: QPoint) -> None:
+        """Move to where the toolbar was left, when a screen still shows that spot; else to ``default``."""
+        if self._saved_position is not None:
+            saved = QPoint(*self._saved_position)
+            if any(screen.availableGeometry().contains(saved) for screen in QApplication.screens()):
+                self.move(saved)
+                return
+        self.move(default)
+
     def closeEvent(self, event) -> None:
+        """Closed by the session (shutdown, or the licence locking): stop the hooks and close the panels. Closed
+        from outside (Alt+F4, the taskbar, ``taskkill``): quit instead, which comes back here through the
+        session; a closed toolbar must never leave Vitralis running with nothing to drive it."""
+        if event.spontaneous():
+            event.ignore()
+            self.quit()
+            return
         self._hotkey_thread.stop()
         self._wheel_thread.stop()
         if self._updates is not None:
@@ -1110,7 +1198,10 @@ class Toolbar(QWidget):
             self.move(event.globalPosition().toPoint() - self._drag_pos)
 
     def mouseReleaseEvent(self, event) -> None:
-        self._dragging = False
+        if self._dragging:
+            self._dragging = False
+            self._saved_position = [self.x(), self.y()]
+            self._remember(position=self._saved_position)
 
     def paintEvent(self, event) -> None:
         painter = QPainter(self)
