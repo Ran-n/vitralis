@@ -2,12 +2,13 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:10:58.341088
-Revised: 2026/11/13 09:10:58.715220
+Revised: 2026/11/14 00:23:19.187809
 
 The updater's rules, with no I/O and no Qt: release versions and how they compare, which release to offer,
 the file names a release carries, the ``b3sum`` checksum format, and the errors an install can end in.
 """
 
+import enum
 import re
 from dataclasses import dataclass
 
@@ -92,8 +93,23 @@ def update_to_offer(current: Version | None, latest: Release, skipped: str) -> R
     return latest
 
 
+class FeedFailure(enum.Enum):
+    """Why the latest release couldn't be read, as far as the user can do something about it."""
+
+    OFFLINE = "offline"
+    """GitHub couldn't be reached: no connection, a timeout, a broken one."""
+    RATE_LIMITED = "rate_limited"
+    """GitHub takes no more unauthenticated requests from this address for now."""
+    OTHER = "other"
+    """Anything else; the error's text is the reason."""
+
+
 class UpdateError(Exception):
     """An install that couldn't finish; the message is a one-line reason."""
+
+
+class DownloadUnreachable(UpdateError):
+    """The download's server couldn't be reached, or the connection broke on the way."""
 
 
 class ChecksumMismatch(UpdateError):

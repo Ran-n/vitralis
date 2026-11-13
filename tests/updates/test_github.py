@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:06.319135
-Revised: 2026/11/13 09:11:06.710412
+Revised: 2026/11/14 00:23:20.818259
 
 The GitHub release feed (through respx): a real-shaped answer gives the version, page and asset URLs; every
 failure (HTTP status, rate limit, malformed JSON, a bad tag, no connection) becomes a ``ReleaseFeedError``
@@ -16,7 +16,7 @@ import pytest
 import respx
 
 from vitralis.updates.github import RELEASES_URL, GitHubReleases, ReleaseFeedError
-from vitralis.updates.rules import Version
+from vitralis.updates.rules import FeedFailure, Version
 from vitralis.version import USER_AGENT
 
 DOWNLOAD = "https://github.com/Ran-n/vitralis/releases/download/v1.4.0"
@@ -92,15 +92,43 @@ def test_every_failure_is_a_feed_error_with_a_reason(response, reason, caplog):
 @respx.mock
 def test_no_connection_is_a_feed_error():
     respx.get(RELEASES_URL).mock(side_effect=httpx.ConnectError("no route"))
-    with pytest.raises(ReleaseFeedError, match="ConnectError"):
+    with pytest.raises(ReleaseFeedError, match="ConnectError") as raised:
         latest()
+    assert raised.value.kind is FeedFailure.OFFLINE
 
 
 @respx.mock
 def test_a_timeout_is_a_feed_error():
     respx.get(RELEASES_URL).mock(side_effect=httpx.ReadTimeout(""))
-    with pytest.raises(ReleaseFeedError, match="ReadTimeout"):
+    with pytest.raises(ReleaseFeedError, match="ReadTimeout") as raised:
         latest()
+    assert raised.value.kind is FeedFailure.OFFLINE
+
+
+@pytest.mark.parametrize(
+    ("answer_or_error", "kind"),
+    [
+        (httpx.Response(403), FeedFailure.RATE_LIMITED),
+        (httpx.Response(429), FeedFailure.RATE_LIMITED),
+        (httpx.Response(500), FeedFailure.OTHER),
+        (httpx.Response(200, text="not json"), FeedFailure.OTHER),
+        (httpx.TooManyRedirects("loop"), FeedFailure.OTHER),
+    ],
+)
+@respx.mock
+def test_each_failure_says_what_kind_it_is(answer_or_error, kind):
+    """The kind picks the sentence the user reads: only the unexpected show their raw reason."""
+    if isinstance(answer_or_error, Exception):
+        respx.get(RELEASES_URL).mock(side_effect=answer_or_error)
+    else:
+        respx.get(RELEASES_URL).mock(return_value=answer_or_error)
+    with pytest.raises(ReleaseFeedError) as raised:
+        latest()
+    assert raised.value.kind is kind
+
+
+def test_a_feed_error_is_unexpected_unless_said_otherwise():
+    assert ReleaseFeedError("HTTP 500").kind is FeedFailure.OTHER
 
 
 def test_a_feed_off_https_is_refused():

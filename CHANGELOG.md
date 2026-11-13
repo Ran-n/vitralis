@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/13 20:12:34.843177 )
+[//]: # (+ Revised: 	2026/11/14 00:23:15.221459 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -34,8 +34,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - After an in-app update, an installed Vitralis shows its new version in
   Settings → Apps.
 - The landing page's download button gets the installer.
+- The toolbar remembers its tool, color, stroke size and position between
+  runs.
+- The overlay follows the monitors: plugging one in, unplugging it or
+  changing its resolution rebuilds the overlay, each monitor getting its
+  own drawings back.
+- Only one Vitralis runs per Windows account: starting it again brings the
+  running one's toolbar to the front.
+- Errors nothing else caught are written to `vitralis.log`, and Ctrl+C or a
+  termination signal quit through the clean shutdown.
+- A snapshot that can't be saved, loaded or deleted says so in the
+  Snapshots window.
+- Linting, formatting and the tests with a coverage gate run in CI.
+
+### Changed
+
+- Undo takes back the latest stroke on whichever monitor it was drawn,
+  instead of one stroke on every monitor at once.
+- Assigning a shortcut another action already had moves it: the other
+  action is left without one (one key on two actions worked for neither).
+- A failed update check or download caused by the connection, or by
+  GitHub's rate limit, is explained in words in every language instead of
+  with the technical error.
+- `strokes.json`, `settings.json` and the snapshots are written whole or not
+  at all, so a crash can't leave half a file; strokes now carry the time
+  they were drawn.
 
 ### Fixed
+
+- Esc with the toolbar focused while drawing, panning or deleting leaves
+  the mode instead of quitting Vitralis.
+- The toolbar showed stroke size 5 at start while drawing 3 px wide.
+- Hiding Vitralis with the focus key while a mode was on brought the
+  toolbar back saying "Drawing…" with nothing to draw on.
+- A drawing or snapshot that couldn't be saved failed silently; a damaged
+  `strokes.json` could stop the overlay from painting. Failures are now
+  logged, damaged strokes are skipped, and an unreadable file is kept as
+  `strokes.json.damaged`.
+- The first versions' `strokes.json` (a bare list) lost the primary
+  monitor's drawings on the first save of another monitor.
+- A focus shortcut the global hook didn't know (some special keys) could
+  end Vitralis; such a key is now refused. Quitting no longer depends on
+  the hotkey thread being alive.
+- Stopping the global mouse-wheel hook could, rarely, end the process or
+  hang at quit.
+- The tray menu, the Settings title, the color picker's title and the
+  Snapshots title were English only; an active mode's label, the
+  Show/Hide overlay tooltip and the shortcuts' reset tooltips didn't
+  follow a language change.
+- A damaged `settings.json` entry (shortcuts or language of the wrong
+  kind) could stop Vitralis from starting.
+- Closing the toolbar from outside (Alt+F4, `taskkill`) left Vitralis
+  running with no toolbar; it now quits cleanly.
+- The log no longer holds the address of every request, which carried this
+  computer's license activation id.
+
+### Security
+
+- `setuptools` (build only) updated past PYSEC-2026-3447 and
+  GHSA-xmj3-9gf7-h52w.
 
 - The About window, README, CONTRIBUTING and landing page name the license
   version: PayBack License (PBL) v2.0.

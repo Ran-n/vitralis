@@ -64,3 +64,12 @@ markers = [
     "ui: drives real Qt widgets offscreen",
     "live: talks to the real licence server (clavren.breren.com); deselected unless run with -m live",
 ]
+
+[tool.coverage.run]
+branch = true
+source = ["vitralis"]
+omit = ["*/_version.py"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 94

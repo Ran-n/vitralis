@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.370504
-Revised: 2026/11/13 20:11:38.431067
+Revised: 2026/11/14 00:23:19.524389
 
 Shared fixtures for the licence's Qt tests: one offscreen ``QApplication``, a clock, an in-memory Clavren and
 store, a gate wired to them with a fake daily checker, and a way to wait for a worker thread's answer.
@@ -35,6 +35,22 @@ def qapp():
 def icons():
     """The icon folders, which ``main()`` sets up before building any window."""
     init_icons_dir()
+
+
+@pytest.fixture(autouse=True)
+def own_data_folder(monkeypatch, tmp_path_factory):
+    """Every test gets a data folder of its own: none may read or write the real ``%APPDATA%\\Vitralis``."""
+    import vitralis.persistence as persistence
+    import vitralis.settings as settings
+
+    data = tmp_path_factory.mktemp("vitralis-data")  # not in tmp_path, which tests expect to start empty
+    (data / "snapshots").mkdir()
+    monkeypatch.setattr(persistence, "STROKES_FILE", data / "strokes.json")
+    monkeypatch.setattr(persistence, "SNAPSHOTS_DIR", data / "snapshots")
+    monkeypatch.setattr(settings, "SETTINGS_FILE", data / "settings.json")
+    persistence.forget_strokes()
+    yield data
+    persistence.forget_strokes()
 
 
 @pytest.fixture(autouse=True)

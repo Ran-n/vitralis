@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:10.341228
-Revised: 2026/11/13 09:11:10.693358
+Revised: 2026/11/14 00:23:20.897378
 
 What Vitralis says about updates: every sentence is translated into every UI language with the same
 placeholders, and each state's sentence is filled in.
@@ -24,6 +24,7 @@ from vitralis.updates.messages import (
     settings_tooltip,
     updated_message,
 )
+from vitralis.updates.rules import FeedFailure
 
 LANGUAGES = list(_TRANSLATIONS)
 
@@ -41,7 +42,9 @@ STATES = [
     UpdateStatus("1.3.0", latest=release("v1.3.0"), checked_at=NOON),
     OUT,
     UpdateStatus("1.3.0", latest=release("v1.4.0"), newer=True),
-    UpdateStatus("1.3.0", error="HTTP 500"),
+    UpdateStatus("1.3.0", error="HTTP 500", error_kind=FeedFailure.OTHER),
+    UpdateStatus("1.3.0", error="ConnectError: [Errno 11001] getaddrinfo failed", error_kind=FeedFailure.OFFLINE),
+    UpdateStatus("1.3.0", error="GitHub's rate limit was reached (HTTP 403)", error_kind=FeedFailure.RATE_LIMITED),
 ]
 INSTALLS = [
     InstallState(InstallKind.DOWNLOADING, "1.4.0", 5, 10),
@@ -49,6 +52,7 @@ INSTALLS = [
     InstallState(InstallKind.FAILED, "1.4.0", failure=FailureKind.DAMAGED),
     InstallState(InstallKind.FAILED, "1.4.0", failure=FailureKind.NOT_WRITABLE, detail="C:\\Program Files"),
     InstallState(InstallKind.FAILED, "1.4.0", failure=FailureKind.OTHER, detail="denied"),
+    InstallState(InstallKind.FAILED, "1.4.0", failure=FailureKind.OFFLINE),
 ]
 
 
@@ -72,3 +76,24 @@ def test_the_english_sentences():
     assert settings_tooltip(OUT) == "Settings · Vitralis 1.4.0 is out"
     assert settings_tooltip(None) == settings_tooltip(STATES[0]) == "Settings"
     assert updated_message("1.4.0") == "Updated to 1.4.0"
+
+
+@pytest.mark.parametrize("language", LANGUAGES)
+def test_a_connection_failure_never_shows_its_technical_reason(language):
+    """No exception name or error code reaches the screen for what the user can fix: the log keeps those."""
+    set_language(language)
+    for status in STATES[4:]:
+        line = error_line(status)
+        assert line and status.error not in line and "Error" not in line and "HTTP" not in line
+    assert "ConnectError" not in install_line(INSTALLS[5])
+
+
+def test_the_english_failure_sentences():
+    assert error_line(STATES[4]) == (
+        "Couldn't check for updates: GitHub can't be reached. Check your internet connection and try again."
+    )
+    assert error_line(STATES[5]) == (
+        "Couldn't check for updates: GitHub is taking no more requests from this network for now. Try again in an hour."
+    )
+    assert install_line(INSTALLS[5]) == "The download failed. Check your internet connection and try again."
+    assert error_line(UpdateStatus("1.3.0", error="odd")) == "Couldn't check for updates: odd"

@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:07:07.959602 )
-[//]: # (+ Revised: 	2026/11/13 20:12:35.250163 )
+[//]: # (+ Revised: 	2026/11/14 00:23:15.306982 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 Thank you for your interest in contributing.
@@ -50,9 +50,13 @@ Open an issue with:
 
 1. Fork the repository
 2. Branch from `main`
-3. Make your change, with tests; `uv run pytest` must pass (the live
-   license test runs only with `-m live` and `VITRALIS_LICENCE_TEST_KEY`;
-   never commit a license key)
+3. Make your change, with tests; `uv run pytest --cov` must pass, coverage
+   gate included, and so must `uv run ruff format --check .` and
+   `uv run ruff check .` (CI runs all three; the live license test runs only
+   with `-m live` and `VITRALIS_LICENCE_TEST_KEY`; never commit a license
+   key). A new sentence on screen needs its translation in every language
+   of `src/vitralis/translations.py`: `tests/test_translations.py` fails
+   otherwise
 4. Commit following the [Commit Style](#commit-style) below
 5. Open a pull request against `main`
 6. Describe why the change is needed, not just what it does

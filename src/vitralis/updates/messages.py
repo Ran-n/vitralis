@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:02.303928
-Revised: 2026/11/13 09:11:02.685341
+Revised: 2026/11/14 00:23:16.801021
 
 What Vitralis tells the user about updates, in the current UI language: the result of a check, the install
 steps and their failures, the toolbar tooltip and the tray messages. Kept apart from the widgets so every
@@ -11,6 +11,7 @@ sentence is tested in every language without a window.
 
 from vitralis.translations import t
 from vitralis.updates.checker import FailureKind, InstallKind, InstallState, UpdateStatus
+from vitralis.updates.rules import FeedFailure
 
 UPDATES = "Updates"
 CHECK_SWITCH = "Check for new versions"
@@ -19,6 +20,10 @@ OUT = "Vitralis {version} is out"
 OUT_SKIPPED = "Vitralis {version} is out (skipped)"
 UP_TO_DATE = "Vitralis {version} is up to date · checked {time}"
 CHECK_FAILED = "Couldn't check for updates: {reason}"
+CHECK_OFFLINE = "Couldn't check for updates: GitHub can't be reached. Check your internet connection and try again."
+CHECK_RATE_LIMITED = (
+    "Couldn't check for updates: GitHub is taking no more requests from this network for now. Try again in an hour."
+)
 RELEASE_NOTES = "Release notes"
 SKIP = "Skip this version"
 UNSKIP = "Don't skip"
@@ -29,6 +34,7 @@ DOWNLOADING_MB = "Downloading {version}… {mb} MB"
 RESTART = "Restart to update"
 NOT_WRITABLE = "Can't update {dir}: move Vitralis to a folder you can write to, or update by hand"
 DAMAGED = "The download is damaged (checksum mismatch): try again"
+DOWNLOAD_OFFLINE = "The download failed. Check your internet connection and try again."
 INSTALL_FAILED = "Couldn't install the update: {reason}"
 UPDATED = "Updated to {version}"
 
@@ -40,6 +46,8 @@ ALL = (
     OUT_SKIPPED,
     UP_TO_DATE,
     CHECK_FAILED,
+    CHECK_OFFLINE,
+    CHECK_RATE_LIMITED,
     RELEASE_NOTES,
     SKIP,
     UNSKIP,
@@ -50,6 +58,7 @@ ALL = (
     RESTART,
     NOT_WRITABLE,
     DAMAGED,
+    DOWNLOAD_OFFLINE,
     INSTALL_FAILED,
     UPDATED,
 )
@@ -67,7 +76,14 @@ def result_line(status: UpdateStatus) -> str:
 
 
 def error_line(status: UpdateStatus) -> str:
-    return t(CHECK_FAILED).format(reason=status.error) if status.error else ""
+    """Why the last check failed, in words the user can act on; the raw reason only for the unexpected."""
+    if not status.error:
+        return ""
+    if status.error_kind is FeedFailure.OFFLINE:
+        return t(CHECK_OFFLINE)
+    if status.error_kind is FeedFailure.RATE_LIMITED:
+        return t(CHECK_RATE_LIMITED)
+    return t(CHECK_FAILED).format(reason=status.error)
 
 
 def install_line(state: InstallState) -> str:
@@ -81,6 +97,8 @@ def install_line(state: InstallState) -> str:
             return t(DAMAGED)
         if state.failure is FailureKind.NOT_WRITABLE:
             return t(NOT_WRITABLE).format(dir=state.detail)
+        if state.failure is FailureKind.OFFLINE:
+            return t(DOWNLOAD_OFFLINE)
         return t(INSTALL_FAILED).format(reason=state.detail)
     return ""
 

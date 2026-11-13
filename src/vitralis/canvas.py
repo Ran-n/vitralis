@@ -2,10 +2,15 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:03.861492
-Revised: 2026/04/28 15:57:03.861492
+Revised: 2026/11/14 00:23:15.697109
+
+The overlay of one screen: ``Canvas`` shows that screen's strokes and lets every click through; ``DrawCapture``
+sits over it while a mode (draw, pan, delete) is on and turns the mouse into strokes.
 """
 
 import math
+import time
+from collections.abc import Callable
 
 from PyQt6.QtCore import QPointF, QRect, Qt
 from PyQt6.QtGui import QPainter, QPixmap
@@ -37,6 +42,11 @@ class Canvas(QWidget):
         self._pixmap = QPixmap(geometry.size())
         self._pixmap.fill(Qt.GlobalColor.transparent)
 
+    @property
+    def screen_geometry(self) -> QRect:
+        """The screen this canvas covers; its top-left corner names the screen in the saved files."""
+        return self._geo
+
     def load(self, strokes: list[Stroke]) -> None:
         self.strokes = strokes
         self._redraw_pixmap()
@@ -48,6 +58,7 @@ class Canvas(QWidget):
             color=self.active_color,
             width=self.active_width,
             points=[[pos.x(), pos.y()]],
+            created=time.time(),
         )
         self.drawing = True
 
@@ -70,6 +81,10 @@ class Canvas(QWidget):
         self.current = None
         self.drawing = False
         self.update()
+
+    def last_drawn_at(self) -> float | None:
+        """When this screen's latest stroke was drawn; ``None`` without strokes."""
+        return self.strokes[-1].created if self.strokes else None
 
     def undo(self) -> None:
         if self.strokes:
@@ -154,7 +169,7 @@ class Canvas(QWidget):
 class DrawCapture(QWidget):
     """Invisible full-screen widget that captures mouse events while a tool is active."""
 
-    def __init__(self, canvas: Canvas, geometry: QRect, stop_active, toolbar: list) -> None:
+    def __init__(self, canvas: Canvas, geometry: QRect, stop_active: Callable[[], None], toolbar: list) -> None:
         super().__init__()
         self.canvas = canvas
         self._stop_active = stop_active
@@ -202,6 +217,14 @@ class DrawCapture(QWidget):
                 self.canvas.apply_offset()
             elif not self.delete_mode:
                 self.canvas.end_stroke()
+
+    def closeEvent(self, event) -> None:
+        """Alt+F4 while a mode is on leaves the mode; only the session closes a capture for good."""
+        if event.spontaneous():
+            event.ignore()
+            self._stop_active()
+            return
+        event.accept()
 
     def keyPressEvent(self, event) -> None:
         if event.key() == Qt.Key.Key_Escape:

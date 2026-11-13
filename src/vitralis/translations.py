@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 08:16:03.814171
-Revised: 2026/11/13 09:11:15.001708
+Revised: 2026/11/14 00:23:16.305103
 """
 
 # fmt: off
@@ -124,6 +124,16 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "The download is damaged (checksum mismatch): try again": "A descarga está danada (a suma de comprobación non coincide): téntao de novo",
         "Couldn't install the update: {reason}": "Non se puido instalar a actualización: {reason}",
         "Updated to {version}": "Actualizado a {version}",
+        # tray menu, colour picker, snapshot and connection failures
+        "Pick color": "Escoller cor",
+        "Show toolbar": "Mostrar a barra de ferramentas",
+        "Hide toolbar": "Ocultar a barra de ferramentas",
+        "The snapshot couldn't be saved. Try another name.": "Non se puido gardar a instantánea. Proba con outro nome.",
+        "The snapshot couldn't be loaded: its file is damaged or gone.": "Non se puido cargar a instantánea: o seu ficheiro está danado ou xa non existe.",
+        "The snapshot couldn't be deleted.": "Non se puido eliminar a instantánea.",
+        "Couldn't check for updates: GitHub can't be reached. Check your internet connection and try again.": "Non se puideron buscar actualizacións: non se pode contactar con GitHub. Revisa a túa conexión a internet e téntao de novo.",
+        "Couldn't check for updates: GitHub is taking no more requests from this network for now. Try again in an hour.": "Non se puideron buscar actualizacións: GitHub non acepta máis peticións desta rede polo de agora. Téntao de novo dentro dunha hora.",
+        "The download failed. Check your internet connection and try again.": "A descarga fallou. Revisa a túa conexión a internet e téntao de novo.",
     },
     "Galego reintegrado": {
         # info window
@@ -238,6 +248,16 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "The download is damaged (checksum mismatch): try again": "A descarga está danada (a soma de verificaçom nom coincide): tenta-o de novo",
         "Couldn't install the update: {reason}": "Nom se pudo instalar a atualizaçom: {reason}",
         "Updated to {version}": "Atualizado a {version}",
+        # tray menu, colour picker, snapshot and connection failures
+        "Pick color": "Escolher cor",
+        "Show toolbar": "Mostrar a barra de ferramentas",
+        "Hide toolbar": "Ocultar a barra de ferramentas",
+        "The snapshot couldn't be saved. Try another name.": "Nom se pudo guardar a instantânea. Tenta com outro nome.",
+        "The snapshot couldn't be loaded: its file is damaged or gone.": "Nom se pudo carregar a instantânea: o seu ficheiro está danado ou já nom existe.",
+        "The snapshot couldn't be deleted.": "Nom se pudo eliminar a instantânea.",
+        "Couldn't check for updates: GitHub can't be reached. Check your internet connection and try again.": "Nom se pudo procurar atualizaçons: nom é possível contactar com o GitHub. Revê a tua ligaçom à internet e tenta de novo.",
+        "Couldn't check for updates: GitHub is taking no more requests from this network for now. Try again in an hour.": "Nom se pudo procurar atualizaçons: o GitHub nom aceita mais pedidos desta rede por agora. Tenta de novo dentro de umha hora.",
+        "The download failed. Check your internet connection and try again.": "A descarga falhou. Revê a tua ligaçom à internet e tenta de novo.",
     },
     "Español": {
         # info window
@@ -346,6 +366,16 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "The download is damaged (checksum mismatch): try again": "La descarga está dañada (la suma de comprobación no coincide): inténtalo de nuevo",
         "Couldn't install the update: {reason}": "No se pudo instalar la actualización: {reason}",
         "Updated to {version}": "Actualizado a {version}",
+        # tray menu, colour picker, snapshot and connection failures
+        "Pick color": "Elegir color",
+        "Show toolbar": "Mostrar la barra de herramientas",
+        "Hide toolbar": "Ocultar la barra de herramientas",
+        "The snapshot couldn't be saved. Try another name.": "No se pudo guardar la instantánea. Prueba con otro nombre.",
+        "The snapshot couldn't be loaded: its file is damaged or gone.": "No se pudo cargar la instantánea: su archivo está dañado o ya no existe.",
+        "The snapshot couldn't be deleted.": "No se pudo eliminar la instantánea.",
+        "Couldn't check for updates: GitHub can't be reached. Check your internet connection and try again.": "No se pudieron buscar actualizaciones: no se puede contactar con GitHub. Revisa tu conexión a internet e inténtalo de nuevo.",
+        "Couldn't check for updates: GitHub is taking no more requests from this network for now. Try again in an hour.": "No se pudieron buscar actualizaciones: GitHub no acepta más peticiones desde esta red por ahora. Inténtalo de nuevo dentro de una hora.",
+        "The download failed. Check your internet connection and try again.": "La descarga ha fallado. Revisa tu conexión a internet e inténtalo de nuevo.",
     },
     "Português": {
         # info window
@@ -460,6 +490,16 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "The download is damaged (checksum mismatch): try again": "A transferência está danificada (a soma de verificação não coincide): tente novamente",
         "Couldn't install the update: {reason}": "Não foi possível instalar a atualização: {reason}",
         "Updated to {version}": "Atualizado para {version}",
+        # tray menu, colour picker, snapshot and connection failures
+        "Pick color": "Escolher cor",
+        "Show toolbar": "Mostrar a barra de ferramentas",
+        "Hide toolbar": "Ocultar a barra de ferramentas",
+        "The snapshot couldn't be saved. Try another name.": "Não foi possível guardar o instantâneo. Tente outro nome.",
+        "The snapshot couldn't be loaded: its file is damaged or gone.": "Não foi possível carregar o instantâneo: o ficheiro está danificado ou já não existe.",
+        "The snapshot couldn't be deleted.": "Não foi possível eliminar o instantâneo.",
+        "Couldn't check for updates: GitHub can't be reached. Check your internet connection and try again.": "Não foi possível procurar atualizações: não é possível contactar o GitHub. Verifique a sua ligação à internet e tente novamente.",
+        "Couldn't check for updates: GitHub is taking no more requests from this network for now. Try again in an hour.": "Não foi possível procurar atualizações: o GitHub não aceita mais pedidos desta rede por agora. Tente novamente dentro de uma hora.",
+        "The download failed. Check your internet connection and try again.": "A transferência falhou. Verifique a sua ligação à internet e tente novamente.",
     },
     "Français": {
         # info window
@@ -574,6 +614,16 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "The download is damaged (checksum mismatch): try again": "Le téléchargement est endommagé (somme de contrôle incorrecte) : réessayez",
         "Couldn't install the update: {reason}": "Impossible d’installer la mise à jour : {reason}",
         "Updated to {version}": "Mis à jour vers {version}",
+        # tray menu, colour picker, snapshot and connection failures
+        "Pick color": "Choisir une couleur",
+        "Show toolbar": "Afficher la barre d'outils",
+        "Hide toolbar": "Masquer la barre d'outils",
+        "The snapshot couldn't be saved. Try another name.": "Impossible d'enregistrer l'instantané. Essayez un autre nom.",
+        "The snapshot couldn't be loaded: its file is damaged or gone.": "Impossible de charger l'instantané : son fichier est endommagé ou n'existe plus.",
+        "The snapshot couldn't be deleted.": "Impossible de supprimer l'instantané.",
+        "Couldn't check for updates: GitHub can't be reached. Check your internet connection and try again.": "Impossible de rechercher les mises à jour : GitHub est injoignable. Vérifiez votre connexion Internet et réessayez.",
+        "Couldn't check for updates: GitHub is taking no more requests from this network for now. Try again in an hour.": "Impossible de rechercher les mises à jour : GitHub n'accepte plus de requêtes depuis ce réseau pour le moment. Réessayez dans une heure.",
+        "The download failed. Check your internet connection and try again.": "Le téléchargement a échoué. Vérifiez votre connexion Internet et réessayez.",
     },
     "Deutsch": {
         # info window
@@ -688,6 +738,16 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "The download is damaged (checksum mismatch): try again": "Der Download ist beschädigt (Prüfsumme stimmt nicht): bitte erneut versuchen",
         "Couldn't install the update: {reason}": "Das Update konnte nicht installiert werden: {reason}",
         "Updated to {version}": "Aktualisiert auf {version}",
+        # tray menu, colour picker, snapshot and connection failures
+        "Pick color": "Farbe wählen",
+        "Show toolbar": "Werkzeugleiste anzeigen",
+        "Hide toolbar": "Werkzeugleiste ausblenden",
+        "The snapshot couldn't be saved. Try another name.": "Der Schnappschuss konnte nicht gespeichert werden. Versuche einen anderen Namen.",
+        "The snapshot couldn't be loaded: its file is damaged or gone.": "Der Schnappschuss konnte nicht geladen werden: Seine Datei ist beschädigt oder nicht mehr vorhanden.",
+        "The snapshot couldn't be deleted.": "Der Schnappschuss konnte nicht gelöscht werden.",
+        "Couldn't check for updates: GitHub can't be reached. Check your internet connection and try again.": "Updates konnten nicht gesucht werden: GitHub ist nicht erreichbar. Prüfe deine Internetverbindung und versuche es erneut.",
+        "Couldn't check for updates: GitHub is taking no more requests from this network for now. Try again in an hour.": "Updates konnten nicht gesucht werden: GitHub nimmt von diesem Netzwerk vorerst keine Anfragen mehr an. Versuche es in einer Stunde erneut.",
+        "The download failed. Check your internet connection and try again.": "Der Download ist fehlgeschlagen. Prüfe deine Internetverbindung und versuche es erneut.",
     },
     "中文": {
         # info window
@@ -802,6 +862,16 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "The download is damaged (checksum mismatch): try again": "下载已损坏（校验和不匹配）：请重试",
         "Couldn't install the update: {reason}": "无法安装更新：{reason}",
         "Updated to {version}": "已更新到 {version}",
+        # tray menu, colour picker, snapshot and connection failures
+        "Pick color": "选择颜色",
+        "Show toolbar": "显示工具栏",
+        "Hide toolbar": "隐藏工具栏",
+        "The snapshot couldn't be saved. Try another name.": "无法保存快照。请换一个名称再试。",
+        "The snapshot couldn't be loaded: its file is damaged or gone.": "无法加载快照：其文件已损坏或不存在。",
+        "The snapshot couldn't be deleted.": "无法删除快照。",
+        "Couldn't check for updates: GitHub can't be reached. Check your internet connection and try again.": "无法检查更新：无法连接 GitHub。请检查网络连接后重试。",
+        "Couldn't check for updates: GitHub is taking no more requests from this network for now. Try again in an hour.": "无法检查更新：GitHub 暂时不再接受来自此网络的请求。请一小时后重试。",
+        "The download failed. Check your internet connection and try again.": "下载失败。请检查网络连接后重试。",
     },
     "日本語": {
         # info window
@@ -916,6 +986,16 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "The download is damaged (checksum mismatch): try again": "ダウンロードが破損しています（チェックサム不一致）：もう一度お試しください",
         "Couldn't install the update: {reason}": "アップデートをインストールできませんでした：{reason}",
         "Updated to {version}": "{version} に更新しました",
+        # tray menu, colour picker, snapshot and connection failures
+        "Pick color": "色を選択",
+        "Show toolbar": "ツールバーを表示",
+        "Hide toolbar": "ツールバーを隠す",
+        "The snapshot couldn't be saved. Try another name.": "スナップショットを保存できませんでした。別の名前でお試しください。",
+        "The snapshot couldn't be loaded: its file is damaged or gone.": "スナップショットを読み込めませんでした：ファイルが破損しているか、存在しません。",
+        "The snapshot couldn't be deleted.": "スナップショットを削除できませんでした。",
+        "Couldn't check for updates: GitHub can't be reached. Check your internet connection and try again.": "アップデートを確認できませんでした：GitHub に接続できません。インターネット接続を確認して、もう一度お試しください。",
+        "Couldn't check for updates: GitHub is taking no more requests from this network for now. Try again in an hour.": "アップデートを確認できませんでした：GitHub は現在このネットワークからのリクエストを受け付けていません。1 時間後にもう一度お試しください。",
+        "The download failed. Check your internet connection and try again.": "ダウンロードに失敗しました。インターネット接続を確認して、もう一度お試しください。",
     },
 }
 # fmt: on
@@ -924,15 +1004,11 @@ _current_lang = "English"
 
 
 def set_language(lang: str) -> None:
+    """Speak ``lang`` (a language as Settings names it); a name without a table reads as English."""
     global _current_lang
     _current_lang = lang
 
 
 def t(key: str) -> str:
     table = _TRANSLATIONS.get(_current_lang, {})
-    return table.get(key, key)
-
-
-def tool_tip(lang: str, key: str) -> str:
-    table = _TRANSLATIONS.get(lang, {})
     return table.get(key, key)

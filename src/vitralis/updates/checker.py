@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:01.548894
-Revised: 2026/11/13 09:11:01.961701
+Revised: 2026/11/14 00:23:16.448983
 
 Asks for the latest release at start (after ``FIRST_CHECK_DELAY_MS``, so start-up isn't slowed) and then
 every ``UPDATE_CHECK_EVERY``, and, in the packaged exe, downloads and installs it on request. The network work
@@ -26,6 +26,8 @@ from vitralis.updates.github import ReleaseFeed, ReleaseFeedError
 from vitralis.updates.install import can_write, pending, swap_and_start
 from vitralis.updates.rules import (
     ChecksumMismatch,
+    DownloadUnreachable,
+    FeedFailure,
     Release,
     UpdateCancelled,
     UpdateError,
@@ -68,6 +70,8 @@ class FailureKind(enum.Enum):
     """The checksum didn't match."""
     NOT_WRITABLE = "not_writable"
     """The exe's folder can't be written to; ``detail`` is the folder."""
+    OFFLINE = "offline"
+    """The download's server couldn't be reached, or the connection broke."""
     OTHER = "other"
     """``detail`` is the reason."""
 
@@ -97,6 +101,9 @@ class UpdateStatus:
     """``latest`` is newer than the running version, skipped or not."""
     checked_at: dt.datetime | None = None
     error: str = ""
+    """Why the last check failed, for the log and for failures the user can't act on; ``""`` when it worked."""
+    error_kind: FeedFailure | None = None
+    """What kind of failure ``error`` is; ``None`` when the last check worked."""
     install: InstallState = field(default_factory=InstallState)
     can_install: bool = False
     """This is the packaged exe and the offered release carries an exe with a checksum."""
@@ -123,8 +130,8 @@ class UpdateChecker(QObject):
     """The ``UpdateStatus``, on the UI thread, after every check, skip and install step."""
     busy_changed = pyqtSignal(bool)
     """Whether a check is under way."""
-    _checked = pyqtSignal(object, object)
-    """(release or ``None``, error text or ``None``) from the check thread."""
+    _checked = pyqtSignal(object, object, object)
+    """(release or ``None``, error text or ``None``, its ``FeedFailure`` or ``None``) from the check thread."""
     _install_step = pyqtSignal(object)
     """An ``InstallState`` from the download or pending thread."""
 
@@ -147,6 +154,7 @@ class UpdateChecker(QObject):
         self._latest: Release | None = None
         self._checked_at: dt.datetime | None = None
         self._error = ""
+        self._error_kind: FeedFailure | None = None
         self._install = InstallState()
         self._announced: set[Version] = set()
         self._stop = threading.Event()
@@ -209,23 +217,23 @@ class UpdateChecker(QObject):
 
         def worker() -> None:
             try:
-                self._checked.emit(self._feed.latest(), None)
+                self._checked.emit(self._feed.latest(), None, None)
             except ReleaseFeedError as ex:
-                self._checked.emit(None, str(ex))
+                self._checked.emit(None, str(ex), ex.kind)
             except Exception as ex:  # a bug must not leave Check now dimmed for ever
                 logger.exception("the update check failed unexpectedly")
-                self._checked.emit(None, f"{type(ex).__name__}: {ex}")
+                self._checked.emit(None, f"{type(ex).__name__}: {ex}", FeedFailure.OTHER)
 
         threading.Thread(target=worker, name="vitralis-update-check", daemon=True).start()
 
-    def _on_checked(self, release: Release | None, error: str | None) -> None:
+    def _on_checked(self, release: Release | None, error: str | None, kind: FeedFailure | None) -> None:
         if release is not None:
-            self._latest, self._error, self._checked_at = release, "", self._clock()
+            self._latest, self._error, self._error_kind, self._checked_at = release, "", None, self._clock()
             if is_newer(self._current, release) and release.version not in self._announced:
                 self._announced.add(release.version)
                 logger.info("version %s is out (running %s)", release.version, self._current_text)
         else:
-            self._error = error or ""
+            self._error, self._error_kind = error or "", kind or FeedFailure.OTHER
         self._set_busy(False)
         self._publish()
 
@@ -280,6 +288,9 @@ class UpdateChecker(QObject):
                 self._install_step.emit(InstallState())
             except ChecksumMismatch:
                 self._install_step.emit(InstallState(InstallKind.FAILED, version, failure=FailureKind.DAMAGED))
+            except DownloadUnreachable as ex:
+                logger.warning("couldn't download %s: %s", version, ex)
+                self._install_step.emit(InstallState(InstallKind.FAILED, version, failure=FailureKind.OFFLINE))
             except UpdateError as ex:
                 logger.warning("couldn't download %s: %s", version, ex)
                 self._install_step.emit(
@@ -342,6 +353,7 @@ class UpdateChecker(QObject):
             newer=latest is not None and is_newer(self._current, latest),
             checked_at=self._checked_at,
             error=self._error,
+            error_kind=self._error_kind if self._error else None,
             install=self._install,
             can_install=self._installer is not None and offered is not None and offered.installable,
         )

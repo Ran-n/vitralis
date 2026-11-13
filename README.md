@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/04/27 10:48:03.565778 )
-[//]: # (+ Revised: 	2026/11/13 20:12:34.123466 )
+[//]: # (+ Revised: 	2026/11/14 00:23:15.400308 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 ![Vitralis icon](src/vitralis/media/logo/icon_title.png)
@@ -21,11 +21,13 @@ Draw annotations, shapes, and marks directly over your live desktop. They stay �
 - Drawing activated via a small floating toolbar; finishes automatically after each stroke
 - Tools: freehand pen, eraser, rectangle, ellipse, line, arrow
 - Color palette with custom color picker, stroke size control, and scroll-wheel color cycling
-- Per-stroke undo and click-to-delete individual strokes
+- Per-stroke undo (the latest stroke, whichever monitor it is on) and click-to-delete individual strokes
 - Pan mode — drag all drawings to reposition them
-- Drawings persist across restarts (JSON stroke list, per-monitor)
+- Drawings persist across restarts (JSON stroke list, per-monitor), and so do the toolbar's tool, color, size and position
+- Named snapshots: save the drawings of every monitor and load them back later
+- Follows your monitors: plug one in, unplug it or change its resolution and the overlay adapts
 - Show/hide overlay without losing drawings
-- System tray icon — lives quietly in the background
+- System tray icon — lives quietly in the background; starting Vitralis again just brings its toolbar back
 - Info panel — version, author, and license at a glance
 - License key — activated once per computer, works offline for up to 30 days
 - Tells you when a new version is out (Settings → Updates), and installs it from inside the app
@@ -74,13 +76,22 @@ Or directly:
 uv run python -m vitralis
 ```
 
-Logs go to `%APPDATA%\Vitralis\vitralis.log`.
+Logs go to `%APPDATA%\Vitralis\vitralis.log`, errors nothing else caught included. Only one Vitralis runs per Windows account.
 
 ## Tests
 
 ```
 uv run pytest
 ```
+
+With the coverage gate (branch coverage of `src/vitralis`, as CI runs it), and the linter:
+
+```
+uv run pytest --cov
+uv run ruff format --check . && uv run ruff check .
+```
+
+The tests never touch your own `%APPDATA%\Vitralis`: each one gets a data folder of its own.
 
 The contract test against the real license server is left out of the default run. Run it with a Vitralis test license's key in an environment variable (never write a key in the repository; each run adds an activation named `<computer> (live test)`):
 
@@ -116,7 +127,7 @@ It builds the one-file exe `dist/vitralis-<version>.exe` (PyInstaller) and, from
 | `H` | Hide/show overlay | `O` | Ellipse |
 | `[` / `]` | Decrease / increase size | `Right-click` | Exit active mode |
 | `Scroll wheel` | Cycle through palette colors | | |
-| `Esc` | Quit if idle | `Ctrl+Q` | Quit |
+| `Esc` | Close the open panel, else leave the active mode, else quit | `Ctrl+Q` | Quit |
 
 ## License
 

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:09.620591
-Revised: 2026/11/13 09:11:09.987505
+Revised: 2026/11/14 00:23:20.966640
 
 Settings → Updates on the offscreen ``QApplication``, driven by a real ``UpdateChecker`` with a fake feed: each
 state shows the right texts and enabled buttons (up to date, out, out (skipped), error, checking, and the
@@ -147,14 +147,17 @@ def test_install_download_and_restart_states(qapp, build, tmp_path):
     [
         ("damaged", "The download is damaged (checksum mismatch): try again"),
         ("not_writable", "Can't update {dir}: move Vitralis to a folder you can write to, or update by hand"),
+        ("offline", "The download failed. Check your internet connection and try again."),
     ],
 )
 def test_install_failures_show_why(qapp, build, tmp_path, setup, text):
-    from vitralis.updates.rules import ChecksumMismatch
+    from vitralis.updates.rules import ChecksumMismatch, DownloadUnreachable
 
     fake = FakeInstall(tmp_path)
     if setup == "damaged":
         fake.outcome = ChecksumMismatch("x")
+    elif setup == "offline":
+        fake.outcome = DownloadUnreachable("ConnectError: offline")
     else:
         fake.writable = False
     checker, section, _ = build(installer=fake.installer())
@@ -198,3 +201,15 @@ def test_the_settings_window_shows_updates_before_license(qapp, icons, make_gate
     no_updates = SettingsWindow(SettingsManager())
     assert no_updates.updates_section is None
     no_updates.deleteLater()
+
+
+def test_no_connection_shows_a_sentence_not_the_exception(qapp, build):
+    from vitralis.updates.github import ReleaseFeedError
+    from vitralis.updates.rules import FeedFailure
+
+    feed = FakeFeed(ReleaseFeedError("ConnectError: [Errno 11001] getaddrinfo failed", FeedFailure.OFFLINE))
+    checker, section, _ = build(feed=feed)
+    check(qapp, checker)
+    assert section.error_label.text() == (
+        "Couldn't check for updates: GitHub can't be reached. Check your internet connection and try again."
+    )

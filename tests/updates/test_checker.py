@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:08.909997
-Revised: 2026/11/13 09:11:09.277277
+Revised: 2026/11/14 00:23:20.294878
 
 The update checker on the offscreen ``QApplication``: checks run off the UI thread and come back as one
 ``UpdateStatus``; skip and Don't skip need no new check; errors are shown and never leave it busy; the timer
@@ -24,7 +24,8 @@ from vitralis.updates.checker import (
     InstallKind,
     UpdateChecker,
 )
-from vitralis.updates.rules import ChecksumMismatch, UpdateCancelled, UpdateError
+from vitralis.updates.github import ReleaseFeedError
+from vitralis.updates.rules import ChecksumMismatch, DownloadUnreachable, FeedFailure, UpdateCancelled, UpdateError
 
 
 class Recorder:
@@ -100,6 +101,7 @@ def test_a_feed_error_is_shown_and_keeps_the_latest(qapp, make):
     check(qapp, checker)
     status = seen.statuses[-1]
     assert status.error == str(OFFLINE) and status.latest == release("v1.4.0")
+    assert status.error_kind is FeedFailure.OTHER
     feed.answer = release("v1.4.0")
     check(qapp, checker)
     assert seen.statuses[-1].error == ""
@@ -256,6 +258,7 @@ def test_a_failed_swap_shows_why_and_does_not_quit(qapp, make, fake_install):
     ("outcome", "failure"),
     [
         (ChecksumMismatch("mismatch"), FailureKind.DAMAGED),
+        (DownloadUnreachable("ConnectError: offline"), FailureKind.OFFLINE),
         (UpdateError("HTTP 500 for the exe"), FailureKind.OTHER),
         (RuntimeError("bug"), FailureKind.OTHER),
     ],
@@ -320,3 +323,21 @@ def test_install_steps_are_logged(qapp, make, fake_install, caplog):
         wait_until(qapp, lambda: checker.status.install.kind is InstallKind.READY)
     messages = [r.getMessage() for r in caplog.records]
     assert "update install: downloading 1.4.0" in messages and "update install: ready 1.4.0" in messages
+
+
+@pytest.mark.parametrize("kind", [FeedFailure.OFFLINE, FeedFailure.RATE_LIMITED])
+def test_the_kind_of_a_feed_error_reaches_the_status_and_clears_with_the_next_good_check(qapp, make, kind):
+    feed = FakeFeed(ReleaseFeedError("ConnectError: no route", kind))
+    checker, seen = make(feed=feed)
+    check(qapp, checker)
+    assert seen.statuses[-1].error_kind is kind and seen.statuses[-1].error
+    feed.answer = release("v1.4.0")
+    check(qapp, checker)
+    assert seen.statuses[-1].error == "" and seen.statuses[-1].error_kind is None
+
+
+def test_an_unexpected_error_in_the_check_is_of_the_other_kind(qapp, make, caplog):
+    checker, seen = make(feed=FakeFeed(RuntimeError("bug")))
+    with caplog.at_level(logging.ERROR, "vitralis.updates.checker"):
+        check(qapp, checker)
+    assert seen.statuses[-1].error_kind is FeedFailure.OTHER and "RuntimeError" in seen.statuses[-1].error
