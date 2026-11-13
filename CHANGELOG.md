@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/13 09:11:18.222034 )
+[//]: # (+ Revised: 	2026/11/13 19:58:16.667754 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -23,6 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and checks its BLAKE3 checksum, **Restart to update** replaces the exe at
   the same path and starts the new version, going back to the old one if
   anything fails.
+- A Windows installer, `vitralis-<version>-setup.exe`, built by
+  `uv run build` with Inno Setup: installs for the current user without an
+  admin prompt, adds a Start menu entry and, optionally, a desktop shortcut
+  and starting at sign-in, and uninstalls from Settings → Apps keeping the
+  settings, drawings and license. The portable exe is still released.
+- After an in-app update, an installed Vitralis shows its new version in
+  Settings → Apps.
+- The landing page's download button gets the installer.
 
 ### Fixed
 
