@@ -2,10 +2,11 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 19:56:04.131186
-Revised: 2026/11/13 19:56:29.473419
+Revised: 2026/11/13 20:12:35.773023
 
-The installed-apps entry follows in-app updates: against a real registry key under ``HKEY_CURRENT_USER``, made
-for each test the way Inno Setup writes it and deleted afterwards (the real installer's key is never touched).
+What the installer leaves in the registry: the installed-apps entry following in-app updates, and the language
+the installer ran in. Against real keys under ``HKEY_CURRENT_USER``, made for each test the way Inno Setup writes
+them and deleted afterwards (the real installer's keys are never touched).
 """
 
 import logging
@@ -19,7 +20,13 @@ pytestmark = pytest.mark.skipif(sys.platform != "win32", reason="the installed-a
 if sys.platform == "win32":
     import winreg
 
-    from vitralis.updates.registration import INSTALLER_GUID, UNINSTALL_KEY, sync_installed_version
+    from vitralis.installed import (
+        INSTALLER_GUID,
+        LANGUAGE_VALUE,
+        UNINSTALL_KEY,
+        installer_language,
+        sync_installed_version,
+    )
 
 
 @pytest.fixture
@@ -50,7 +57,7 @@ def values(path: str) -> dict[str, object]:
 
 def test_the_installed_exe_sets_its_version(entry, caplog):
     path, exe = entry
-    with caplog.at_level(logging.INFO, "vitralis.updates.registration"):
+    with caplog.at_level(logging.INFO, "vitralis.installed"):
         assert sync_installed_version(exe, "2.4.1", path)
     assert values(path) == {
         "DisplayVersion": "2.4.1",
@@ -88,7 +95,7 @@ def test_a_version_without_numbers_still_shows_but_keeps_the_numbers(entry):
 
 
 def test_no_entry_is_a_portable_exe_and_quiet(tmp_path, caplog):
-    with caplog.at_level(logging.WARNING, "vitralis.updates.registration"):
+    with caplog.at_level(logging.WARNING, "vitralis.installed"):
         assert not sync_installed_version(tmp_path / "Vitralis.exe", "1.4.0", rf"Software\VitralisTests\{uuid.uuid4()}")
     assert caplog.records == []
 
@@ -97,7 +104,7 @@ def test_an_unreadable_entry_is_logged(entry, caplog):
     path, exe = entry
     with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_SET_VALUE) as key:
         winreg.DeleteValue(key, "DisplayVersion")
-    with caplog.at_level(logging.WARNING, "vitralis.updates.registration"):
+    with caplog.at_level(logging.WARNING, "vitralis.installed"):
         assert not sync_installed_version(exe, "1.4.0", path)
     assert any("can't be read" in r.getMessage() for r in caplog.records)
 
@@ -109,7 +116,7 @@ def test_a_failed_write_is_logged(entry, monkeypatch, caplog):
         raise PermissionError("access denied")
 
     monkeypatch.setattr(winreg, "SetValueEx", refuse)
-    with caplog.at_level(logging.WARNING, "vitralis.updates.registration"):
+    with caplog.at_level(logging.WARNING, "vitralis.installed"):
         assert not sync_installed_version(exe, "1.4.0", path)
     assert any("couldn't set" in r.getMessage() for r in caplog.records)
 
@@ -119,3 +126,42 @@ def test_the_key_is_the_one_inno_setup_writes_for_the_installer():
     assert prefix == r"Software\Microsoft\Windows\CurrentVersion\Uninstall"
     assert name == "{" + INSTALLER_GUID + "}_is1"
     assert str(uuid.UUID(INSTALLER_GUID)).upper() == INSTALLER_GUID
+
+
+@pytest.fixture
+def app_key():
+    """A throwaway stand-in for the installer's own key (``vitralis.installed.APP_KEY``)."""
+    path = rf"Software\VitralisTests\{uuid.uuid4()}"
+    winreg.CreateKey(winreg.HKEY_CURRENT_USER, path).Close()
+    yield path
+    winreg.DeleteKey(winreg.HKEY_CURRENT_USER, path)
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, r"Software\VitralisTests") as parent:
+        try:
+            winreg.EnumKey(parent, 0)
+        except OSError:
+            winreg.DeleteKey(winreg.HKEY_CURRENT_USER, r"Software\VitralisTests")
+
+
+def set_value(path: str, value, kind) -> None:
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_SET_VALUE) as key:
+        winreg.SetValueEx(key, LANGUAGE_VALUE, 0, kind, value)
+
+
+def test_the_installers_language_is_read(app_key):
+    set_value(app_key, "Galego reintegrado", winreg.REG_SZ)
+    assert installer_language(app_key) == "Galego reintegrado"
+
+
+def test_no_key_or_no_value_is_no_language(app_key, caplog):
+    with caplog.at_level(logging.WARNING, "vitralis.installed"):
+        assert installer_language(app_key) is None
+        assert installer_language(rf"Software\VitralisTests\{uuid.uuid4()}") is None
+    assert caplog.records == []
+
+
+@pytest.mark.parametrize("value", [7, ""])
+def test_a_value_that_isnt_a_name_is_logged(app_key, caplog, value):
+    set_value(app_key, value, winreg.REG_DWORD if isinstance(value, int) else winreg.REG_SZ)
+    with caplog.at_level(logging.WARNING, "vitralis.installed"):
+        assert installer_language(app_key) is None
+    assert any("isn't a name" in r.getMessage() for r in caplog.records)

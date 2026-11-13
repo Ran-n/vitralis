@@ -2,21 +2,26 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 19:56:03.727418
-Revised: 2026/11/13 19:56:10.815870
+Revised: 2026/11/13 20:11:33.960447
 
-Keeps the installer's entry in Windows's installed apps (Settings → Apps, Control Panel) on the version that
-really runs. The installer writes it once; an in-app update swaps the exe without the installer, so the entry
-would keep the old version. At start the packaged exe sets it right, but only when it runs from the folder the
-installer put it in: a portable copy elsewhere leaves an installed one's entry alone.
+What the installer leaves in the registry, under ``HKEY_CURRENT_USER``, and what Vitralis does with it.
+
+- Its entry in Windows's installed apps (Settings → Apps). The installer writes the version once; an in-app
+  update swaps the exe without the installer, so at start the packaged exe sets the entry to the version that
+  really runs, but only from the folder the installer put it in: a portable copy elsewhere leaves it alone.
+- The language the installer ran in, which Vitralis starts in until one is picked in Settings.
 """
 
 import logging
-import winreg
+import sys
 from pathlib import Path
+
+if sys.platform == "win32":
+    import winreg
 
 from vitralis.updates.rules import parse_version_or_none
 
-logger = logging.getLogger("vitralis.updates.registration")
+logger = logging.getLogger("vitralis.installed")
 
 INSTALLER_GUID = "AB080C02-6AA8-4842-973A-AA93F9C4E128"
 """The installer's ``AppId`` (``installer/vitralis.iss`` gets it from ``build``). Never change it: Windows
@@ -26,6 +31,10 @@ UNINSTALL_KEY = rf"Software\Microsoft\Windows\CurrentVersion\Uninstall\{{{INSTAL
 MAJOR_NAMES = ("MajorVersion", "VersionMajor")
 MINOR_NAMES = ("MinorVersion", "VersionMinor")
 """Inno Setup writes the version's numbers under both names, as DWORDs, beside ``DisplayVersion``."""
+APP_KEY = r"Software\Vitralis"
+"""The installer's own key; ``installer/vitralis.iss`` deletes it on uninstall."""
+LANGUAGE_VALUE = "Language"
+"""A language as Settings names it (``Galego``, ``日本語``): the one the installer ran in."""
 
 
 def _same_folder(install_location: str, exe: Path) -> bool:
@@ -67,3 +76,22 @@ def sync_installed_version(exe: Path, version: str, key_path: str = UNINSTALL_KE
             return False
     logger.info("installed-apps entry: %s -> %s", shown, version)
     return True
+
+
+def installer_language(key_path: str = APP_KEY) -> str | None:
+    """The language the installer ran in, or ``None`` (a portable exe, or not on Windows). An unreadable key is
+    logged; the caller checks the name is a language it has."""
+    if sys.platform != "win32":
+        return None
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path) as key:
+            value, kind = winreg.QueryValueEx(key, LANGUAGE_VALUE)
+    except FileNotFoundError:
+        return None
+    except OSError as ex:
+        logger.warning("couldn't read the installer's language: %s", ex)
+        return None
+    if kind != winreg.REG_SZ or not value:
+        logger.warning("the installer's language isn't a name: %r", value)
+        return None
+    return value

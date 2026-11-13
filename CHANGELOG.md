@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/13 19:58:16.667754 )
+[//]: # (+ Revised: 	2026/11/13 20:12:34.843177 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -28,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   admin prompt, adds a Start menu entry and, optionally, a desktop shortcut
   and starting at sign-in, and uninstalls from Settings → Apps keeping the
   settings, drawings and license. The portable exe is still released.
+  It speaks every language Vitralis does (Galego reintegrado and Chinese
+  included) and asks which at the start; Vitralis then starts in that
+  language until another is picked in Settings.
 - After an in-app update, an installed Vitralis shows its new version in
   Settings → Apps.
 - The landing page's download button gets the installer.

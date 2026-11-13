@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:11.023352
-Revised: 2026/11/13 09:11:11.361118
+Revised: 2026/11/13 20:11:36.979973
 
 ``settings.json`` through ``SettingsManager`` (a real file in ``tmp_path``): the update defaults, an old file
 without ``"updates"``, values surviving a restart, two managers not undoing each other's changes, and a broken
@@ -76,3 +76,35 @@ def test_a_failed_save_is_logged(settings_file, monkeypatch, caplog):
     with caplog.at_level(logging.ERROR, "vitralis.settings"):
         manager.set_skipped_version("1.4.0")
     assert any("couldn't save" in r.getMessage() for r in caplog.records)
+
+
+def test_without_a_language_it_starts_in_english(settings_file):
+    assert SettingsManager(lambda: None).language() == "English"
+
+
+@pytest.mark.parametrize("language", ["Galego", "Galego reintegrado", "日本語"])
+def test_the_installers_language_is_the_first_one(settings_file, language):
+    """Installed in Galician, Vitralis starts in Galician; nothing is written until one is picked."""
+    assert SettingsManager(lambda: language).language() == language
+    assert not settings_file.exists()
+
+
+def test_a_language_picked_in_settings_beats_the_installers(settings_file):
+    SettingsManager(lambda: "Galego").set_language("Deutsch")
+    assert SettingsManager(lambda: "Galego").language() == "Deutsch"
+
+
+def test_a_file_without_a_language_still_takes_the_installers(settings_file):
+    settings_file.write_text(json.dumps({"shortcuts": {"draw": "q"}}), encoding="utf-8")
+    assert SettingsManager(lambda: "Français").language() == "Français"
+
+
+def test_an_unknown_installer_language_is_logged_and_english(settings_file, caplog):
+    with caplog.at_level(logging.WARNING, "vitralis.settings"):
+        assert SettingsManager(lambda: "Klingon").language() == "English"
+    assert any("Klingon" in r.getMessage() for r in caplog.records)
+
+
+def test_the_default_source_is_the_registry(settings_file, monkeypatch):
+    monkeypatch.setattr(settings_module, "installer_language", lambda: "Español")
+    assert SettingsManager().language() == "Español"

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 16:06:25.762869
-Revised: 2026/11/13 19:56:12.170366
+Revised: 2026/11/13 20:11:35.436292
 """
 
 import argparse
@@ -14,7 +14,7 @@ import sys
 import tomllib
 from pathlib import Path
 
-from vitralis.updates.registration import INSTALLER_GUID
+from vitralis.installed import INSTALLER_GUID
 
 ISCC_VARIABLE = "ISCC"
 """Path to Inno Setup's ``ISCC.exe`` when it isn't on PATH or in its usual folders."""

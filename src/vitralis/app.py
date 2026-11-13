@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:03.794151
-Revised: 2026/11/13 19:56:12.638481
+Revised: 2026/11/13 20:11:34.973667
 
 Starts Vitralis behind its licence: the licence window first when no key is active on this computer, the
 overlay (``Session``) once the licence holds, and back to the licence window if it stops holding.
@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import QApplication, QSystemTrayIcon
 
 from vitralis.canvas import Canvas, DrawCapture
 from vitralis.icons import init_icons_dir
+from vitralis.installed import sync_installed_version
 from vitralis.licence import build_licence
 from vitralis.licence.gate import LicenceGate
 from vitralis.licence.window import LicenceWindow
@@ -34,7 +35,6 @@ from vitralis.updates import UPDATES_DIR, build_updates, is_packaged
 from vitralis.updates.checker import UpdateChecker, UpdateStatus
 from vitralis.updates.install import clean_leftovers, wait_for_exit
 from vitralis.updates.messages import out_message, updated_message
-from vitralis.updates.registration import sync_installed_version
 from vitralis.updates.rules import Version, parse_version_or_none
 from vitralis.version import app_version
 
