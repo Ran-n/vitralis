@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:07:07.959602 )
-[//]: # (+ Revised: 	2026/11/11 17:31:20.863493 )
+[//]: # (+ Revised: 	2026/11/13 09:11:17.900677 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 Thank you for your interest in contributing.
@@ -59,6 +59,23 @@ Open an issue with:
 
 Keep one concern per pull request.
 
+To check the in-app updater end to end, on Windows:
+
+1. Build two versions, N and N+1: set the version (`uv version 1.3.98`), run
+   `uv run build`, then again with `uv version 1.3.99`; put the version back
+   afterwards
+2. Write `vitralis-<N+1>.exe.b3` next to the N+1 exe (`b3sum`, or Python's
+   `blake3`) and serve both, plus a release JSON like GitHub's
+   (`tag_name`, `html_url`, `assets[].name` and `browser_download_url`), on
+   `http://127.0.0.1:<port>/`
+3. Copy the N exe into a folder of your own and start it with
+   `VITRALIS_RELEASES_URL=http://127.0.0.1:<port>/<json path>`
+4. Settings → Updates → **Install**, then **Restart to update**
+5. Confirm that N+1 starts licensed at the same path, says "Updated to …",
+   that `<exe>.old` and `%APPDATA%\Vitralis\updates` are gone, and that only
+   one Vitralis is running; serving an exe with one changed byte must give
+   the checksum error and swap nothing
+
 ---
 
 ## Backlog
@@ -92,7 +109,7 @@ Rules:
 
 ## License
 
-This project is licensed under the PayBack License (PBL):
+This project is licensed under the PayBack License (PBL) v2.0:
 
 - Free for personal and non-commercial use
 - Commercial use requires a revenue share

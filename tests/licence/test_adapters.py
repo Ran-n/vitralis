@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 09:18:59.311762
-Revised: 2026/11/11 11:06:54.488859
+Revised: 2026/11/13 09:11:16.013714
 
 The Clavren adapters: Ed25519 tokens checked against the trusted keys, the licence file protected with the
 real Windows DPAPI, and the HTTPS API (through respx).
@@ -25,8 +25,9 @@ from vitralis.licence.ports import (
     TokenError,
 )
 from vitralis.licence.rules import b64encode
-from vitralis.licence.server import LICENCE_SERVER, USER_AGENT, HttpLicenceServer
+from vitralis.licence.server import LICENCE_SERVER, HttpLicenceServer
 from vitralis.licence.store import DpapiProtector, FileLicenceStore
+from vitralis.version import USER_AGENT
 
 windows_only = pytest.mark.skipif(sys.platform != "win32", reason="DPAPI is Windows only")
 

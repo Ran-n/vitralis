@@ -2,9 +2,10 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.341523
-Revised: 2026/11/11 11:06:53.082235
+Revised: 2026/11/13 09:11:14.673890
 """
 
+import contextlib
 import ctypes
 
 from PyQt6.QtCore import QPoint, Qt, QTimer, pyqtSignal
@@ -37,6 +38,7 @@ from vitralis.persistence import (
 )
 from vitralis.settings import SettingsManager, SettingsWindow
 from vitralis.styles import (
+    BTN_CHECKED,
     PALETTE,
     PANEL_BORDER,
     SIZES,
@@ -48,7 +50,12 @@ from vitralis.styles import (
     swatch_style,
 )
 from vitralis.translations import set_language, t
-from vitralis.version import app_version
+from vitralis.updates.checker import UpdateChecker, UpdateStatus
+from vitralis.updates.messages import settings_tooltip
+from vitralis.version import LICENCE_NAME, app_version
+
+UPDATE_DOT_SIZE = 6
+UPDATE_DOT_MARGIN = 2
 
 
 class _Divider(QWidget):
@@ -56,6 +63,36 @@ class _Divider(QWidget):
         super().__init__()
         self.setFixedHeight(1)
         self.setStyleSheet("background: rgba(255,255,255,20);")
+
+
+class _DotButton(QPushButton):
+    """A toolbar button that can carry a small accent dot at its top-right corner, painted over the button so its
+    fixed size (and so the toolbar's locked width) never changes."""
+
+    def __init__(self, icon, text: str = "") -> None:
+        super().__init__(icon, text)
+        self._dot = False
+
+    @property
+    def dot(self) -> bool:
+        return self._dot
+
+    def set_dot(self, shown: bool) -> None:
+        if shown != self._dot:
+            self._dot = shown
+            self.update()
+
+    def paintEvent(self, event) -> None:
+        super().paintEvent(event)
+        if not self._dot:
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(BTN_CHECKED))
+        x = self.width() - UPDATE_DOT_SIZE - UPDATE_DOT_MARGIN
+        painter.drawEllipse(x, UPDATE_DOT_MARGIN, UPDATE_DOT_SIZE, UPDATE_DOT_SIZE)
+        painter.end()
 
 
 class _TitleHeader(QWidget):
@@ -185,7 +222,7 @@ class InfoWindow(QWidget):
         for key, value in [
             ("Author", "Ran#"),
             ("Email", "ran.hash@proton.me"),
-            ("License", "PayBack License (PBL)"),
+            ("License", LICENCE_NAME),
         ]:
             col, lbl = _field(key, value)
             root.addLayout(col)
@@ -407,9 +444,17 @@ class SnapshotWindow(QWidget):
 
 
 class Toolbar(QWidget):
-    def __init__(self, canvases: list[Canvas], captures: list[DrawCapture], licence: LicenceGate | None = None) -> None:
+    def __init__(
+        self,
+        canvases: list[Canvas],
+        captures: list[DrawCapture],
+        licence: LicenceGate | None = None,
+        updates: UpdateChecker | None = None,
+    ) -> None:
         super().__init__()
         self._licence = licence
+        self._updates = updates
+        self._update_status: UpdateStatus | None = None
         self.canvases = canvases
         self.captures = captures
         self._drawing_active = False
@@ -434,6 +479,9 @@ class Toolbar(QWidget):
         self._build_ui()
         self.resize(self.sizeHint())
         self.setFixedWidth(self.width())
+        if updates is not None:
+            updates.changed.connect(self._show_update)
+            self._show_update(updates.status)
         self._start_global_hotkeys()
         self._start_global_wheel_hook()
         self._focus_poll = QTimer(self)
@@ -541,11 +589,11 @@ class Toolbar(QWidget):
         self._focus_dot.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self._update_focus_dot(False)
 
-        self._settings_btn = QPushButton(svg_icon("settings", 14), "")
+        self._settings_btn = _DotButton(svg_icon("settings", 14), "")
         self._settings_btn.setToolTip(t("Settings"))
         self._settings_btn.setFixedSize(26, 26)
         self._settings_btn.setStyleSheet(muted_btn())
-        self._settings_btn.clicked.connect(self._open_settings)
+        self._settings_btn.clicked.connect(self.open_settings)
 
         self._info_btn = QPushButton(svg_icon("info", 14), "")
         self._info_btn.setToolTip(t("About"))
@@ -799,9 +847,17 @@ class Toolbar(QWidget):
     def _on_info_closed(self) -> None:
         self._info_win = None
 
-    def _open_settings(self) -> None:
+    def _show_update(self, status: UpdateStatus) -> None:
+        """The accent dot and the tooltip on the Settings button while a new version is offered."""
+        self._update_status = status
+        self._settings_btn.set_dot(status.offered is not None)
+        self._settings_btn.setToolTip(settings_tooltip(status))
+
+    def open_settings(self) -> None:
         if self._settings_win is None or not self._settings_win.isVisible():
-            self._settings_win = SettingsWindow(self._settings_manager, parent=None, licence=self._licence)
+            self._settings_win = SettingsWindow(
+                self._settings_manager, parent=None, licence=self._licence, updates=self._updates, quit_app=self._quit
+            )
             self._settings_win.shortcuts_changed.connect(self._restart_global_hotkey)
             self._settings_win.language_changed.connect(self._on_language_changed)
             self._settings_win.closed.connect(self._on_settings_closed)
@@ -837,7 +893,7 @@ class Toolbar(QWidget):
         self._snapshot_win = None
 
     def retranslate(self) -> None:
-        self._settings_btn.setToolTip(t("Settings"))
+        self._settings_btn.setToolTip(settings_tooltip(self._update_status))
         self._info_btn.setToolTip(t("About"))
         self._snapshot_btn.setText(t("Snapshots"))
         self._snapshot_btn.setToolTip(t("Snapshots"))
@@ -1036,6 +1092,9 @@ class Toolbar(QWidget):
     def closeEvent(self, event) -> None:
         self._hotkey_thread.stop()
         self._wheel_thread.stop()
+        if self._updates is not None:
+            with contextlib.suppress(TypeError):  # already disconnected by an earlier close
+                self._updates.changed.disconnect(self._show_update)
         for window in (self._snapshot_win, self._info_win, self._settings_win):
             if window:
                 window.close()

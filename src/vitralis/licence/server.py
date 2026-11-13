@@ -2,31 +2,27 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 09:18:57.542529
-Revised: 2026/11/11 11:06:53.855039
+Revised: 2026/11/13 09:11:14.023898
 
 Clavren's application API over HTTPS (``../clavren/docs/api.md``, "Application API"). A plain ``http://``
 address is refused unless it is this computer, because the key travels in the activation.
 """
 
 from typing import Any
-from urllib.parse import urlsplit
 
 import httpx
 
 from vitralis.licence.ports import ServerAnswer, ServerUnreachable
-from vitralis.version import app_version
+from vitralis.net import is_secure_url
+from vitralis.version import USER_AGENT
 
 LICENCE_SERVER = "https://clavren.breren.com"
 TIMEOUT_SECONDS = 15.0
-LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
-USER_AGENT = f"vitralis/{app_version()}"
-"""How the app introduces itself to its licence server."""
 
 
 class HttpLicenceServer:
     def __init__(self, http: httpx.Client, base_url: str = LICENCE_SERVER) -> None:
-        parts = urlsplit(base_url)
-        if parts.scheme != "https" and not (parts.scheme == "http" and parts.hostname in LOCAL_HOSTS):
+        if not is_secure_url(base_url):
             raise ValueError(f"the licence server must be reached over HTTPS: {base_url}")
         self._http = http
         self._base = base_url.rstrip("/")

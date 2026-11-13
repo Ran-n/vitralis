@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/11 16:51:55.399210 )
+[//]: # (+ Revised: 	2026/11/13 09:11:18.222034 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -12,6 +12,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+
+### Added
+
+- A notice when a newer Vitralis is out: a dot on the toolbar's Settings
+  button, one tray message, and Settings → Updates with **Release notes**
+  and **Skip this version**, checked at start and once a day (the
+  **Check for new versions** switch turns the automatic checks off).
+- Installing a new version from inside Vitralis: **Install** downloads it
+  and checks its BLAKE3 checksum, **Restart to update** replaces the exe at
+  the same path and starts the new version, going back to the old one if
+  anything fails.
+
+### Fixed
+
+- The About window, README, CONTRIBUTING and landing page name the license
+  version: PayBack License (PBL) v2.0.
+- Two parts of Vitralis saving settings at once no longer undo each other's
+  changes, and an unreadable `settings.json` is logged instead of silently
+  ignored.
 
 ## [1.3.0] - 2026-11-11
 
