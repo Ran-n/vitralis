@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/14 00:23:15.221459 )
+[//]: # (+ Revised: 	2026/11/14 00:28:44.996102 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -46,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A snapshot that can't be saved, loaded or deleted says so in the
   Snapshots window.
 - Linting, formatting and the tests with a coverage gate run in CI.
+- `.python-version` pins Python 3.13, the version Vitralis is built with.
 
 ### Changed
 
