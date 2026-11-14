@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 16:56:38.576341
-Revised: 2026/11/14 18:33:19.233062
+Revised: 2026/11/15 00:38:19.310379
 
 Vitralis as Windows draws it: the real toolbar, its windows and an overlay canvas run in a process of their own
 (``driver.py``) on a scratch data folder, clicked and dragged with posted window messages and looked at with
@@ -15,6 +15,7 @@ state and what it saved); the whole windows are also compared with the reviewed 
 """
 
 import sys
+import time
 
 import pytest
 
@@ -25,7 +26,7 @@ from PyQt6.QtGui import QColor
 
 from tests.rendered import pictures
 from vitralis.styles import BTN_CHECKED, PALETTE
-from vitralis.toolbar import DEFAULT_SIZE, UPDATE_DOT_MARGIN, UPDATE_DOT_SIZE
+from vitralis.toolbar import DEFAULT_SIZE, LOGO_SIZE, UPDATE_DOT_MARGIN, UPDATE_DOT_SIZE
 from vitralis.translations import _TRANSLATIONS
 
 pytestmark = pytest.mark.desktop
@@ -62,8 +63,16 @@ def is_clear(seen: QColor) -> bool:
 
 
 def baseline(app, part: str, name: str) -> None:
+    """Compare ``part`` with its reviewed picture; a capture that differs is taken again a moment later, twice,
+    before it counts (Windows may hand over a window caught in the middle of a repaint)."""
     if app.ratio() != 1.0:
         pytest.skip(f"the baselines were taken at 100 % scaling; this screen is at {app.ratio():.0%}")
+    for wait in (0.5, 1.0):
+        try:
+            pictures.check(app.shot(part), name)
+            return
+        except AssertionError:
+            time.sleep(wait)
     pictures.check(app.shot(part), name)
 
 
@@ -187,6 +196,15 @@ def test_the_dot_on_settings_says_a_new_version_is_offered(running):
     assert is_color(shot.pixelColor(shot.width() + x, y), BTN_CHECKED)
     running.click("toolbar._settings_btn")
     baseline(running, "settings", "panel-settings-update")  # and Settings says which, with what to do about it
+
+
+def test_the_toolbar_shows_the_vitralis_icon(app):
+    """The stained-glass icon stands for the V of the name: its colours are on the screen, at its size."""
+    shot = app.shot("toolbar._header.name_parts.0")
+    assert (shot.width(), shot.height()) == (LOGO_SIZE, LOGO_SIZE)
+    colours = [shot.pixelColor(x, y) for x in range(shot.width()) for y in range(shot.height())]
+    assert sum(1 for colour in colours if colour.saturation() > 80 and colour.value() > 80) > 30
+    assert app.ask("icon")["sizes"][:3] == [16, 32, 48]  # and the window carries it, for Alt+Tab
 
 
 def test_the_logo_and_name_are_in_the_middle_of_the_toolbar(app):

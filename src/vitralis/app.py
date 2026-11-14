@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:03.794151
-Revised: 2026/11/14 18:18:36.345720
+Revised: 2026/11/15 00:37:58.963872
 
 Starts Vitralis behind its licence: the licence window first when no key is active on this computer, the
 overlay (``Session``) once the licence holds, and back to the licence window if it stops holding.
@@ -27,7 +27,15 @@ from vitralis.installed import sync_installed_version
 from vitralis.licence import build_licence
 from vitralis.licence.gate import LicenceGate
 from vitralis.licence.window import LicenceWindow
-from vitralis.persistence import DATA_DIR, FLUSH_SECONDS, flush_writes, load_strokes_for, strokes_unreadable
+from vitralis.persistence import (
+    DATA_DIR,
+    FLUSH_SECONDS,
+    flush_writes,
+    load_strokes_for,
+    retry_failed_writes,
+    strokes_unreadable,
+    unsaved_files,
+)
 from vitralis.settings import SettingsManager, settings_unreadable
 from vitralis.single_instance import SingleInstance, mark_running, wait_for_turn
 from vitralis.toolbar import Toolbar
@@ -42,6 +50,12 @@ from vitralis.version import app_version
 
 logger = logging.getLogger("vitralis.app")
 
+NOT_SAVED = (
+    "Vitralis couldn't save its drawings or settings. Close any program that may be using them: "
+    "Vitralis keeps trying while it runs."
+)
+SAVE_WATCH_MS = 30_000
+"""How often a save the disk refused is tried again, and the first one said."""
 NOT_SAVING = (
     "Vitralis couldn't read its saved drawings or settings, so changes aren't being saved. "
     "Close any program that may be using them, then restart Vitralis."
@@ -72,6 +86,9 @@ class Session:
         self.toolbar: Toolbar | None = None
         self._watched: list[QScreen] = []
         self._tray: QSystemTrayIcon | None = None
+        self._told_unsaved = False
+        self._save_watch = QTimer(app)
+        self._save_watch.timeout.connect(self._watch_saves)
 
     def attach(self, gate: LicenceGate) -> None:
         self._gate = gate
@@ -85,7 +102,6 @@ class Session:
             return
         self._build_overlay()
         toolbar = Toolbar(self.canvases, self.captures, licence=self._gate, updates=self._updates)
-        toolbar.setWindowIcon(make_app_icon())
         primary = self._app.primaryScreen().geometry()
         toolbar.place(QPoint(primary.x() + TOOLBAR_MARGIN, primary.y() + TOOLBAR_MARGIN))
         toolbar.show()
@@ -99,8 +115,9 @@ class Session:
             self._announce_updated = False
             self._show_message(updated_message(app_version()), about_update=False)
         if strokes_unreadable() or settings_unreadable():  # said, not only logged: the user would lose work
-            self._tray_says_update = False
-            self._tray.showMessage("Vitralis", t(NOT_SAVING), QSystemTrayIcon.MessageIcon.Warning)
+            self._warn(NOT_SAVING)
+        self._told_unsaved = False
+        self._save_watch.start(SAVE_WATCH_MS)
         if self._updates is not None:
             self._updates.changed.connect(self._on_update_status)
             self._updates.start()
@@ -152,6 +169,21 @@ class Session:
         if self.toolbar is not None:
             self.toolbar.show_toolbar()
 
+    def _warn(self, sentence: str) -> None:
+        self._tray_says_update = False
+        self._tray.showMessage("Vitralis", t(sentence), QSystemTrayIcon.MessageIcon.Warning)
+
+    def _watch_saves(self) -> None:
+        """Say once, when it first happens, that the disk refused a save, and go on trying it."""
+        unsaved = unsaved_files()
+        if not unsaved:
+            self._told_unsaved = False
+            return
+        if not self._told_unsaved:
+            self._told_unsaved = True
+            self._warn(NOT_SAVED)
+        retry_failed_writes()
+
     def _show_message(self, text: str, about_update: bool) -> None:
         self._tray_says_update = about_update
         self._tray.showMessage("Vitralis", text, QSystemTrayIcon.MessageIcon.Information)
@@ -172,9 +204,12 @@ class Session:
         """Tear everything down: the hotkey and wheel hooks stop with the toolbar; strokes are already saved."""
         if not self.running:
             return
+        self._save_watch.stop()
         if self._updates is not None:
             self._updates.changed.disconnect(self._on_update_status)
-            self._updates.stop()
+            # without waiting: a locked licence stops the session on the UI thread, which a download stalled
+            # on the network must not freeze; quitting waits for it (``UpdateChecker.stop`` again)
+            self._updates.stop(wait=False)
         self._app.screenAdded.disconnect(self._on_screens_changed)
         self._app.screenRemoved.disconnect(self._on_screens_changed)
         if self._tray is not None:
@@ -338,11 +373,15 @@ def main() -> None:
         signal_timer.stop()
         instance.close()
         session.stop()  # stops the update checks and any download
+        if updates.checker is not None:
+            updates.checker.stop()  # and waits for the download to tidy up after itself
         gate.shutdown()
         parts.close(working=gate.working)
         updates.close()
         if not flush_writes(FLUSH_SECONDS):  # Python still waits for the writer's thread before it exits
             logger.warning("the drawings and settings are still being written after %.0f s", FLUSH_SECONDS)
+        for path in unsaved_files():
+            logger.error("quitting without %s saved: the disk refused it to the end", path)
         logger.info("Vitralis quit")
 
     app.aboutToQuit.connect(_shutdown)

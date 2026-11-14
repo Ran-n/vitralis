@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 16:56:37.129213
-Revised: 2026/11/14 18:33:18.845269
+Revised: 2026/11/15 00:38:14.248660
 
 The real toolbar, its windows and one overlay canvas, running as a process of its own for the rendered tests:
 ``python -m tests.rendered.driver <data folder>``. It reads one JSON command per line on stdin and answers each
@@ -23,6 +23,9 @@ from pathlib import Path
 
 os.environ["APPDATA"] = sys.argv[1]  # before vitralis is imported: its data folder is read from this
 os.environ.pop("QT_QPA_PLATFORM", None)  # the real screen, not the offscreen one the other tests use
+# one pixel per pixel on every screen: with any screen scaled (a 150 % monitor plugged in), Qt draws all text
+# unhinted, on the 100 % screens too, and the pictures would follow the monitors instead of the app
+os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "0"
 
 from PyQt6.QtCore import QPoint, QRect, QThread, pyqtSignal
 from PyQt6.QtWidgets import QApplication, QPushButton, QWidget
@@ -158,6 +161,10 @@ class Driver:
         forget_strokes()
         self.updates = self._updates()
         return {}
+
+    def do_icon(self, **_) -> dict:
+        """The sizes of the toolbar window's icon."""
+        return {"sizes": sorted(size.width() for size in self.bar.windowIcon().availableSizes())}
 
     def do_check_updates(self, **_) -> dict:
         """Ask the feed in memory, which offers a newer version."""

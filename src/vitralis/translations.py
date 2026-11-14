@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 08:16:03.814171
-Revised: 2026/11/14 18:18:38.368930
+Revised: 2026/11/15 00:38:04.394746
 """
 
 # fmt: off
@@ -130,6 +130,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Couldn't install the update: {reason}": "Non se puido instalar a actualización: {reason}",
         "Updated to {version}": "Actualizado a {version}",
         "Vitralis couldn't read its saved drawings or settings, so changes aren't being saved. Close any program that may be using them, then restart Vitralis.": "Vitralis non puido ler os debuxos ou os axustes gardados, así que os cambios non se están a gardar. Pecha calquera programa que os poida estar usando e reinicia Vitralis.",
+        "Vitralis couldn't save its drawings or settings. Close any program that may be using them: Vitralis keeps trying while it runs.": "Vitralis non puido gardar os debuxos ou os axustes. Pecha calquera programa que os poida estar usando: Vitralis segue tentándoo mentres está aberto.",
         # tray menu, colour picker, snapshot and connection failures
         "Pick color": "Escoller cor",
         "Show toolbar": "Mostrar a barra de ferramentas",
@@ -262,6 +263,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Couldn't install the update: {reason}": "Nom se pudo instalar a atualizaçom: {reason}",
         "Updated to {version}": "Atualizado a {version}",
         "Vitralis couldn't read its saved drawings or settings, so changes aren't being saved. Close any program that may be using them, then restart Vitralis.": "Vitralis nom puido ler os desenhos ou as definiçons guardadas, polo que as mudanças nom se estám a guardar. Fecha qualquer programa que os poida estar a usar e reinicia Vitralis.",
+        "Vitralis couldn't save its drawings or settings. Close any program that may be using them: Vitralis keeps trying while it runs.": "Vitralis nom puido guardar os desenhos ou as definiçons. Fecha qualquer programa que os poida estar a usar: Vitralis continua a tentá-lo enquanto estiver aberto.",
         # tray menu, colour picker, snapshot and connection failures
         "Pick color": "Escolher cor",
         "Show toolbar": "Mostrar a barra de ferramentas",
@@ -388,6 +390,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Couldn't install the update: {reason}": "No se pudo instalar la actualización: {reason}",
         "Updated to {version}": "Actualizado a {version}",
         "Vitralis couldn't read its saved drawings or settings, so changes aren't being saved. Close any program that may be using them, then restart Vitralis.": "Vitralis no pudo leer los dibujos o los ajustes guardados, así que los cambios no se están guardando. Cierra cualquier programa que pueda estar usándolos y reinicia Vitralis.",
+        "Vitralis couldn't save its drawings or settings. Close any program that may be using them: Vitralis keeps trying while it runs.": "Vitralis no pudo guardar los dibujos o los ajustes. Cierra cualquier programa que pueda estar usándolos: Vitralis sigue intentándolo mientras está abierto.",
         # tray menu, colour picker, snapshot and connection failures
         "Pick color": "Elegir color",
         "Show toolbar": "Mostrar la barra de herramientas",
@@ -520,6 +523,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Couldn't install the update: {reason}": "Não foi possível instalar a atualização: {reason}",
         "Updated to {version}": "Atualizado para {version}",
         "Vitralis couldn't read its saved drawings or settings, so changes aren't being saved. Close any program that may be using them, then restart Vitralis.": "O Vitralis não conseguiu ler os desenhos ou as definições guardadas, pelo que as alterações não estão a ser guardadas. Feche qualquer programa que os possa estar a usar e reinicie o Vitralis.",
+        "Vitralis couldn't save its drawings or settings. Close any program that may be using them: Vitralis keeps trying while it runs.": "O Vitralis não conseguiu guardar os desenhos ou as definições. Feche qualquer programa que os possa estar a usar: o Vitralis continua a tentar enquanto estiver aberto.",
         # tray menu, colour picker, snapshot and connection failures
         "Pick color": "Escolher cor",
         "Show toolbar": "Mostrar a barra de ferramentas",
@@ -652,6 +656,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Couldn't install the update: {reason}": "Impossible d’installer la mise à jour : {reason}",
         "Updated to {version}": "Mis à jour vers {version}",
         "Vitralis couldn't read its saved drawings or settings, so changes aren't being saved. Close any program that may be using them, then restart Vitralis.": "Vitralis n'a pas pu lire les dessins ou les réglages enregistrés : les modifications ne sont donc pas enregistrées. Fermez tout programme qui pourrait les utiliser, puis redémarrez Vitralis.",
+        "Vitralis couldn't save its drawings or settings. Close any program that may be using them: Vitralis keeps trying while it runs.": "Vitralis n'a pas pu enregistrer les dessins ou les réglages. Fermez tout programme qui pourrait les utiliser : Vitralis réessaie tant qu'il est ouvert.",
         # tray menu, colour picker, snapshot and connection failures
         "Pick color": "Choisir une couleur",
         "Show toolbar": "Afficher la barre d'outils",
@@ -784,6 +789,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Couldn't install the update: {reason}": "Das Update konnte nicht installiert werden: {reason}",
         "Updated to {version}": "Aktualisiert auf {version}",
         "Vitralis couldn't read its saved drawings or settings, so changes aren't being saved. Close any program that may be using them, then restart Vitralis.": "Vitralis konnte die gespeicherten Zeichnungen oder Einstellungen nicht lesen, daher werden Änderungen nicht gespeichert. Schließe alle Programme, die sie verwenden könnten, und starte Vitralis neu.",
+        "Vitralis couldn't save its drawings or settings. Close any program that may be using them: Vitralis keeps trying while it runs.": "Vitralis konnte die Zeichnungen oder Einstellungen nicht speichern. Schließe alle Programme, die sie verwenden könnten: Vitralis versucht es weiter, solange es läuft.",
         # tray menu, colour picker, snapshot and connection failures
         "Pick color": "Farbe wählen",
         "Show toolbar": "Werkzeugleiste anzeigen",
@@ -916,6 +922,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Couldn't install the update: {reason}": "无法安装更新：{reason}",
         "Updated to {version}": "已更新到 {version}",
         "Vitralis couldn't read its saved drawings or settings, so changes aren't being saved. Close any program that may be using them, then restart Vitralis.": "Vitralis 无法读取已保存的绘图或设置，因此更改不会被保存。请关闭可能正在使用它们的程序，然后重新启动 Vitralis。",
+        "Vitralis couldn't save its drawings or settings. Close any program that may be using them: Vitralis keeps trying while it runs.": "Vitralis 无法保存绘图或设置。请关闭可能正在使用它们的程序：Vitralis 运行期间会继续尝试。",
         # tray menu, colour picker, snapshot and connection failures
         "Pick color": "选择颜色",
         "Show toolbar": "显示工具栏",
@@ -1048,6 +1055,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Couldn't install the update: {reason}": "アップデートをインストールできませんでした：{reason}",
         "Updated to {version}": "{version} に更新しました",
         "Vitralis couldn't read its saved drawings or settings, so changes aren't being saved. Close any program that may be using them, then restart Vitralis.": "Vitralis は保存された描画または設定を読み込めなかったため、変更は保存されていません。それらを使用している可能性のあるプログラムを閉じてから、Vitralis を再起動してください。",
+        "Vitralis couldn't save its drawings or settings. Close any program that may be using them: Vitralis keeps trying while it runs.": "Vitralis は描画または設定を保存できませんでした。それらを使用している可能性のあるプログラムを閉じてください。Vitralis は実行中、保存を試み続けます。",
         # tray menu, colour picker, snapshot and connection failures
         "Pick color": "色を選択",
         "Show toolbar": "ツールバーを表示",

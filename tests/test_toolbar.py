@@ -2,13 +2,15 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:11.688678
-Revised: 2026/11/14 16:56:39.847670
+Revised: 2026/11/15 00:38:22.983884
 
 The real toolbar on the offscreen ``QApplication``, with its system-wide keyboard and mouse hooks replaced by
 inert stand-ins: the accent dot on the Settings button shows only while an update is offered, painted inside
 the button so the toolbar's width never changes, with the matching tooltip; and the About window names the
 licence with its version.
 """
+
+import logging
 
 import pytest
 from PyQt6.QtGui import QColor
@@ -153,3 +155,44 @@ def test_the_logo_and_name_sit_in_the_middle_of_the_toolbar(make_toolbar, qapp):
     right = parts[-1].mapTo(bar, parts[-1].rect().topRight()).x() + 1
     assert abs((left + right) / 2 - bar.width() / 2) <= 1
     assert bar._focus_dot.mapTo(bar, bar._focus_dot.rect().topLeft()).x() >= right  # the dot stays beside it
+
+
+# --- the Vitralis icon ---------------------------------------------------------------------------------------
+
+
+def colourful(image) -> int:
+    """How many of the image's pixels are a colour, not a grey: the icon is stained glass."""
+    return sum(
+        1
+        for x in range(image.width())
+        for y in range(image.height())
+        if image.pixelColor(x, y).alpha() > 100 and image.pixelColor(x, y).saturation() > 80
+    )
+
+
+def test_the_toolbar_window_has_the_vitralis_icon(make_toolbar):
+    """Its own, whoever builds it: what Alt+Tab and the taskbar show for the window."""
+    bar = make_toolbar()
+    icon = bar.windowIcon()
+    assert not icon.isNull() and {size.width() for size in icon.availableSizes()} >= {16, 32, 48, 256}
+    assert colourful(icon.pixmap(48, 48).toImage()) > 300
+
+
+def test_the_toolbars_header_shows_the_vitralis_icon_as_the_v_of_its_name(make_toolbar, qapp):
+    bar = make_toolbar()
+    bar.show()
+    qapp.processEvents()
+    logo, name = bar._header.name_parts
+    assert name.text() == "itralis"
+    assert (logo.width(), logo.height()) == (toolbar_module.LOGO_SIZE,) * 2 and not logo.pixmap().isNull()
+    assert logo.isVisible() and colourful(logo.grab().toImage()) > 30  # painted, in its colours
+    assert logo.mapTo(bar, logo.rect().topRight()).x() < name.mapTo(bar, name.rect().topLeft()).x() + 1
+
+
+def test_a_missing_icon_is_logged_and_the_name_is_shown_whole(make_toolbar, monkeypatch, tmp_path, caplog):
+    """Regression guard: without the file the header read "itralis", and nothing said why."""
+    monkeypatch.setattr(toolbar_module, "media_base", lambda: tmp_path)
+    with caplog.at_level(logging.ERROR, "vitralis.toolbar"):
+        bar = make_toolbar()
+    assert [part.text() for part in bar._header.name_parts] == ["Vitralis"]
+    assert any("icon" in r.getMessage() and "can't be loaded" in r.getMessage() for r in caplog.records)

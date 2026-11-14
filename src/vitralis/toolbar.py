@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.341523
-Revised: 2026/11/14 17:53:25.399437
+Revised: 2026/11/15 00:38:03.418555
 
 The floating toolbar that drives the overlay (modes, tools, colours, size, undo, clear, hide) and opens its
 windows (Settings, Snapshots, About, the colour picker). What it is left at is remembered for the next start:
@@ -39,6 +39,7 @@ from vitralis.styles import (
     swatch_style,
 )
 from vitralis.translations import set_language, t
+from vitralis.tray import make_app_icon
 from vitralis.updates.checker import UpdateChecker, UpdateStatus
 from vitralis.updates.messages import settings_tooltip
 from vitralis.version import app_version
@@ -48,6 +49,8 @@ logger = logging.getLogger("vitralis.toolbar")
 
 DEFAULT_SIZE = 5
 """The stroke width a first start draws with."""
+LOGO_SIZE = 14
+"""The Vitralis icon in the toolbar's header, where it stands for the V of the name."""
 DOT_GAP = 6
 """Between the toolbar's name and the dot that says whether Vitralis has the keyboard."""
 PANEL_GAP = 8
@@ -121,17 +124,20 @@ class _TitleHeader(QWidget):
         logo_row.addSpacing(DOT_GAP + dot.width())  # as much as the dot takes on the right: the name stays centred
         self.name_parts: list[QLabel] = []
         """The logo and the name, which sit in the middle of the toolbar."""
-        if icon_path and icon_path.exists():
-            px = QPixmap(str(icon_path)).scaled(
-                14, 14, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+        logo = QPixmap(str(icon_path))
+        if logo.isNull():  # the name is still whole, and the log says what is missing
+            logger.error("the Vitralis icon %s can't be loaded: the toolbar shows its name without it", icon_path)
+        else:
+            px = logo.scaled(
+                LOGO_SIZE, LOGO_SIZE, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
             )
             icon_lbl = QLabel()
             icon_lbl.setPixmap(px)
-            icon_lbl.setFixedSize(14, 14)
+            icon_lbl.setFixedSize(LOGO_SIZE, LOGO_SIZE)
             icon_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
             logo_row.addWidget(icon_lbl)
             self.name_parts.append(icon_lbl)
-        text_lbl = QLabel("itralis")
+        text_lbl = QLabel("Vitralis" if logo.isNull() else "itralis")  # the icon is the name's V
         text_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         text_lbl.setStyleSheet(
             "color: rgba(255,255,255,160); font-size: 11px; font-weight: 600;"
@@ -191,6 +197,7 @@ class Toolbar(QWidget):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setWindowTitle("Vitralis")
+        self.setWindowIcon(make_app_icon())  # its own: in Alt+Tab and wherever Windows lists the window
 
         self._build_ui()
         if self._start_hidden:

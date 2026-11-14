@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.433417
-Revised: 2026/11/14 18:18:39.061111
+Revised: 2026/11/15 00:38:21.785386
 
 The overlay session behind the licence: nothing of the overlay exists while locked, it starts once the licence
 holds, and locking tears it all down (toolbar with its global hooks, canvases, captures, tray). The real toolbar
@@ -329,6 +329,29 @@ def test_the_tray_says_when_changes_arent_being_saved(qapp, session, monkeypatch
     assert session.trays[0].messages == [app_module.NOT_SAVING]
     session.trays[0].messageClicked.emit()  # not about an update: opens nothing
     assert of(FakeToolbar)[0].settings_opened == 0
+
+
+def test_the_tray_says_once_when_the_disk_refuses_a_save_and_the_save_is_tried_again(qapp, session, monkeypatch):
+    """Regression guard: only the log said so; what was drawn was gone at the next start."""
+    unsaved, retried = [], []
+    monkeypatch.setattr(app_module, "unsaved_files", lambda: list(unsaved))
+    monkeypatch.setattr(app_module, "retry_failed_writes", lambda: retried.append(1))
+    session = session()
+    session.start()
+    assert session._save_watch.isActive() and session._save_watch.interval() == app_module.SAVE_WATCH_MS
+    session._save_watch.timeout.emit()
+    assert session.trays[0].messages == [] and retried == []
+    unsaved.append("strokes.json")
+    session._save_watch.timeout.emit()
+    session._save_watch.timeout.emit()
+    assert session.trays[0].messages == [app_module.NOT_SAVED] and retried == [1, 1]  # said once, tried each time
+    unsaved.clear()
+    session._save_watch.timeout.emit()
+    unsaved.append("strokes.json")
+    session._save_watch.timeout.emit()
+    assert session.trays[0].messages == [app_module.NOT_SAVED] * 2  # saved meanwhile: a new refusal is said
+    session.stop()
+    assert not session._save_watch.isActive()
 
 
 def test_the_tray_says_nothing_about_saving_when_all_is_read(qapp, session):

@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/14 18:33:17.250150 )
+[//]: # (+ Revised: 	2026/11/15 00:37:56.019228 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -119,6 +119,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that changes aren't being saved. A damaged `settings.json` is kept aside
   as `settings.json.damaged`, as `strokes.json` already was, and a copy
   kept aside is never replaced by a later one.
+- The toolbar window carries the Vitralis icon itself (for Alt+Tab), and
+  if the icon file can't be loaded its header shows the whole name and the
+  log says so, instead of reading "itralis".
+- A save the disk refused (the file held by another program) is tried
+  again while Vitralis runs and when it quits, and a tray message says
+  so, instead of being logged and lost.
+- Skipping a version that was already downloaded takes **Restart to
+  update** away, and its download is no longer offered at the next start;
+  taking the skip back offers it again.
+- A license that locks during a stalled download no longer freezes the
+  window while the download stops.
 - A setting changed after a start that couldn't read `settings.json` no
   longer drops the file's other settings of the same group (the toolbar's
   tool, colour and size; the update checks' switch) once the file can be

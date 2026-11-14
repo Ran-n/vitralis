@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.127720
-Revised: 2026/11/14 18:18:37.367578
+Revised: 2026/11/15 00:38:01.942169
 
 The data folder (``%APPDATA%\\Vitralis``) and the drawings kept in it: ``strokes.json``, the strokes of every
 screen under the screen's top-left corner (``"x,y"``), and one file per named snapshot in ``snapshots``.
@@ -81,19 +81,44 @@ class BackgroundWriter:
     write is on the disk, whichever way the app quits.
 
     What is handed over must not change afterwards: it is turned into text on the writer's thread.
+
+    A write the disk refused is kept, and tried again by ``retry`` and by every ``flush`` (so at quitting too)
+    until it works or a newer write for the same file takes its place: a file held by another program for a
+    while doesn't cost what was drawn meanwhile.
     """
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
         self._waiting: dict[Path, tuple[object, int | None]] = {}
+        self._failed: dict[Path, tuple[object, int | None]] = {}
         self._thread: threading.Thread | None = None
 
     def write(self, path: Path, data: object, indent: int | None = 2) -> None:
         with self._lock:
+            self._failed.pop(path, None)
             self._waiting[path] = (data, indent)
-            if self._thread is None:
-                self._thread = threading.Thread(target=self._drain, name="vitralis-writer")
-                self._thread.start()
+            self._start()
+
+    def _start(self) -> None:
+        """With the lock held: have a thread writing."""
+        if self._thread is None:
+            self._thread = threading.Thread(target=self._drain, name="vitralis-writer")
+            self._thread.start()
+
+    def retry(self) -> None:
+        """Try the writes the disk refused once more."""
+        with self._lock:
+            if not self._failed:
+                return
+            for path, entry in self._failed.items():
+                self._waiting.setdefault(path, entry)
+            self._failed.clear()
+            self._start()
+
+    def unsaved(self) -> list[Path]:
+        """The files whose latest write the disk refused."""
+        with self._lock:
+            return list(self._failed)
 
     def _drain(self) -> None:
         while True:
@@ -107,11 +132,19 @@ class BackgroundWriter:
                 write_json_atomic(path, data, indent)
             except OSError as ex:
                 logger.error("couldn't save %s: %s", path, ex)
+                with self._lock:
+                    if path not in self._waiting:  # nothing newer came for it meanwhile
+                        self._failed[path] = (data, indent)
             except Exception:  # data that can't be JSON: a bug, which must not end the writes after it
                 logger.exception("couldn't save %s", path)
 
     def flush(self, timeout: float | None = None) -> bool:
-        """Wait until nothing is left to write; whether that happened within ``timeout`` seconds."""
+        """Wait until nothing is left to write, trying the refused writes once more; whether that happened
+        within ``timeout`` seconds."""
+        with self._lock:
+            writing = self._thread is threading.current_thread()
+        if not writing:
+            self.retry()
         with self._lock:
             thread = self._thread
         if thread is None or thread is threading.current_thread():
@@ -126,6 +159,16 @@ _writer = BackgroundWriter()
 def write_in_background(path: Path, data: object, indent: int | None = 2) -> None:
     """Write ``data`` to ``path`` without waiting for the disk; ``data`` must not change afterwards."""
     _writer.write(path, data, indent)
+
+
+def retry_failed_writes() -> None:
+    """Try the writes the disk refused once more, without waiting for them."""
+    _writer.retry()
+
+
+def unsaved_files() -> list[Path]:
+    """The files whose latest write the disk refused: what they should hold is still only in memory."""
+    return _writer.unsaved()
 
 
 def flush_writes(timeout: float | None = None) -> bool:

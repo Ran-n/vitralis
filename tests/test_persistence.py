@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:10.961213
-Revised: 2026/11/14 18:22:13.022450
+Revised: 2026/11/15 00:38:22.478192
 
 The drawings on disk (real files in the test's own data folder): strokes per screen surviving a restart, the
 first versions' bare list, damaged entries and files, writes that are whole or not at all and never make the
@@ -234,6 +234,42 @@ def test_a_failed_save_is_logged_not_raised_and_leaves_the_old_file_whole(monkey
     assert persistence.STROKES_FILE.read_bytes() == before
     assert load_strokes_for(PRIMARY) == [LINE, PEN]  # still drawn, and saved by the next save that works
     assert [p.name for p in persistence.STROKES_FILE.parent.iterdir() if p.suffix == ".tmp"] == []
+    assert persistence.unsaved_files() == [persistence.STROKES_FILE]
+
+
+def test_a_save_the_disk_refused_is_tried_again_until_it_works(monkeypatch):
+    """Regression guard: it was logged and dropped, so a stroke drawn while another program held the file
+    was gone at the next start unless something else was drawn after it."""
+    save_strokes_for(PRIMARY, [LINE])
+    assert flush_writes(5)
+    replace = persistence.os.replace
+    monkeypatch.setattr(persistence.os, "replace", refuse)
+    save_strokes_for(PRIMARY, [LINE, PEN])
+    assert flush_writes(5) and persistence.unsaved_files() == [persistence.STROKES_FILE]
+    persistence.retry_failed_writes()
+    assert flush_writes(5) and persistence.unsaved_files() == [persistence.STROKES_FILE]  # still refused
+    monkeypatch.setattr(persistence.os, "replace", replace)
+    assert flush_writes(5)  # as quitting does
+    assert persistence.unsaved_files() == []
+    restart()
+    assert load_strokes_for(PRIMARY) == [LINE, PEN]
+
+
+def test_a_newer_save_takes_the_place_of_one_the_disk_refused(monkeypatch):
+    replace = persistence.os.replace
+    monkeypatch.setattr(persistence.os, "replace", refuse)
+    save_strokes_for(PRIMARY, [LINE])
+    assert flush_writes(5) and persistence.unsaved_files() == [persistence.STROKES_FILE]
+    monkeypatch.setattr(persistence.os, "replace", replace)
+    save_strokes_for(PRIMARY, [PEN])
+    assert flush_writes(5) and persistence.unsaved_files() == []
+    restart()
+    assert load_strokes_for(PRIMARY) == [PEN]
+
+
+def test_retrying_with_nothing_refused_does_nothing():
+    persistence.retry_failed_writes()
+    assert flush_writes(5) and persistence.unsaved_files() == []
 
 
 def test_an_atomic_write_replaces_the_file_whole(tmp_path):

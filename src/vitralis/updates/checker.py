@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:01.548894
-Revised: 2026/11/14 17:53:26.073338
+Revised: 2026/11/15 00:38:06.898724
 
 Asks for the latest release at start (after ``FIRST_CHECK_DELAY_MS``, so start-up isn't slowed) and then
 every ``UPDATE_CHECK_EVERY``, and, in the packaged exe, downloads and installs it on request. The network work
@@ -217,11 +217,12 @@ class UpdateChecker(QObject):
         downloading = self._download is not None and self._download.is_alive()
         return downloading or any(worker.is_alive() for worker in self._workers)
 
-    def stop(self) -> None:
-        """Stop the timer and any download (whose ``.part`` file is deleted). Safe to call twice."""
+    def stop(self, wait: bool = True) -> None:
+        """Stop the timer and any download (whose ``.part`` file is deleted), waiting for the download to end
+        unless told not to. Safe to call twice."""
         self._timer.stop()
         self._stop.set()
-        if self._download is not None and self._download.is_alive():
+        if wait and self._download is not None and self._download.is_alive():
             self._download.join(DOWNLOAD_JOIN_SECONDS)
             if self._download.is_alive():
                 logger.warning("the update download didn't stop within %.0f s", DOWNLOAD_JOIN_SECONDS)
@@ -266,12 +267,22 @@ class UpdateChecker(QObject):
             return
         self._settings.set_skipped_version(str(self._latest.version))
         logger.info("skipping version %s", self._latest.version)
+        if self._install.kind in (InstallKind.READY, InstallKind.FAILED) and self._skipped(self._install.version):
+            self._install = InstallState()  # its download stays on the disk, should the skip be taken back
         self._publish()
 
     def unskip(self) -> None:
         self._settings.set_skipped_version("")
         logger.info("no version skipped any more")
         self._publish()
+        if self._installer is not None and self._install.kind is InstallKind.IDLE:
+            self._work(self._find_pending, "vitralis-update-pending")  # what was downloaded is offered again
+
+    def _skipped(self, version: str) -> bool:
+        """Whether ``version`` is the skipped one or older."""
+        skipped = parse_version_or_none(self._settings.skipped_version())
+        found = parse_version_or_none(version)
+        return skipped is not None and found is not None and found <= skipped
 
     # --- installing -----------------------------------------------------------------------------------------
 
@@ -381,6 +392,9 @@ class UpdateChecker(QObject):
             return
         if path is not None:
             version = exe_version(path.name)
+            if self._skipped(str(version)):
+                logger.info("the downloaded update %s is of a skipped version: not offered", path)
+                return
             logger.info("found the downloaded update %s", path)
             self._install_step.emit(InstallState(InstallKind.READY, str(version), path=path))
 

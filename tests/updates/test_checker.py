@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:08.909997
-Revised: 2026/11/14 17:53:34.226027
+Revised: 2026/11/15 00:38:23.366752
 
 The update checker on the offscreen ``QApplication``: checks run off the UI thread and come back as one
 ``UpdateStatus``; skip and Don't skip need no new check; errors are shown and never leave it busy; the timer
@@ -425,3 +425,46 @@ def test_an_unexpected_error_in_the_check_is_of_the_other_kind(qapp, make, caplo
     with caplog.at_level(logging.ERROR, "vitralis.updates.checker"):
         check(qapp, checker)
     assert seen.statuses[-1].error_kind is FeedFailure.OTHER and "RuntimeError" in seen.statuses[-1].error
+
+
+# --- a skipped version and what was downloaded of it ---------------------------------------------------------
+
+
+def test_skipping_a_downloaded_version_takes_restart_away(qapp, make, fake_install):
+    """Regression guard: Restart to update stayed, and installed the version just skipped."""
+    checker, _ = make(installer=fake_install.installer())
+    check(qapp, checker)
+    checker.install()
+    wait_until(qapp, lambda: checker.status.install.kind is InstallKind.READY)
+    checker.skip()
+    assert checker.status.offered is None and checker.status.install.kind is InstallKind.IDLE
+    checker.restart_to_update(lambda: fake_install.events.append("quit"))
+    assert not [event for event in fake_install.events if event.startswith(("swap", "quit"))]
+
+
+def test_a_downloaded_update_of_a_skipped_version_isnt_offered_at_the_next_start(qapp, make, fake_install, caplog):
+    fake_install.pending = fake_install.updates_dir / "vitralis-1.4.0.exe"
+    checker, _ = make(settings=MemorySettings(skipped="1.4.0"), installer=fake_install.installer())
+    with caplog.at_level(logging.INFO, "vitralis.updates"):
+        checker.start()
+        wait_until(qapp, lambda: not checker.working)
+        qapp.processEvents()
+    assert checker.status.install.kind is InstallKind.IDLE
+    assert any("skipped version" in r.getMessage() for r in caplog.records)
+    checker.unskip()  # taken back: what was downloaded is offered again
+    wait_until(qapp, lambda: checker.status.install.kind is InstallKind.READY)
+    assert checker.status.install.version == "1.4.0"
+
+
+def test_stopping_without_waiting_leaves_a_stalled_download_behind(qapp, make, fake_install):
+    """Regression guard: a licence locked during a stalled download froze the window for the whole wait."""
+    checker, _ = make(installer=fake_install.installer())
+    check(qapp, checker)
+    fake_install.gate.clear()
+    checker.install()
+    wait_until(qapp, lambda: checker.status.install.kind is InstallKind.DOWNLOADING)
+    checker.stop(wait=False)
+    assert checker.working  # still on its way out
+    fake_install.gate.set()
+    checker.stop()  # quitting waits for it
+    assert not checker._download.is_alive()
