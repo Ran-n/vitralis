@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 09:18:55.948032
-Revised: 2026/11/14 12:01:47.159249
+Revised: 2026/11/14 17:53:23.836539
 
 The app's licence from Clavren (``../clavren``): activating a key on this computer, running offline on the
 saved licence for up to 30 days, and checking it online once a day.
@@ -112,6 +112,10 @@ class Licence:
         self._crypto = crypto
         self._clock = clock
         self._lock = threading.RLock()
+        self._disk_lock = threading.Lock()
+        """One write of the store at a time. Taken after ``_lock`` or without it, never before it."""
+        self._saves = 0
+        """How many times the state was saved: tells a save that another one happened meanwhile."""
         self._unreadable: str | None = None
         self._state = self._load()
         self._saved_latest, self._saved_rewound = self._state.latest_seen, self._state.rewound_seconds
@@ -191,8 +195,20 @@ class Licence:
         with self._lock:
             latest, saved = self._state.latest_seen, self._saved_latest
             moved = latest is not None and (saved is None or latest - saved >= SEEN_SAVE_STEP)
-            if moved or self._state.rewound_seconds != self._saved_rewound:
+            if not moved and self._state.rewound_seconds == self._saved_rewound:
+                return
+            if self._unreadable is not None:
+                raise LicenceStoreUnreadable(self._unreadable)
+            seen, saves = self._state.copy(), self._saves
+        # written without the licence held: the UI thread asks for the status meanwhile, and must not wait for
+        # the disk every time the clock is noted
+        with self._disk_lock:
+            self._store.save(seen.to_json())
+        with self._lock:
+            if self._saves != saves:  # a check or an activation was saved meanwhile: that is what the file keeps
                 self._save(self._state)
+            else:
+                self._saved_latest, self._saved_rewound = seen.latest_seen, seen.rewound_seconds
 
     def time_until_due(self) -> dt.timedelta:
         """How long until the next online check is due (zero when due now)."""
@@ -370,7 +386,9 @@ class Licence:
     def _save(self, state: LicenceState) -> None:
         if self._unreadable is not None:
             raise LicenceStoreUnreadable(self._unreadable)
-        self._store.save(state.to_json())
+        with self._disk_lock:
+            self._store.save(state.to_json())
+        self._saves += 1
         self._saved_latest, self._saved_rewound = state.latest_seen, state.rewound_seconds
 
 

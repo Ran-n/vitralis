@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.433417
-Revised: 2026/11/14 12:31:25.613810
+Revised: 2026/11/14 17:53:27.545670
 
 The overlay session behind the licence: nothing of the overlay exists while locked, it starts once the licence
 holds, and locking tears it all down (toolbar with its global hooks, canvases, captures, tray). The real toolbar
@@ -636,8 +636,8 @@ def test_main_wires_everything_in_order_and_shuts_it_all_down_on_quit(qapp, wire
         "icons",
         "app",
         "notify",
+        "running mark",  # before listening: of two starts at the same moment only one goes on
         "listen",
-        "running mark",
         "clean",  # after the others: only the one running Vitralis tidies the downloaded updates
         "signals",
         "licence",
@@ -678,6 +678,29 @@ def test_writes_still_running_at_quit_are_said_in_the_log(qapp, wired_main, capl
     with caplog.at_level(logging.WARNING, "vitralis.app"):
         qapp.aboutToQuit.emit()
     assert any("still being written" in r.getMessage() for r in caplog.records)
+
+
+def test_a_start_at_the_same_moment_as_another_leaves_it_to_that_one(wired_main, monkeypatch, caplog):
+    """Regression guard: neither found the other listening yet, so both ran, each writing the same files."""
+    from vitralis.single_instance import RunningMark
+
+    wired_main.use_instance(running=False)
+    monkeypatch.setattr(app_module, "mark_running", lambda: RunningMark(handle=1, first=False))
+    with caplog.at_level(logging.INFO, "vitralis.app"), pytest.raises(SystemExit) as raised:
+        app_module.main()
+    assert raised.value.code == 0
+    assert wired_main.order[-2:] == ["app", "notify"]  # no listening, no tidying, no licence, no overlay
+    assert any("another Vitralis" in r.getMessage() for r in caplog.records)
+
+
+def test_a_first_start_that_made_the_mark_goes_on(wired_main, monkeypatch):
+    from vitralis.single_instance import RunningMark
+
+    wired_main.use_instance(running=False)
+    monkeypatch.setattr(app_module, "mark_running", lambda: RunningMark(handle=1, first=True))
+    with pytest.raises(SystemExit) as raised:
+        app_module.main()
+    assert raised.value.code == 0 and "listen" in wired_main.order and "exec" in wired_main.order
 
 
 def test_a_second_start_asks_the_first_to_show_itself_and_builds_nothing(wired_main, caplog):

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:10.362555
-Revised: 2026/11/14 12:31:25.826565
+Revised: 2026/11/14 17:53:28.829356
 
 A real canvas and its capture on the offscreen ``QApplication``, driven with Qt mouse and key events (never the
 real mouse): drawing with each tool, undo, delete, pan and clear, each saved for the next start, and what the
@@ -321,6 +321,26 @@ def test_a_pan_cut_short_by_leaving_the_mode_is_applied(canvas, capture):
     capture.show()
     drag(capture, (10, 10), (60, 10))
     assert canvas.strokes[1].points == [[10.0, 10.0], [60.0, 10.0]]  # where the cursor was
+
+
+def test_a_change_of_mode_ends_what_the_mouse_was_doing(canvas, capture):
+    """Regression guard: only hiding the capture did, and it stays up from one mode to the next."""
+    canvas.active_tool = Tool.LINE
+    drag(capture, (10, 50), (100, 50))
+    capture.show()
+    capture.set_mode(pan=True, delete=False)
+    mouse(capture, QEvent.Type.MouseButtonPress, 200, 200)
+    mouse(capture, QEvent.Type.MouseMove, 230, 215)
+    capture.set_mode(pan=True, delete=False)  # the same mode again: the pan goes on
+    assert saved()[0].points == [[10.0, 50.0], [100.0, 50.0]]
+    capture.set_mode(pan=False, delete=True)
+    assert capture.delete_mode and not capture.pan_mode
+    assert canvas.strokes[0].points == [[40.0, 65.0], [130.0, 65.0]] == saved()[0].points
+    capture.set_mode(pan=False, delete=False)
+    mouse(capture, QEvent.Type.MouseButtonPress, 10, 10)
+    mouse(capture, QEvent.Type.MouseMove, 60, 10)
+    capture.set_mode(pan=True, delete=False)  # leaving drawing with the button held keeps the stroke
+    assert not canvas.drawing and canvas.strokes[1].points == [[10.0, 10.0], [60.0, 10.0]] == saved()[1].points
 
 
 def test_hiding_a_capture_with_nothing_under_way_changes_nothing(canvas, capture, monkeypatch):

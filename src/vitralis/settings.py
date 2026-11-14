@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 07:52:06.389478
-Revised: 2026/11/14 12:31:24.284491
+Revised: 2026/11/14 17:53:24.508149
 
 ``settings.json`` (``SettingsManager``) and the settings window: the keyboard shortcuts, the language, the
 updates and the licence.
@@ -32,7 +32,7 @@ from vitralis.installed import installer_language
 from vitralis.licence.gate import LicenceGate
 from vitralis.licence.section import LicenceSection
 from vitralis.models import MAX_WIDTH, TOOL_NAMES
-from vitralis.persistence import DATA_DIR, flush_writes, write_in_background
+from vitralis.persistence import DATA_DIR, flush_writes, keep_damaged, write_in_background
 from vitralis.styles import base_btn, danger_btn, muted_btn
 from vitralis.translations import set_language, t
 from vitralis.updates.checker import UpdateChecker
@@ -120,6 +120,9 @@ def key_hint(sentence: str, key: str) -> str:
 
 _saved: dict = {}
 """``settings.json`` as last read or changed: one table for every ``SettingsManager``."""
+_unreadable = False
+"""Whether ``settings.json`` exists but couldn't be read: it is then never written over (its settings may be
+whole), until a later try reads it."""
 
 
 def _is_point(value: object) -> bool:
@@ -144,20 +147,45 @@ class SettingsManager:
     def _load(self) -> None:
         flush_writes()  # a change still on its way to the file must not be read over
         self._data.clear()
+        self._data.update(self._read())
+
+    @staticmethod
+    def _read() -> dict:
+        """What ``settings.json`` holds. Damaged content is copied aside and counts as none; a file that can't
+        be read at all counts as none too, but is marked unreadable, so no change is written over it."""
+        global _unreadable
+        _unreadable = False
         if not SETTINGS_FILE.exists():
-            return
+            return {}
         try:
-            data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
-        except (OSError, ValueError) as ex:
-            logger.warning("couldn't read %s, using the defaults: %s", SETTINGS_FILE, ex)
-            return
+            raw = SETTINGS_FILE.read_bytes()
+        except OSError as ex:
+            logger.error("couldn't read %s, using the defaults and leaving the file as it is: %s", SETTINGS_FILE, ex)
+            _unreadable = True
+            return {}
+        try:
+            data = json.loads(raw.decode("utf-8"))
+        except ValueError as ex:
+            logger.warning("%s is damaged, using the defaults: %s", SETTINGS_FILE, ex)
+            keep_damaged(SETTINGS_FILE)
+            return {}
         if isinstance(data, dict):
-            self._data.update(data)
-        else:
-            logger.warning("%s isn't a JSON object, using the defaults", SETTINGS_FILE)
+            return data
+        logger.warning("%s isn't a JSON object, using the defaults", SETTINGS_FILE)
+        keep_damaged(SETTINGS_FILE)
+        return {}
 
     def _put(self, key: str, value) -> None:
         self._data[key] = value
+        if _unreadable:
+            found = self._read()  # once more: it may have been held by another program for a moment
+            if _unreadable:
+                logger.error(
+                    "not saving the settings: %s still can't be read, and may hold earlier ones", SETTINGS_FILE
+                )
+                return
+            for name, saved in found.items():
+                self._data.setdefault(name, saved)  # what was changed since wins; the rest is kept
         write_in_background(SETTINGS_FILE, copy.deepcopy(self._data))  # a copy: the table goes on changing
 
     def shortcuts(self) -> dict[str, str]:

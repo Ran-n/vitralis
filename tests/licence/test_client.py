@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 09:18:58.733165
-Revised: 2026/11/14 12:01:48.609493
+Revised: 2026/11/14 17:53:26.963801
 
 The licence use case against an in-memory Clavren that signs real tokens: activating, running offline, the
 daily check, every refusal, a clock set back, and saved state that is damaged or can't be written. Then the
@@ -13,6 +13,7 @@ import datetime as dt
 import json
 import logging
 import threading
+import time
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
@@ -668,3 +669,105 @@ def test_a_checker_asleep_stops_at_once(licence):
     assert checks.running
     checks.stop()
     assert not checks.running
+
+
+# --- the time seen is written without holding the licence ---------------------------------------------------
+
+
+class SlowStore(MemoryLicenceStore):
+    """A store whose next save waits at the disk until ``go`` is set; ``started`` says it got there."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.started, self.go = threading.Event(), threading.Event()
+        self.go.set()
+
+    def save(self, data: bytes) -> None:
+        self.started.set()
+        assert self.go.wait(10), "the test never let the save go on"
+        super().save(data)
+
+
+def wait_until_held(licence: Licence) -> None:
+    """Wait until another thread holds the licence and keeps it (as a check does while its save waits for the
+    disk), not just for the moment it takes to read the state."""
+    deadline = time.monotonic() + 5
+    held_for = 0
+    while held_for < 5:
+        assert time.monotonic() < deadline, "nobody came to hold the licence"
+        if licence._lock.acquire(blocking=False):
+            licence._lock.release()
+            held_for = 0
+        else:
+            held_for += 1
+        time.sleep(0.01)
+
+
+def in_thread(work) -> tuple[threading.Thread, list]:
+    raised: list = []
+
+    def run() -> None:
+        try:
+            work()
+        except Exception as ex:  # told to the test, which asserts there was none
+            raised.append(ex)
+
+    thread = threading.Thread(target=run, daemon=True)
+    thread.start()
+    return thread, raised
+
+
+def test_the_status_never_waits_for_the_time_seen_to_reach_the_disk(clock, server):
+    """Regression guard: the time seen was written with the licence held, so the UI thread, asking for the
+    status every minute and at every key typed, froze for as long as a slow disk took."""
+    store = SlowStore()
+    licence = make(clock, server, store)
+    licence.activate(KEY)
+    clock.advance(hours=1)
+    licence.status()
+    store.started.clear()
+    store.go.clear()
+    saving, raised = in_thread(licence.save_time_seen)
+    assert store.started.wait(5)
+    asked, _ = in_thread(lambda: (licence.status(), licence.server_time()))
+    asked.join(2)
+    still_asking = asked.is_alive()
+    store.go.set()
+    saving.join(5)
+    assert not still_asking, "status() waited for the disk"
+    assert not saving.is_alive() and raised == []
+    saves = store.saves
+    licence.save_time_seen()
+    assert store.saves == saves  # it knows the time seen is saved
+
+
+def test_a_check_saved_while_the_time_seen_is_written_is_what_the_file_keeps(clock, server):
+    """The time seen is written from a copy made earlier: a check that lands meanwhile must not be lost."""
+    store = SlowStore()
+    licence = make(clock, server, store)
+    licence.activate(KEY)
+    clock.advance(hours=1)
+    licence.status()
+    store.started.clear()
+    store.go.clear()
+    saving, raised = in_thread(licence.save_time_seen)  # holds the disk, with the state from before the check
+    assert store.started.wait(5)
+    server.licences[CANONICAL].revoked = True
+    checking, check_raised = in_thread(licence.check)  # its save waits for the disk
+    wait_until_held(licence)
+    store.go.set()
+    saving.join(5)
+    checking.join(5)
+    assert not saving.is_alive() and not checking.is_alive() and raised == [] == check_raised
+    assert licence.status().kind is LicenceKind.REVOKED
+    assert restart(clock, server, store).status().kind is LicenceKind.REVOKED  # the file says so too
+
+
+def test_the_time_seen_isnt_written_over_a_licence_that_couldnt_be_read(clock, server):
+    store = MemoryLicenceStore()
+    store.fail_load = LicenceStoreUnreadable("held by another program")
+    licence = make(clock, server, store)
+    licence.status()
+    with pytest.raises(LicenceStoreUnreadable):
+        licence.save_time_seen()
+    assert store.saves == 0

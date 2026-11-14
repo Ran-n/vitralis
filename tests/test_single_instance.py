@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:14.047917
-Revised: 2026/11/14 12:01:49.049572
+Revised: 2026/11/14 17:53:32.807331
 
 One Vitralis per account, over a real local socket with a name of the test's own: the first start listens, a
 second finds it and asks it to show itself, and once the first is gone the next start is the first again. And
@@ -99,10 +99,26 @@ def test_a_running_vitralis_holds_the_mutex_the_uninstaller_looks_for(name):
     import ctypes
 
     assert not mutex_exists(name)
-    handle = mark_running(name)
-    assert handle and mutex_exists(name)
-    ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(handle))  # as Windows does when the process ends
+    mark = mark_running(name)
+    assert mark.handle and mark.first and mutex_exists(name)
+    ctypes.windll.kernel32.CloseHandle(ctypes.c_void_p(mark.handle))  # as Windows does when the process ends
     assert not mutex_exists(name)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="a named mutex is Windows's")
+def test_only_the_first_to_mark_itself_running_is_the_first(name):
+    """Regression guard: two starts at the same moment found nobody listening, and both ran."""
+    import ctypes
+
+    close = ctypes.windll.kernel32.CloseHandle
+    first, second = mark_running(name), mark_running(name)
+    assert first.first and not second.first and second.handle
+    close(ctypes.c_void_p(second.handle))
+    assert mutex_exists(name)  # the first still holds it
+    close(ctypes.c_void_p(first.handle))
+    again = mark_running(name)  # once the first has quit, the next start is the first again
+    assert again.first
+    close(ctypes.c_void_p(again.handle))
 
 
 def test_a_mark_that_cant_be_made_is_logged_and_not_fatal(monkeypatch, caplog):

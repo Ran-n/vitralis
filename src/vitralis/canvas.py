@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:03.861492
-Revised: 2026/11/14 12:31:23.535869
+Revised: 2026/11/14 17:53:23.542818
 
 The overlay of one screen: ``Canvas`` shows that screen's strokes and lets every click through; ``DrawCapture``
 sits over it while a mode (draw, pan, delete) is on and turns the mouse into strokes.
@@ -222,6 +222,13 @@ class DrawCapture(QWidget):
             self._stop_active()
             return
         event.accept()
+
+    def set_mode(self, pan: bool, delete: bool) -> None:
+        """What the mouse does here: pan, delete, or (neither) draw. Changing it ends what the mouse was in the
+        middle of: the capture stays up from one mode to the next, so no hide does it."""
+        if (pan, delete) != (self.pan_mode, self.delete_mode):
+            self.finish_gesture()
+        self.pan_mode, self.delete_mode = pan, delete
 
     def finish_gesture(self) -> None:
         """End what the mouse was in the middle of: the stroke being drawn is kept, the pan under way is applied.

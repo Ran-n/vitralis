@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:03.066760
-Revised: 2026/11/13 09:11:03.461213
+Revised: 2026/11/14 17:53:26.662406
 
 The Updates section of the settings window: the running version, what the last check found (or why it
 failed), the **Check for new versions** switch, **Check now**, **Release notes** and **Skip this version** /
@@ -156,13 +156,14 @@ class UpdatesSection(QWidget):
 
         self.notes_button.setEnabled(status.latest is not None)
         self.skip_button.setText(t(SKIP) if status.offered is not None or not status.newer else t(UNSKIP))
-        self.skip_button.setEnabled(status.newer and install.kind is not InstallKind.DOWNLOADING)
+        under_way = install.kind in (InstallKind.DOWNLOADING, InstallKind.REPLACING)
+        self.skip_button.setEnabled(status.newer and not under_way)
 
-        ready = install.kind is InstallKind.READY
+        ready = install.kind in (InstallKind.READY, InstallKind.REPLACING)
         self.install_button.setVisible(ready or status.can_install)
         if ready:
             self.install_button.setText(t(RESTART))
-            self.install_button.setEnabled(self._quit_app is not None)
+            self.install_button.setEnabled(self._quit_app is not None and install.kind is InstallKind.READY)
         elif status.offered is not None:
             self.install_button.setText(t(INSTALL).format(version=status.offered.version))
             self.install_button.setEnabled(install.kind is not InstallKind.DOWNLOADING)

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.127720
-Revised: 2026/11/14 12:31:24.019349
+Revised: 2026/11/14 17:53:24.131092
 
 The data folder (``%APPDATA%\\Vitralis``) and the drawings kept in it: ``strokes.json``, the strokes of every
 screen under the screen's top-left corner (``"x,y"``), and one file per named snapshot in ``snapshots``.
@@ -49,6 +49,8 @@ FLUSH_SECONDS = 10.0
 
 _strokes: dict[str, list] | None = None
 """``strokes.json`` as last read or written; ``None`` until first needed."""
+_strokes_unreadable = False
+"""Whether ``strokes.json`` exists but couldn't be read: it is then never written over, until it can be."""
 
 
 class SnapshotError(Exception):
@@ -156,28 +158,40 @@ def _parse_strokes(entries: object, source: str) -> list[Stroke]:
 
 
 def _read_strokes_file() -> dict[str, list]:
+    """What ``strokes.json`` holds. A file whose content is damaged is copied aside and counts as empty; a file
+    that can't be read at all (held by another program, no permission) counts as empty too, but is marked
+    unreadable: its drawings may be whole, so nothing is written over it until it can be read."""
+    global _strokes_unreadable
+    _strokes_unreadable = False
     if not STROKES_FILE.exists():
         return {}
     try:
-        data = json.loads(STROKES_FILE.read_text(encoding="utf-8"))
-    except (OSError, ValueError) as ex:
-        logger.error("couldn't read %s, starting without drawings: %s", STROKES_FILE, ex)
-        _keep_damaged()
+        raw = STROKES_FILE.read_bytes()
+    except OSError as ex:
+        logger.error("couldn't read %s, starting without drawings and leaving the file as it is: %s", STROKES_FILE, ex)
+        _strokes_unreadable = True
+        return {}
+    try:
+        data = json.loads(raw.decode("utf-8"))
+    except ValueError as ex:
+        logger.error("%s is damaged, starting without drawings: %s", STROKES_FILE, ex)
+        keep_damaged(STROKES_FILE)
         return {}
     if isinstance(data, list):  # the first versions' format: the primary screen's strokes
         return {PRIMARY_KEY: data}
     if isinstance(data, dict):
         return data
     logger.error("%s holds neither screens nor strokes, starting without drawings", STROKES_FILE)
-    _keep_damaged()
+    keep_damaged(STROKES_FILE)
     return {}
 
 
-def _keep_damaged() -> None:
-    """Copy the unreadable file aside, so the next save doesn't destroy what might still be recovered."""
-    kept = STROKES_FILE.with_name(STROKES_FILE.name + DAMAGED_SUFFIX)
+def keep_damaged(path: Path) -> None:
+    """Copy a file that can't be understood aside, so the next save doesn't destroy what might still be
+    recovered from it."""
+    kept = path.with_name(path.name + DAMAGED_SUFFIX)
     try:
-        shutil.copyfile(STROKES_FILE, kept)
+        shutil.copyfile(path, kept)
         logger.info("kept the unreadable file as %s", kept)
     except OSError as ex:
         logger.warning("couldn't keep the unreadable file as %s: %s", kept, ex)
@@ -193,9 +207,10 @@ def _all_strokes() -> dict[str, list]:
 def forget_strokes() -> None:
     """Read ``strokes.json`` again at the next use, once what was saved is in it (for tests, which look at the
     file and change it behind the app's back)."""
-    global _strokes
+    global _strokes, _strokes_unreadable
     flush_writes()
     _strokes = None
+    _strokes_unreadable = False
 
 
 def load_strokes_for(geo: QRect) -> list[Stroke]:
@@ -208,8 +223,25 @@ def save_strokes_for(geo: QRect, strokes: list[Stroke]) -> None:
     screen). Every save hands the writer a table of its own with this screen's list made anew, and the lists
     of the other screens are only ever replaced, never changed: the writer reads them from its thread."""
     data = _all_strokes()
+    if _strokes_unreadable and not _read_again(data):
+        logger.error("not saving the drawings: %s still can't be read, and may hold earlier ones", STROKES_FILE)
+        return
     data[screen_key(geo)] = [s.to_dict() for s in strokes]
     write_in_background(STROKES_FILE, dict(data), indent=None)
+
+
+def _read_again(data: dict[str, list]) -> bool:
+    """Try the file that couldn't be read at start once more, before the first save since; whether it can be
+    written over now. What it holds is copied aside (the screens were drawn on without it) and its other
+    screens' drawings are taken into ``data``, so the save keeps them."""
+    found = _read_strokes_file()
+    if _strokes_unreadable:
+        return False
+    if found:
+        keep_damaged(STROKES_FILE)
+    for key, entries in found.items():
+        data.setdefault(key, entries)
+    return True
 
 
 # --- snapshots ----------------------------------------------------------------------------------------------

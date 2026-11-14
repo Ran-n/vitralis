@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:03.794151
-Revised: 2026/11/14 12:31:23.433897
+Revised: 2026/11/14 17:53:23.243290
 
 Starts Vitralis behind its licence: the licence window first when no key is active on this computer, the
 overlay (``Session``) once the licence holds, and back to the licence window if it stops holding.
@@ -293,8 +293,11 @@ def main() -> None:
     if instance.notify_running():
         logger.info("Vitralis is already running: asked it to show its toolbar")
         sys.exit(0)
+    mark = mark_running()
+    if mark is not None and not mark.first:  # started at the same moment: neither found the other listening
+        logger.info("another Vitralis is starting or quitting: leaving it to that one")
+        sys.exit(0)
     instance.listen()
-    mark_running()
     # only now: a second start must never tidy away the update the running Vitralis has downloaded
     clean_after_updates(app_version())
     signal_timer = quit_on_signals(app)

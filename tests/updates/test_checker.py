@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:08.909997
-Revised: 2026/11/14 12:01:49.118368
+Revised: 2026/11/14 17:53:34.226027
 
 The update checker on the offscreen ``QApplication``: checks run off the UI thread and come back as one
 ``UpdateStatus``; skip and Don't skip need no new check; errors are shown and never leave it busy; the timer
@@ -187,6 +187,10 @@ class FakeInstall:
         self.outcome: Exception | None = None
         self.gate = threading.Event()
         self.gate.set()
+        self.swap_gate = threading.Event()
+        """Cleared, it holds the swap back."""
+        self.swap_gate.set()
+        self.swap_thread: threading.Thread | None = None
         self.events: list[str] = []
         self.writable = True
         self.pending: Path | None = None
@@ -203,6 +207,8 @@ class FakeInstall:
 
     def swap(self, running, new, old_version, pid):
         self.events.append(f"swap {running.name} {new.name} {old_version}")
+        self.swap_thread = threading.current_thread()
+        assert self.swap_gate.wait(5), "the test never let the swap go on"
         if self.outcome is not None:
             raise self.outcome
 
@@ -247,7 +253,45 @@ def test_restart_swaps_before_quitting(qapp, make, fake_install):
     checker.install()
     wait_until(qapp, lambda: checker.status.install.kind is InstallKind.READY)
     checker.restart_to_update(lambda: fake_install.events.append("quit"))
+    wait_until(qapp, lambda: "quit" in fake_install.events)
     assert fake_install.events == ["swap vitralis-1.3.0.exe vitralis-1.4.0.exe 1.3.0", "quit"]
+
+
+def test_the_exe_is_put_in_place_off_the_ui_thread(qapp, make, fake_install):
+    """Regression guard: across drives the exe is copied, and the window froze for as long as that took."""
+    checker, _ = make(installer=fake_install.installer())
+    check(qapp, checker)
+    checker.install()
+    wait_until(qapp, lambda: checker.status.install.kind is InstallKind.READY)
+    fake_install.swap_gate.clear()
+    checker.restart_to_update(lambda: fake_install.events.append("quit"))
+    state = checker.status.install
+    assert state.kind is InstallKind.REPLACING and state.version == "1.4.0" and state.path is not None
+    assert checker.working and "quit" not in fake_install.events
+    checker.restart_to_update(lambda: fake_install.events.append("quit again"))  # asked twice: once is enough
+    checker.install()  # nor is it downloaded again meanwhile
+    assert checker.status.install.kind is InstallKind.REPLACING
+    fake_install.swap_gate.set()
+    wait_until(qapp, lambda: "quit" in fake_install.events)
+    assert fake_install.swap_thread is not threading.main_thread() and not fake_install.swap_thread.daemon
+    assert [event for event in fake_install.events if event.startswith(("swap", "quit"))] == [
+        "swap vitralis-1.3.0.exe vitralis-1.4.0.exe 1.3.0",
+        "quit",
+    ]
+
+
+def test_a_bug_while_putting_the_exe_in_place_is_shown_and_logged(qapp, make, fake_install, caplog):
+    checker, _ = make(installer=fake_install.installer())
+    check(qapp, checker)
+    checker.install()
+    wait_until(qapp, lambda: checker.status.install.kind is InstallKind.READY)
+    fake_install.outcome = RuntimeError("boom")
+    with caplog.at_level(logging.ERROR, "vitralis.updates"):
+        checker.restart_to_update(lambda: fake_install.events.append("quit"))
+        wait_until(qapp, lambda: checker.status.install.kind is InstallKind.FAILED)
+    state = checker.status.install
+    assert state.failure is FailureKind.OTHER and state.detail == "RuntimeError: boom" and state.path is not None
+    assert "quit" not in fake_install.events and any(r.exc_info for r in caplog.records)
 
 
 def test_a_failed_swap_shows_why_and_does_not_quit(qapp, make, fake_install):
@@ -257,6 +301,7 @@ def test_a_failed_swap_shows_why_and_does_not_quit(qapp, make, fake_install):
     wait_until(qapp, lambda: checker.status.install.kind is InstallKind.READY)
     fake_install.outcome = SwapFailed("couldn't start the new version: denied")
     checker.restart_to_update(lambda: fake_install.events.append("quit"))
+    wait_until(qapp, lambda: checker.status.install.kind is InstallKind.FAILED)
     assert "quit" not in fake_install.events
     state = checker.status.install
     assert state.kind is InstallKind.FAILED and state.failure is FailureKind.NOT_REPLACED
@@ -270,6 +315,7 @@ def test_an_unexpected_install_failure_shows_its_reason(qapp, make, fake_install
     wait_until(qapp, lambda: checker.status.install.kind is InstallKind.READY)
     fake_install.outcome = UpdateError("odd")
     checker.restart_to_update(lambda: fake_install.events.append("quit"))
+    wait_until(qapp, lambda: checker.status.install.kind is InstallKind.FAILED)
     state = checker.status.install
     assert state.kind is InstallKind.FAILED and state.failure is FailureKind.OTHER and state.detail == "odd"
 

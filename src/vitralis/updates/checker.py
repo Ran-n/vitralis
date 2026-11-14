@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:01.548894
-Revised: 2026/11/14 12:01:47.948196
+Revised: 2026/11/14 17:53:26.073338
 
 Asks for the latest release at start (after ``FIRST_CHECK_DELAY_MS``, so start-up isn't slowed) and then
 every ``UPDATE_CHECK_EVERY``, and, in the packaged exe, downloads and installs it on request. The network work
@@ -64,6 +64,8 @@ class InstallKind(enum.Enum):
     IDLE = "idle"
     DOWNLOADING = "downloading"
     READY = "ready"
+    REPLACING = "replacing"
+    """Restart to update was asked for: the exe is being put in place, then Vitralis quits."""
     FAILED = "failed"
 
 
@@ -139,6 +141,7 @@ class UpdateChecker(QObject):
     _checked = pyqtSignal(object, object, object)
     """(release or ``None``, error text or ``None``, its ``FeedFailure`` or ``None``) from the check thread."""
     _install_step = pyqtSignal(object)
+    _replaced = pyqtSignal()
     """An ``InstallState`` from the download or pending thread."""
 
     def __init__(
@@ -170,6 +173,8 @@ class UpdateChecker(QObject):
         self._status = self._compute()
         self._checked.connect(self._on_checked)
         self._install_step.connect(self._on_install_step)
+        self._replaced.connect(self._on_replaced)
+        self._quit_app: Callable[[], None] | None = None
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._on_timer)
 
@@ -277,7 +282,7 @@ class UpdateChecker(QObject):
             self._installer is None
             or release is None
             or not release.installable
-            or self._install.kind in (InstallKind.DOWNLOADING, InstallKind.READY)
+            or self._install.kind in (InstallKind.DOWNLOADING, InstallKind.READY, InstallKind.REPLACING)
         ):
             return
         version = str(release.version)
@@ -331,23 +336,42 @@ class UpdateChecker(QObject):
         self._download.start()
 
     def restart_to_update(self, quit_app: Callable[[], None]) -> None:
-        """Put the downloaded exe in place, start it, then quit through ``quit_app`` (the clean shutdown)."""
+        """Put the downloaded exe in place and start it, on a thread of its own (across drives the exe is
+        copied, which takes a while), then quit through ``quit_app`` (the clean shutdown)."""
         if self._installer is None or self._install.kind is not InstallKind.READY or self._install.path is None:
             return
-        try:
-            self._installer.swap(self._installer.exe, self._install.path, self._current_text, os.getpid())
-        except SwapFailed as ex:
-            logger.error("couldn't install %s: %s", self._install.version, ex)
-            self._set_install(replace(self._install, kind=InstallKind.FAILED, failure=FailureKind.NOT_REPLACED))
-            return
-        except UpdateError as ex:
-            logger.error("couldn't install %s: %s", self._install.version, ex)
-            self._set_install(
-                replace(self._install, kind=InstallKind.FAILED, failure=FailureKind.OTHER, detail=str(ex))
-            )
-            return
-        logger.info("restarting into %s", self._install.version)
-        quit_app()
+        ready, installer = self._install, self._installer
+        self._quit_app = quit_app
+        self._set_install(replace(ready, kind=InstallKind.REPLACING))
+
+        def failed(failure: FailureKind, detail: str = "") -> None:
+            self._install_step.emit(replace(ready, kind=InstallKind.FAILED, failure=failure, detail=detail))
+
+        def worker() -> None:
+            try:
+                installer.swap(installer.exe, ready.path, self._current_text, os.getpid())
+            except SwapFailed as ex:
+                logger.error("couldn't install %s: %s", ready.version, ex)
+                failed(FailureKind.NOT_REPLACED)
+            except UpdateError as ex:
+                logger.error("couldn't install %s: %s", ready.version, ex)
+                failed(FailureKind.OTHER, str(ex))
+            except Exception as ex:  # a bug must not leave Restart greyed out for ever
+                logger.exception("putting the update in place failed unexpectedly")
+                failed(FailureKind.OTHER, f"{type(ex).__name__}: {ex}")
+            else:
+                logger.info("restarting into %s", ready.version)
+                self._replaced.emit()
+
+        # not a daemon: a quit that comes meanwhile waits for the exe to be whole, never cuts the copy short
+        self._workers = [thread for thread in self._workers if thread.is_alive()]
+        self._workers.append(threading.Thread(target=worker, name="vitralis-update-swap", daemon=False))
+        self._workers[-1].start()
+
+    def _on_replaced(self) -> None:
+        quit_app, self._quit_app = self._quit_app, None
+        if quit_app is not None:
+            quit_app()
 
     def _find_pending(self) -> None:
         try:

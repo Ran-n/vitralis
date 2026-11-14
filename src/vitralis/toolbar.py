@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.341523
-Revised: 2026/11/14 16:56:39.164982
+Revised: 2026/11/14 17:53:25.399437
 
 The floating toolbar that drives the overlay (modes, tools, colours, size, undo, clear, hide) and opens its
 windows (Settings, Snapshots, About, the colour picker). What it is left at is remembered for the next start:
@@ -812,8 +812,7 @@ class Toolbar(QWidget):
                 button.setStyleSheet(accent_btn() if mode == DRAW else muted_btn())
         self.update()  # the border is orange while drawing
         for capture in self.captures:
-            capture.pan_mode = self._mode == PAN
-            capture.delete_mode = self._mode == DELETE
+            capture.set_mode(pan=self._mode == PAN, delete=self._mode == DELETE)
             if self._mode is None:
                 capture.hide()
             else:

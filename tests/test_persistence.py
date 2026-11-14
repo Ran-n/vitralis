@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:10.961213
-Revised: 2026/11/14 12:31:26.138976
+Revised: 2026/11/14 17:53:31.508633
 
 The drawings on disk (real files in the test's own data folder): strokes per screen surviving a restart, the
 first versions' bare list, damaged entries and files, writes that are whole or not at all and never make the
@@ -54,6 +54,21 @@ def restart() -> None:
 
 def refuse(*args, **kwargs):
     raise PermissionError("read-only")
+
+
+def hold(monkeypatch, path: Path) -> dict:
+    """Make ``path`` unreadable, as while another program holds it, until the ``held`` it returns is turned
+    off."""
+    state = {"held": True}
+    read = type(path).read_bytes
+
+    def read_bytes(self):
+        if state["held"] and self == path:
+            raise PermissionError("held by another program")
+        return read(self)
+
+    monkeypatch.setattr(type(path), "read_bytes", read_bytes)
+    return state
 
 
 # --- strokes ------------------------------------------------------------------------------------------------
@@ -125,6 +140,55 @@ def test_an_unreadable_file_is_logged_kept_aside_and_started_over(content, caplo
     save_strokes_for(PRIMARY, [LINE])
     restart()
     assert load_strokes_for(PRIMARY) == [LINE]
+
+
+def test_a_file_that_cant_be_read_is_never_written_over(monkeypatch, caplog):
+    """Regression guard: a file held by another program at start counted as empty, and the first stroke drawn
+    replaced every screen's drawings in it."""
+    save_strokes_for(PRIMARY, [LINE])
+    save_strokes_for(SECOND, [PEN])
+    restart()
+    before = persistence.STROKES_FILE.read_bytes()
+    state = hold(monkeypatch, persistence.STROKES_FILE)
+    with caplog.at_level(logging.ERROR, "vitralis.persistence"):
+        assert load_strokes_for(PRIMARY) == []  # the app starts without drawings
+        save_strokes_for(PRIMARY, [ERASER])
+        assert flush_writes(5)
+    state["held"] = False  # for the test's own look at the file
+    assert persistence.STROKES_FILE.read_bytes() == before
+    messages = [r.getMessage() for r in caplog.records]
+    assert any("leaving the file as it is" in m for m in messages) and any("not saving" in m for m in messages)
+    kept = persistence.STROKES_FILE.with_name(persistence.STROKES_FILE.name + DAMAGED_SUFFIX)
+    assert not kept.exists()  # nothing is damaged: there is nothing to keep aside
+
+
+def test_once_the_file_can_be_read_again_a_save_keeps_the_other_screens_and_a_copy(monkeypatch):
+    save_strokes_for(PRIMARY, [LINE])
+    save_strokes_for(SECOND, [PEN])
+    restart()
+    before = persistence.STROKES_FILE.read_bytes()
+    state = hold(monkeypatch, persistence.STROKES_FILE)
+    assert load_strokes_for(PRIMARY) == []
+    state["held"] = False
+    save_strokes_for(PRIMARY, [ERASER])
+    restart()
+    assert load_strokes_for(PRIMARY) == [ERASER]  # what was drawn since
+    assert load_strokes_for(SECOND) == [PEN]  # the screen not drawn on keeps its drawings
+    kept = persistence.STROKES_FILE.with_name(persistence.STROKES_FILE.name + DAMAGED_SUFFIX)
+    assert kept.read_bytes() == before  # the first screen's earlier drawings can still be got back
+
+
+def test_a_restart_forgets_that_the_file_couldnt_be_read(monkeypatch):
+    save_strokes_for(PRIMARY, [LINE])
+    restart()
+    state = hold(monkeypatch, persistence.STROKES_FILE)
+    assert load_strokes_for(PRIMARY) == []
+    state["held"] = False
+    restart()
+    assert load_strokes_for(PRIMARY) == [LINE]
+    save_strokes_for(PRIMARY, [LINE, PEN])
+    restart()
+    assert load_strokes_for(PRIMARY) == [LINE, PEN]
 
 
 def test_a_failed_save_is_logged_not_raised_and_leaves_the_old_file_whole(monkeypatch, caplog):
