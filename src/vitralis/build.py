@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 16:06:25.762869
-Revised: 2026/11/13 20:11:35.436292
+Revised: 2026/11/14 18:18:36.654478
 """
 
 import argparse
@@ -170,10 +170,7 @@ def main() -> None:
         print("\nBuild failed.")
         sys.exit(result.returncode)
     built = os.path.join(dist, f"{exe_name}.exe")
-    latest = os.path.join(dist, "vitralis.exe")
-    shutil.copy2(built, latest)
     print(f"\nDone ->      {built}")
-    print(f"Latest ->    {latest}")
     if not args.no_installer:
         setup = build_installer(Path(root), version, Path(built), Path(ico), Path(dist))
         print(f"Installer -> {setup}")

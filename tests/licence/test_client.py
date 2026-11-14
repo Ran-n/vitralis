@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 09:18:58.733165
-Revised: 2026/11/14 17:53:26.963801
+Revised: 2026/11/14 18:18:38.721896
 
 The licence use case against an in-memory Clavren that signs real tokens: activating, running offline, the
 daily check, every refusal, a clock set back, and saved state that is damaged or can't be written. Then the
@@ -771,3 +771,50 @@ def test_the_time_seen_isnt_written_over_a_licence_that_couldnt_be_read(clock, s
     with pytest.raises(LicenceStoreUnreadable):
         licence.save_time_seen()
     assert store.saves == 0
+
+
+class HookLock:
+    """The licence's disk lock, running ``hook`` once, just before it is first taken."""
+
+    def __init__(self, hook) -> None:
+        self._lock = threading.Lock()
+        self._hook = hook
+
+    def __enter__(self) -> None:
+        hook, self._hook = self._hook, None
+        if hook is not None:
+            hook()
+        self._lock.acquire()
+
+    def __exit__(self, *exc) -> None:
+        self._lock.release()
+
+
+def test_an_older_copy_left_on_the_disk_is_written_over_at_the_next_try(clock, server, store):
+    """Regression guard: a check saved between the copy being made and its being written leaves the older copy
+    on the disk until it is written over; when that write failed, nothing tried again."""
+    licence = make(clock, server, store)
+    licence.activate(KEY)
+    clock.advance(hours=1)
+    licence.status()
+    server.licences[CANONICAL].revoked = True
+
+    def check_then_fail_the_next_save() -> None:
+        licence.check()  # saved, as revoked, before the older copy is written
+        store.fail_after = store.saves + 1  # the older copy is still written; the one that mends it is not
+
+    save = store.save
+
+    def failing_save(data: bytes) -> None:
+        if getattr(store, "fail_after", None) is not None and store.saves >= store.fail_after:
+            raise LicenceStoreError("disk full")
+        save(data)
+
+    store.save = failing_save
+    licence._disk_lock = HookLock(check_then_fail_the_next_save)
+    with pytest.raises(LicenceStoreError):
+        licence.save_time_seen()
+    assert restart(clock, server, store).status().licensed  # the older copy: still licensed, on the disk only
+    store.fail_after = None
+    licence.save_time_seen()
+    assert restart(clock, server, store).status().kind is LicenceKind.REVOKED

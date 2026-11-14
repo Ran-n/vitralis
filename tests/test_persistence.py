@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:10.961213
-Revised: 2026/11/14 18:00:30.763574
+Revised: 2026/11/14 18:18:39.361467
 
 The drawings on disk (real files in the test's own data folder): strokes per screen surviving a restart, the
 first versions' bare list, damaged entries and files, writes that are whole or not at all and never make the
@@ -176,6 +176,37 @@ def test_once_the_file_can_be_read_again_a_save_keeps_the_other_screens_and_a_co
     assert load_strokes_for(SECOND) == [PEN]  # the screen not drawn on keeps its drawings
     kept = persistence.STROKES_FILE.with_name(persistence.STROKES_FILE.name + DAMAGED_SUFFIX)
     assert kept.read_bytes() == before  # the first screen's earlier drawings can still be got back
+
+
+def test_a_copy_kept_aside_is_never_written_over_nor_kept_twice():
+    """Regression guard: the next damaged file replaced the copy of the one before, the only one left."""
+    kept = persistence.STROKES_FILE.with_name(persistence.STROKES_FILE.name + DAMAGED_SUFFIX)
+    persistence.STROKES_FILE.write_text("{first", encoding="utf-8")
+    assert load_strokes_for(PRIMARY) == []
+    restart()
+    assert load_strokes_for(PRIMARY) == []  # started again without drawing: the same damage, kept once
+    assert sorted(p.name for p in kept.parent.glob("strokes.json.damaged*")) == ["strokes.json.damaged"]
+    restart()
+    persistence.STROKES_FILE.write_text("{second", encoding="utf-8")
+    assert load_strokes_for(PRIMARY) == []
+    assert kept.read_text(encoding="utf-8") == "{first"
+    assert kept.with_name(kept.name + ".2").read_text(encoding="utf-8") == "{second"
+    restart()
+    persistence.STROKES_FILE.write_text("{third", encoding="utf-8")
+    assert load_strokes_for(PRIMARY) == []
+    assert kept.with_name(kept.name + ".3").read_text(encoding="utf-8") == "{third"
+
+
+def test_the_app_can_tell_that_drawings_arent_being_saved(monkeypatch):
+    save_strokes_for(PRIMARY, [LINE])
+    restart()
+    assert load_strokes_for(PRIMARY) == [LINE] and not persistence.strokes_unreadable()
+    restart()
+    state = hold(monkeypatch, persistence.STROKES_FILE)
+    assert load_strokes_for(PRIMARY) == [] and persistence.strokes_unreadable()
+    state["held"] = False
+    save_strokes_for(PRIMARY, [PEN])
+    assert not persistence.strokes_unreadable()
 
 
 def test_a_restart_forgets_that_the_file_couldnt_be_read(monkeypatch):

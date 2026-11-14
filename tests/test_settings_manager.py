@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:11.023352
-Revised: 2026/11/14 17:53:32.045409
+Revised: 2026/11/14 18:18:39.687901
 
 ``settings.json`` through ``SettingsManager`` (a real file in ``tmp_path``): the update defaults, an old file
 without ``"updates"``, values surviving a restart, two managers not undoing each other's changes, and a broken
@@ -134,6 +134,24 @@ def test_a_file_that_cant_be_read_is_never_written_over(settings_file, monkeypat
     messages = [r.getMessage() for r in caplog.records]
     assert any("leaving the file as it is" in m for m in messages) and any("not saving" in m for m in messages)
     assert not settings_file.with_name(settings_file.name + DAMAGED_SUFFIX).exists()
+
+
+def test_a_file_held_while_vitralis_runs_doesnt_reset_what_it_knows(settings_file, monkeypatch):
+    """Regression guard: every new manager reads the file again, and one made while the file was held emptied
+    the table they share: the toolbar came up in English with the default shortcuts."""
+    first = SettingsManager()
+    first.set_language("Deutsch")
+    first.set_shortcuts({**DEFAULT_SHORTCUTS, "draw": "q"})
+    assert flush_writes(5)
+    state = hold(monkeypatch, settings_file)
+    second = SettingsManager()
+    assert second.language() == "Deutsch" == first.language() and second.shortcuts()["draw"] == "q"
+    assert settings_module.settings_unreadable()
+    state["held"] = False
+    second.set_skipped_version("1.4.0")
+    assert not settings_module.settings_unreadable()
+    fresh = SettingsManager()
+    assert (fresh.language(), fresh.shortcuts()["draw"], fresh.skipped_version()) == ("Deutsch", "q", "1.4.0")
 
 
 def test_once_the_file_can_be_read_again_a_change_keeps_the_rest(settings_file, monkeypatch):

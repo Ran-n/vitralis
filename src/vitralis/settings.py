@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 07:52:06.389478
-Revised: 2026/11/14 17:53:24.508149
+Revised: 2026/11/14 18:18:37.704974
 
 ``settings.json`` (``SettingsManager``) and the settings window: the keyboard shortcuts, the language, the
 updates and the licence.
@@ -134,6 +134,11 @@ def _is_point(value: object) -> bool:
     )
 
 
+def settings_unreadable() -> bool:
+    """Whether ``settings.json`` couldn't be read, so that changes aren't being saved."""
+    return _unreadable
+
+
 class SettingsManager:
     """``settings.json``. Several managers may be alive at once (the toolbar's, the updater's), so they all work
     on the one table in memory: one never undoes another's change. A new manager reads the file again; a
@@ -146,8 +151,11 @@ class SettingsManager:
 
     def _load(self) -> None:
         flush_writes()  # a change still on its way to the file must not be read over
+        found = self._read()
+        if _unreadable and self._data:
+            return  # held for a moment while Vitralis runs: what this run already knows stays
         self._data.clear()
-        self._data.update(self._read())
+        self._data.update(found)
 
     @staticmethod
     def _read() -> dict:
