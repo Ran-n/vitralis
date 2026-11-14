@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:03.794151
-Revised: 2026/11/14 12:01:47.016116
+Revised: 2026/11/14 12:31:23.433897
 
 Starts Vitralis behind its licence: the licence window first when no key is active on this computer, the
 overlay (``Session``) once the licence holds, and back to the licence window if it stops holding.
@@ -17,7 +17,7 @@ import threading
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
-from PyQt6.QtCore import QPoint, Qt, QTimer
+from PyQt6.QtCore import QPoint, QTimer
 from PyQt6.QtGui import QScreen
 from PyQt6.QtWidgets import QApplication, QSystemTrayIcon
 
@@ -65,8 +65,6 @@ class Session:
         self.canvases: list[Canvas] = []
         self.captures: list[DrawCapture] = []
         self.toolbar: Toolbar | None = None
-        self._toolbar_ref: list[Toolbar] = []
-        """What the captures reach the toolbar through: it is built after them."""
         self._watched: list[QScreen] = []
         self._tray: QSystemTrayIcon | None = None
 
@@ -83,7 +81,6 @@ class Session:
         self._build_overlay()
         toolbar = Toolbar(self.canvases, self.captures, licence=self._gate, updates=self._updates)
         toolbar.setWindowIcon(make_app_icon())
-        self._toolbar_ref.append(toolbar)
         primary = self._app.primaryScreen().geometry()
         toolbar.place(QPoint(primary.x() + TOOLBAR_MARGIN, primary.y() + TOOLBAR_MARGIN))
         toolbar.show()
@@ -112,8 +109,7 @@ class Session:
             canvas = Canvas(geo)
             canvas.load(load_strokes_for(geo))
             canvas.show()
-            capture = DrawCapture(canvas, geo, stop_active=self._stop_active, toolbar=self._toolbar_ref)
-            capture.setWindowFlags(capture.windowFlags() | Qt.WindowType.WindowStaysOnTopHint)
+            capture = DrawCapture(canvas, geo, stop_active=self._stop_active)
             self.canvases.append(canvas)
             self.captures.append(capture)
             screen.geometryChanged.connect(self._on_screens_changed)
@@ -146,9 +142,7 @@ class Session:
     def show_toolbar(self) -> None:
         """Bring the toolbar to the front (another start of Vitralis asked for it); nothing while locked."""
         if self.toolbar is not None:
-            self.toolbar.show()
-            self.toolbar.raise_()
-            self.toolbar.activateWindow()
+            self.toolbar.show_toolbar()
 
     def _show_message(self, text: str, about_update: bool) -> None:
         self._tray_says_update = about_update
@@ -181,7 +175,6 @@ class Session:
         self.toolbar.close()  # stops the global hotkey and wheel threads, closes its panels
         self.toolbar.deleteLater()
         self.toolbar = None
-        self._toolbar_ref.clear()
         self._close_overlay()
         logger.info("overlay stopped")
 
@@ -195,6 +188,7 @@ QUIET_LOGGERS = ("httpx", "httpcore")
 def setup_logging() -> None:
     """Log to ``vitralis.log`` in the data folder (the packaged exe has no console), and to the console too
     when there is one."""
+    LOG_FILE.parent.mkdir(parents=True, exist_ok=True)  # the first start: nothing made the data folder yet
     handlers: list[logging.Handler] = [
         RotatingFileHandler(LOG_FILE, maxBytes=1_000_000, backupCount=2, encoding="utf-8")
     ]
@@ -318,7 +312,15 @@ def main() -> None:
     session = Session(app, updates=updates.checker, updated=bool(args.updated))
     gate = LicenceGate(parts.licence, parts.checks, session.start, session.stop, LicenceWindow)
     session.attach(gate)
-    instance.activated.connect(session.show_toolbar)
+
+    def show_running() -> None:
+        """Another start of Vitralis: bring up what this one shows, the toolbar or (locked) the licence window."""
+        if session.running:
+            session.show_toolbar()
+        else:
+            gate.show_window()
+
+    instance.activated.connect(show_running)
 
     def _shutdown() -> None:
         signal_timer.stop()

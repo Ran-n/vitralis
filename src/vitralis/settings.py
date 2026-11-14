@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 07:52:06.389478
-Revised: 2026/11/14 11:44:53.334414
+Revised: 2026/11/14 12:31:24.284491
 
 ``settings.json`` (``SettingsManager``) and the settings window: the keyboard shortcuts, the language, the
 updates and the licence.
@@ -60,7 +60,6 @@ LANGUAGES: list[tuple[str, str]] = [
 
 DEFAULT_LANGUAGE = "English"
 
-_LANG_CODE: dict[str, str] = {label: code for code, label in LANGUAGES}
 _LANG_LABELS: list[str] = [label for _, label in LANGUAGES]
 
 DEFAULT_SHORTCUTS: dict[str, str] = {
@@ -104,10 +103,32 @@ _ACTION_KEYS: dict[str, str] = {
 
 GLOBAL_ACTION = "focus_toggle"
 """The one shortcut that works from any app: it goes through the ``keyboard`` library, not Qt."""
+PANEL_NAMES = ("settings", "snapshots", "info", "color")
+"""The toolbar's windows whose place beside it is remembered."""
+NO_KEY = "—"
+
+
+def display_key(key: str) -> str:
+    """A shortcut as it is shown: ``CTRL+Q``; a dash for none."""
+    return key.upper() if key else NO_KEY
+
+
+def key_hint(sentence: str, key: str) -> str:
+    """``sentence`` with its shortcut after it, as the tooltips show it; the sentence alone when it has none."""
+    return f"{sentence}  [{display_key(key)}]" if key else sentence
 
 
 _saved: dict = {}
 """``settings.json`` as last read or changed: one table for every ``SettingsManager``."""
+
+
+def _is_point(value: object) -> bool:
+    """Whether ``value`` is ``[x, y]`` in whole numbers, as positions are saved."""
+    return (
+        isinstance(value, list)
+        and len(value) == 2
+        and all(isinstance(part, int) and not isinstance(part, bool) for part in value)
+    )
 
 
 class SettingsManager:
@@ -191,7 +212,8 @@ class SettingsManager:
 
     def toolbar_state(self) -> dict:
         """What the toolbar was left at: any of ``tool`` (a ``Tool`` name), ``color`` (``#rrggbb``), ``size``
-        (a stroke width), ``position`` (``[x, y]``) and ``hidden`` (whether the drawings were hidden). Damaged
+        (a stroke width), ``position`` (``[x, y]``), ``hidden`` (whether the drawings were hidden) and
+        ``panels`` (where each of its windows was left, as ``[dx, dy]`` from the toolbar's corner). Damaged
         entries are left out, so the toolbar falls back to its defaults for them."""
         saved = self._data.get("toolbar", {})
         if not isinstance(saved, dict):
@@ -205,15 +227,13 @@ class SettingsManager:
         size = saved.get("size")
         if isinstance(size, int) and not isinstance(size, bool) and 1 <= size <= MAX_WIDTH:
             state["size"] = size
-        position = saved.get("position")
-        if (
-            isinstance(position, list)
-            and len(position) == 2
-            and all(isinstance(part, int) and not isinstance(part, bool) for part in position)
-        ):
-            state["position"] = position
+        if _is_point(saved.get("position")):
+            state["position"] = saved["position"]
         if isinstance(saved.get("hidden"), bool):
             state["hidden"] = saved["hidden"]
+        panels = saved.get("panels")
+        if isinstance(panels, dict):
+            state["panels"] = {name: spot for name, spot in panels.items() if name in PANEL_NAMES and _is_point(spot)}
         return state
 
     def set_toolbar_state(self, **changes) -> None:
@@ -226,23 +246,26 @@ class SettingsManager:
 
 
 class _KeyCapture(QPushButton):
+    """An action's shortcut. A click makes it listen for the next key press, which becomes the shortcut; Esc,
+    another button starting to listen, or the focus going elsewhere end the listening with nothing changed."""
+
     captured = pyqtSignal(str)
+    listening = pyqtSignal()
+    """This button started to listen (so the others stop)."""
 
     def __init__(self, current: str) -> None:
-        super().__init__(self._display(current))
+        super().__init__(display_key(current))
+        self._key = current
         self._listening = False
         self.setFixedSize(110, 26)
         self.setCheckable(True)
         self.setStyleSheet(muted_btn())
         self.clicked.connect(self._start_listen)
 
-    @staticmethod
-    def _display(key: str) -> str:
-        return key.upper() if key else "—"
-
     def show_key(self, key: str) -> None:
-        """Show ``key`` as this action's shortcut (``—`` for none)."""
-        self.setText(self._display(key))
+        """Show ``key`` as this action's shortcut (a dash for none)."""
+        self._key = key
+        self.setText(display_key(key))
 
     def _start_listen(self) -> None:
         self._listening = True
@@ -250,6 +273,24 @@ class _KeyCapture(QPushButton):
         self.setChecked(True)
         self.setStyleSheet(base_btn(bg="#1a5fa8", hover="#1a5fa8", checked="#1a5fa8"))
         self.grabKeyboard()
+        self.listening.emit()
+
+    def cancel(self) -> None:
+        """Stop listening, the shortcut left as it was."""
+        if self._listening:
+            self._stop_listen("")
+
+    def event(self, event) -> bool:
+        """While listening, every key is this button's: without this, a key that is already a shortcut (D,
+        Ctrl+Q, Esc) would run that shortcut instead of being captured."""
+        if self._listening and event.type() == QEvent.Type.ShortcutOverride:
+            event.accept()
+            return True
+        return super().event(event)
+
+    def focusOutEvent(self, event) -> None:
+        self.cancel()
+        super().focusOutEvent(event)
 
     def keyPressEvent(self, event) -> None:
         if not self._listening:
@@ -259,6 +300,9 @@ class _KeyCapture(QPushButton):
         key = event.key()
 
         if key in (Qt.Key.Key_Control, Qt.Key.Key_Shift, Qt.Key.Key_Alt, Qt.Key.Key_Meta):
+            return
+        if key == Qt.Key.Key_Escape and mods == Qt.KeyboardModifier.NoModifier:
+            self.cancel()
             return
 
         parts = []
@@ -282,16 +326,15 @@ class _KeyCapture(QPushButton):
         self.setChecked(False)
         self.setStyleSheet(muted_btn())
         if key:
-            self.setText(self._display(key))
+            self.show_key(key)
             self.captured.emit(key)
         else:
-            self.setText("—")
+            self.setText(display_key(self._key))
 
 
 class SettingsWindow(QWidget):
     shortcuts_changed = pyqtSignal(dict)
     language_changed = pyqtSignal(str)
-    activation_changed = pyqtSignal(bool)
     closed = pyqtSignal()
 
     def __init__(
@@ -320,12 +363,12 @@ class SettingsWindow(QWidget):
         self._lang_label: QLabel | None = None
         self._reset_all_btn: QPushButton | None = None
 
-        self.setWindowTitle("Vitralis — Settings")
+        set_language(manager.language())
+        self.setWindowTitle(f"Vitralis — {t('Settings')}")  # shown in the taskbar and Alt+Tab
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setWindowFlags(
             Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint | Qt.WindowType.Window
         )
-        set_language(manager.language())
         self._build_ui()
         self.setFixedWidth(self.sizeHint().width())
         QShortcut(QKeySequence("Escape"), self, activated=self.close)
@@ -376,6 +419,7 @@ class SettingsWindow(QWidget):
             self._reset_all_btn.setText(t("Reset all"))
         if self._title:
             self._title.setText(t("Settings"))
+        self.setWindowTitle(f"Vitralis — {t('Settings')}")
         for button in self._reset_buttons:
             button.setToolTip(t("Reset to default"))
         if self.updates_section is not None:
@@ -428,6 +472,7 @@ class SettingsWindow(QWidget):
 
             cap = _KeyCapture(self._shortcuts.get(action, DEFAULT_SHORTCUTS[action]))
             cap.captured.connect(lambda key, a=action: self._on_captured(a, key))
+            cap.listening.connect(lambda a=action: self._listen_only(a))
             self._captures[action] = cap
 
             reset_btn = QPushButton("↺")
@@ -496,6 +541,12 @@ class SettingsWindow(QWidget):
     def _on_captured(self, action: str, key: str) -> None:
         self._assign(action, key)
 
+    def _listen_only(self, action: str) -> None:
+        """One button listens at a time: the others go back to showing their shortcut."""
+        for other, capture in self._captures.items():
+            if other != action:
+                capture.cancel()
+
     def _assign(self, action: str, key: str) -> None:
         """Give ``action`` the shortcut ``key``. A key the global hook can't take is refused for the focus
         shortcut (the old one stays); an action that already had ``key`` loses it, since one key for two
@@ -530,13 +581,9 @@ class SettingsWindow(QWidget):
         self._manager.set_shortcuts(self._shortcuts)
         self.shortcuts_changed.emit(dict(self._shortcuts))
 
-    def changeEvent(self, event) -> None:
-        if event.type() == QEvent.Type.ActivationChange:
-            self.activation_changed.emit(self.isActiveWindow())
-        super().changeEvent(event)
-
     def closeEvent(self, event) -> None:
-        self.activation_changed.emit(False)
+        for capture in self._captures.values():
+            capture.cancel()  # a button left listening would keep the keyboard
         self.closed.emit()
         super().closeEvent(event)
 

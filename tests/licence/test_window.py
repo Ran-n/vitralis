@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.558622
-Revised: 2026/11/14 12:01:48.843998
+Revised: 2026/11/14 12:31:25.483078
 
 The licence window and the settings' License section, as real Qt widgets rendered offscreen: what they say for
 each outcome, which buttons work when, and what they look like (pixels of the rendered window).
@@ -243,3 +243,30 @@ def test_the_section_relabels_in_another_language(section, activated):
     assert shown.values["Status"].text() == "Lizenziert"
     assert shown.values["Valid until"].text() == "Unbefristet"
     assert shown.check_button.text() == t("Check now") == "Jetzt prüfen"
+
+
+def test_the_window_comes_to_the_front_with_its_message_and_what_was_typed(qapp, window_gate):
+    window = opened(window_gate)
+    window.key_field.setText("BRN-79YN")
+    window.show_error("an error still to be read")
+    window.hide()
+    window_gate.show_window()
+    assert window.isVisible() and window.key_field.text() == "BRN-79YN"
+    assert window.error_label.text() == "an error still to be read" and not window.error_label.isHidden()
+
+
+def test_the_key_fields_menu_speaks_the_ui_language(qapp, window_gate):
+    """The key is often pasted with the right button: its menu was Qt's own, in English."""
+    from vitralis.widgets import LineEdit
+
+    set_language("Galego")
+    window = opened(window_gate)
+    assert isinstance(window.key_field, LineEdit)
+    menu = window.key_field.edit_menu()
+    assert [a.text() for a in menu.actions() if not a.isSeparator()] == [
+        "Cortar",
+        "Copiar",
+        "Pegar",
+        "Seleccionar todo",
+    ]
+    menu.deleteLater()

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:14.728410
-Revised: 2026/11/14 00:23:23.245085
+Revised: 2026/11/14 12:31:26.583851
 
 The tray icon on the offscreen ``QApplication``: its menu in every UI language (and again after the language
 changes), each entry wired to the toolbar or to quitting, a double click showing the toolbar, and closing it.
@@ -22,9 +22,17 @@ class Bar(QWidget):
     def __init__(self) -> None:
         super().__init__()
         self.quits = 0
+        self.left_modes = 0
 
     def quit(self) -> None:
         self.quits += 1
+
+    def show_toolbar(self) -> None:
+        self.show()
+
+    def hide_toolbar(self) -> None:
+        self.left_modes += 1
+        self.hide()
 
 
 @pytest.fixture
@@ -68,9 +76,19 @@ def test_the_entries_show_hide_and_quit(tray, bar):
     show.trigger()
     assert bar.isVisible()
     hide.trigger()
-    assert not bar.isVisible()
+    assert not bar.isVisible() and bar.left_modes == 1  # through the toolbar, which leaves any mode first
     quit_action.trigger()
     assert bar.quits == 1
+
+
+def test_only_the_entry_that_would_do_something_can_be_chosen(tray, bar):
+    """Show is greyed out while the toolbar shows, Hide while it is hidden."""
+    show, hide, _quit = [a for a in tray._menu.actions() if not a.isSeparator()]
+    tray._menu.aboutToShow.emit()
+    assert show.isEnabled() and not hide.isEnabled()
+    bar.show()
+    tray._menu.aboutToShow.emit()
+    assert not show.isEnabled() and hide.isEnabled()
 
 
 def test_only_a_double_click_shows_the_toolbar(tray, bar):

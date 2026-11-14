@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.199011
-Revised: 2026/04/28 15:57:04.199011
+Revised: 2026/11/14 12:31:24.188126
 """
 
 import math
@@ -65,11 +65,14 @@ def render_stroke(painter: QPainter, stroke: Stroke) -> None:
         painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_Clear)
 
     if tool in (Tool.PEN.name, Tool.ERASER.name):
-        path = QPainterPath()
-        path.moveTo(QPointF(*points[0]))
-        for pt in points[1:]:
-            path.lineTo(QPointF(*pt))
-        painter.drawPath(path)
+        if len(points) == 1:  # a click without a drag: a dot as wide as the pen (a path of one point paints nothing)
+            painter.drawPoint(QPointF(*points[0]))
+        else:
+            path = QPainterPath()
+            path.moveTo(QPointF(*points[0]))
+            for pt in points[1:]:
+                path.lineTo(QPointF(*pt))
+            painter.drawPath(path)
 
     elif tool == Tool.LINE.name and len(points) >= 2:
         painter.drawLine(QPointF(*points[0]), QPointF(*points[-1]))

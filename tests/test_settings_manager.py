@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:11.023352
-Revised: 2026/11/14 11:44:53.792107
+Revised: 2026/11/14 12:31:26.235961
 
 ``settings.json`` through ``SettingsManager`` (a real file in ``tmp_path``): the update defaults, an old file
 without ``"updates"``, values surviving a restart, two managers not undoing each other's changes, and a broken
@@ -222,3 +222,32 @@ def test_a_damaged_toolbar_entry_is_replaced_on_the_next_save(settings_file):
     manager = SettingsManager()
     manager.set_toolbar_state(size=7)
     assert SettingsManager().toolbar_state() == {"size": 7} and SettingsManager().language() == "Deutsch"
+
+
+def test_where_the_windows_were_left_survives_a_restart(settings_file):
+    manager = SettingsManager()
+    manager.set_toolbar_state(panels={"snapshots": [30, 200], "color": [-250, 0]})
+    assert SettingsManager().toolbar_state() == {"panels": {"snapshots": [30, 200], "color": [-250, 0]}}
+
+
+@pytest.mark.parametrize(
+    ("saved", "kept"),
+    [
+        ("beside", None),
+        (
+            {"settings": [1, 2], "wizard": [3, 4], "info": [1.5, 2], "color": "0,0", "snapshots": [True, 1]},
+            {"settings": [1, 2]},
+        ),
+        ({"settings": [1]}, {}),
+    ],
+)
+def test_damaged_window_places_are_left_out(settings_file, saved, kept):
+    settings_file.write_text(json.dumps({"toolbar": {"panels": saved}}), encoding="utf-8")
+    assert SettingsManager().toolbar_state().get("panels") == kept
+
+
+def test_a_shortcut_is_shown_in_capitals_and_none_as_a_dash():
+    from vitralis.settings import display_key, key_hint
+
+    assert display_key("ctrl+q") == "CTRL+Q" and display_key("") == "—"
+    assert key_hint("Undo", "z") == "Undo  [Z]" and key_hint("Undo", "") == "Undo"
