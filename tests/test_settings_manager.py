@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:11.023352
-Revised: 2026/11/14 18:18:39.687901
+Revised: 2026/11/14 18:33:19.601346
 
 ``settings.json`` through ``SettingsManager`` (a real file in ``tmp_path``): the update defaults, an old file
 without ``"updates"``, values surviving a restart, two managers not undoing each other's changes, and a broken
@@ -152,6 +152,43 @@ def test_a_file_held_while_vitralis_runs_doesnt_reset_what_it_knows(settings_fil
     assert not settings_module.settings_unreadable()
     fresh = SettingsManager()
     assert (fresh.language(), fresh.shortcuts()["draw"], fresh.skipped_version()) == ("Deutsch", "q", "1.4.0")
+
+
+def test_a_change_inside_a_table_keeps_the_tables_other_entries_in_the_file(settings_file, monkeypatch):
+    """Regression guard: after a start with the file held, the first move of the toolbar wrote its position
+    alone over the saved tool, colour and size, and skipping a version turned the update checks back on."""
+    first = SettingsManager()
+    first.set_toolbar_state(tool="RECT", color="#00c853", size=8, position=[10, 20])
+    first.set_update_check(False)
+    assert flush_writes(5)
+    settings_module._saved.clear()  # a new start
+    state = hold(monkeypatch, settings_file)
+    manager = SettingsManager()
+    assert manager.toolbar_state() == {}
+    state["held"] = False
+    manager.set_toolbar_state(position=[100, 200])
+    manager.set_skipped_version("1.4.0")
+    fresh = SettingsManager()
+    saved = fresh.toolbar_state()
+    assert (saved["tool"], saved["color"], saved["size"], saved["position"]) == ("RECT", "#00c853", 8, [100, 200])
+    assert fresh.update_check() is False and fresh.skipped_version() == "1.4.0"
+
+
+def test_a_change_refused_while_the_file_was_held_is_saved_once_it_can_be(settings_file, monkeypatch):
+    """Regression guard: the next manager made (the toolbar's, after the licence unlocks again) read the file
+    and dropped the change."""
+    first = SettingsManager()
+    first.set_language("Deutsch")
+    assert flush_writes(5)
+    state = hold(monkeypatch, settings_file)
+    held = SettingsManager()
+    held.set_skipped_version("1.4.0")  # refused
+    state["held"] = False
+    later = SettingsManager()
+    assert later.skipped_version() == "1.4.0" == held.skipped_version() and later.language() == "Deutsch"
+    assert flush_writes(5)
+    settings_module._saved.clear()
+    assert SettingsManager().skipped_version() == "1.4.0"  # and it reached the file
 
 
 def test_once_the_file_can_be_read_again_a_change_keeps_the_rest(settings_file, monkeypatch):

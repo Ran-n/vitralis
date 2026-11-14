@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/14 18:18:36.036422 )
+[//]: # (+ Revised: 	2026/11/14 18:33:17.250150 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -119,6 +119,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that changes aren't being saved. A damaged `settings.json` is kept aside
   as `settings.json.damaged`, as `strokes.json` already was, and a copy
   kept aside is never replaced by a later one.
+- A setting changed after a start that couldn't read `settings.json` no
+  longer drops the file's other settings of the same group (the toolbar's
+  tool, colour and size; the update checks' switch) once the file can be
+  read again.
 - Typing in the Snapshots list jumps to the snapshot with that name instead
   of running the toolbar's shortcuts (a Z undid a stroke).
 - Switching from pan to another mode with the mouse button still held

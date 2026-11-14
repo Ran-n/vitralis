@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:10.171960
-Revised: 2026/11/14 18:18:38.037123
+Revised: 2026/11/14 18:33:18.019012
 
 One Vitralis per Windows account: two would mean two overlays, two sets of global hooks and two writers of the
 same files. The first one listens on a local socket named after the account; a second start finds it, asks it
@@ -26,9 +26,10 @@ logger = logging.getLogger("vitralis.single_instance")
 CONNECT_TIMEOUT_MS = 500
 RUNNING_MUTEX = "VitralisRunning"
 """The mutex's name; ``installer/vitralis.iss`` names the same one (``AppMutex``)."""
-START_WAIT_SECONDS = 15.0
-"""How long a start waits for a Vitralis that holds the mark without answering: longer than its quitting takes
-(``persistence.FLUSH_SECONDS`` at most for the last writes)."""
+START_WAIT_SECONDS = 30.0
+"""How long a start waits for a Vitralis that holds the mark without answering: longer than the slowest quit,
+which gives a download 5 s to stop, the licence checks 5 s and the last writes ``persistence.FLUSH_SECONDS``
+(10 s), one after the other."""
 START_PAUSE_SECONDS = 0.25
 ERROR_ALREADY_EXISTS = 183
 """What Windows says when the mutex asked for was already there: the handle it gives is to that one."""

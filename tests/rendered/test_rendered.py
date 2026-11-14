@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 16:56:38.576341
-Revised: 2026/11/14 16:56:38.576341
+Revised: 2026/11/14 18:33:19.233062
 
 Vitralis as Windows draws it: the real toolbar, its windows and an overlay canvas run in a process of their own
 (``driver.py``) on a scratch data folder, clicked and dragged with posted window messages and looked at with
@@ -156,6 +156,7 @@ def test_delete_mode_removes_the_stroke_clicked_and_no_other(app):
 
 def test_clear_empties_the_overlay(app):
     draw_line(app)
+    assert app.state()["saved"] == 1 and is_color(app.pixel("canvas", 170, 100), PALETTE[0])
     app.click("toolbar._clear_btn")
     state = app.state()
     assert state["strokes"] == [] and state["saved"] == 0 and is_clear(app.pixel("canvas", 170, 100))

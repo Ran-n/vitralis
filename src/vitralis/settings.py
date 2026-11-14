@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 07:52:06.389478
-Revised: 2026/11/14 18:18:37.704974
+Revised: 2026/11/14 18:33:17.632994
 
 ``settings.json`` (``SettingsManager``) and the settings window: the keyboard shortcuts, the language, the
 updates and the licence.
@@ -134,6 +134,18 @@ def _is_point(value: object) -> bool:
     )
 
 
+def _over(saved: dict, changed: dict) -> dict:
+    """``saved`` with ``changed`` laid over it. A table inside (the toolbar's state, the updates') is laid over
+    entry by entry: a change to one of its entries keeps the others the file holds."""
+    merged = dict(saved)
+    for name, value in changed.items():
+        if isinstance(value, dict) and isinstance(saved.get(name), dict):
+            merged[name] = {**saved[name], **value}
+        else:
+            merged[name] = value
+    return merged
+
+
 def settings_unreadable() -> bool:
     """Whether ``settings.json`` couldn't be read, so that changes aren't being saved."""
     return _unreadable
@@ -151,9 +163,13 @@ class SettingsManager:
 
     def _load(self) -> None:
         flush_writes()  # a change still on its way to the file must not be read over
+        unsaved = _unreadable and bool(self._data)
         found = self._read()
         if _unreadable and self._data:
             return  # held for a moment while Vitralis runs: what this run already knows stays
+        if unsaved:  # readable again: what was changed while it was held is kept, and saved at last
+            found = _over(found, self._data)
+            write_in_background(SETTINGS_FILE, copy.deepcopy(found))
         self._data.clear()
         self._data.update(found)
 
@@ -192,8 +208,9 @@ class SettingsManager:
                     "not saving the settings: %s still can't be read, and may hold earlier ones", SETTINGS_FILE
                 )
                 return
-            for name, saved in found.items():
-                self._data.setdefault(name, saved)  # what was changed since wins; the rest is kept
+            merged = _over(found, self._data)  # what was changed since wins; the rest is kept
+            self._data.clear()
+            self._data.update(merged)
         write_in_background(SETTINGS_FILE, copy.deepcopy(self._data))  # a copy: the table goes on changing
 
     def shortcuts(self) -> dict[str, str]:
