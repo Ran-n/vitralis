@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.370504
-Revised: 2026/11/14 12:01:48.380512
+Revised: 2026/11/14 12:31:24.960698
 
 Shared fixtures for the licence's Qt tests: one offscreen ``QApplication``, a clock, an in-memory Clavren and
 store, a gate wired to them with a fake daily checker, and a way to wait for a worker thread's answer.
@@ -114,6 +114,7 @@ class FakePrompt:
         self.errors: list[str] = []
         self.busy: list[bool] = []
         self.dismissed = False
+        self.fronted = 0
 
     def show_status(self, status: LicenceStatus) -> None:
         self.statuses.append(status)
@@ -123,6 +124,9 @@ class FakePrompt:
 
     def set_busy(self, busy: bool) -> None:
         self.busy.append(busy)
+
+    def bring_to_front(self) -> None:
+        self.fronted += 1
 
     def dismiss(self) -> None:
         self.dismissed = True

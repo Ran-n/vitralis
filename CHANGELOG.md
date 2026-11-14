@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/14 12:01:46.936852 )
+[//]: # (+ Revised: 	2026/11/14 12:31:23.094436 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -35,8 +35,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Settings → Apps.
 - The landing page's download button gets the installer.
 - The toolbar remembers its tool, color, stroke size and position between
-  runs, and whether the drawings were hidden (the Show/Hide button shows
-  it).
+  runs, whether the drawings were hidden (the Show/Hide button shows it),
+  and where each of its windows was left beside it.
+- The custom color is picked in a window of Vitralis's own (dark, in the UI
+  language, with the color as `#rrggbb` to read or type) instead of the
+  system's dialog.
+- Text fields' right-click menu (Cut, Copy, Paste, Select all) is in the UI
+  language.
 - The overlay follows the monitors: plugging one in, unplugging it or
   changing its resolution rebuilds the overlay, each monitor getting its
   own drawings back.
@@ -76,6 +81,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   place, are explained in every language instead of with an English reason.
 - Quitting waits at most 5 seconds for a license check under way (it was
   20), and no longer closes a connection a request is still using.
+- Tooltips name the shortcut each action has now, not the default one, and
+  no key for an action without one.
+- A click without a drag leaves a dot with the pen and the eraser, and
+  nothing with the shapes (it used to save a stroke that painted nothing).
+- Delete mode takes a rectangle or an ellipse by its outline; a click in
+  its empty middle no longer deletes it.
+- Starting to draw, pan or delete shows hidden drawings first, and hiding
+  them leaves the mode: nothing is drawn unseen.
+- Undo and Clear are greyed out while nothing is drawn, − and + at the
+  smallest and largest size, and the tray's Show/Hide toolbar when the
+  toolbar already is.
+- Esc on the toolbar closes the window used last, not always the same one.
+- The scroll wheel changes the color over the toolbar and while drawing,
+  no longer while it scrolls one of the toolbar's windows.
+- Vitralis no longer depends on `pywin32`, which nothing used.
 
 ### Fixed
 
@@ -119,6 +139,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   could end the daily license checks until the next start.
 - Starting a second Vitralis could delete the update the running one had
   downloaded, so **Restart to update** failed.
+- In Settings, a key that already was a shortcut couldn't be given to
+  another action: pressing it ran the shortcut instead (D toggled drawing,
+  Ctrl+Q quit Vitralis). Esc now cancels, and clicking a second key button
+  ends the first one's listening.
+- In the Snapshots window, Enter in the name field loaded the selected
+  snapshot over the drawing instead of saving, and Delete in the list did
+  nothing while the toolbar showed.
+- Leaving a mode with the mouse button still held (the focus key, Esc, a
+  right click) left a half-drawn stroke on screen that Undo and Clear
+  couldn't reach, or a pan that was never applied.
+- Hiding the toolbar from the tray while drawing left the screen taking
+  every click with no toolbar to stop it.
+- Starting Vitralis again while the license window was open did nothing
+  visible; the window now comes to the front.
+- The Settings, Snapshots and About windows' titles were English only.
+- The README and the landing page said drawing ends after each stroke; it
+  stays on until a right-click or Esc.
+- Running the tests no longer creates `%APPDATA%\Vitralis` on the machine
+  they run on.
 
 ### Security
 

@@ -2,26 +2,31 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:03.861492
-Revised: 2026/11/14 00:23:15.697109
+Revised: 2026/11/14 12:31:23.535869
 
 The overlay of one screen: ``Canvas`` shows that screen's strokes and lets every click through; ``DrawCapture``
 sits over it while a mode (draw, pan, delete) is on and turns the mouse into strokes.
 """
 
-import math
 import time
 from collections.abc import Callable
 
-from PyQt6.QtCore import QPointF, QRect, Qt
+from PyQt6.QtCore import QPointF, QRect, Qt, pyqtSignal
 from PyQt6.QtGui import QPainter, QPixmap
-from PyQt6.QtWidgets import QApplication, QWidget
+from PyQt6.QtWidgets import QWidget
 
-from vitralis.models import Stroke, Tool
+from vitralis.models import FREEHAND, Stroke, Tool
 from vitralis.persistence import save_strokes_for
 from vitralis.renderer import render_stroke
 
+DELETE_TOLERANCE = 20.0
+"""How near its line, in pixels, a click must be to delete a stroke."""
+
 
 class Canvas(QWidget):
+    changed = pyqtSignal()
+    """The strokes changed (one drawn, undone, deleted, loaded, all cleared): the toolbar's Undo and Clear follow."""
+
     def __init__(self, geometry: QRect) -> None:
         super().__init__()
         self._geo = geometry
@@ -51,6 +56,7 @@ class Canvas(QWidget):
         self.strokes = strokes
         self._redraw_pixmap()
         self.update()
+        self.changed.emit()
 
     def begin_stroke(self, pos: QPointF) -> None:
         self.current = Stroke(
@@ -64,7 +70,7 @@ class Canvas(QWidget):
 
     def extend_stroke(self, pos: QPointF) -> None:
         if self.current and self.drawing:
-            if self.active_tool in (Tool.PEN, Tool.ERASER):
+            if self.current.tool in FREEHAND:
                 self.current.points.append([pos.x(), pos.y()])
             else:
                 if len(self.current.points) == 1:
@@ -74,12 +80,14 @@ class Canvas(QWidget):
             self.update()
 
     def end_stroke(self) -> None:
-        if self.current and self.drawing and len(self.current.points) >= 1:
-            self.strokes.append(self.current)
-            self._commit_stroke(self.current)
+        """Keep the stroke in progress. A click without a drag is a dot with the pen and the eraser; with a
+        shape it is nothing (no line, no rectangle), so nothing is kept: it would be saved and undone unseen."""
+        stroke, self.current, self.drawing = self.current, None, False
+        if stroke is not None and (stroke.tool in FREEHAND or stroke.points[0] != stroke.points[-1]):
+            self.strokes.append(stroke)
+            self._commit_stroke(stroke)
             save_strokes_for(self._geo, self.strokes)
-        self.current = None
-        self.drawing = False
+            self.changed.emit()
         self.update()
 
     def last_drawn_at(self) -> float | None:
@@ -92,40 +100,30 @@ class Canvas(QWidget):
             self._redraw_pixmap()
             save_strokes_for(self._geo, self.strokes)
             self.update()
+            self.changed.emit()
 
     def clear(self) -> None:
         self.strokes.clear()
+        self.current, self.drawing = None, False  # a stroke still being drawn goes too
         self._offset = QPointF(0, 0)
         self._pixmap.fill(Qt.GlobalColor.transparent)
         save_strokes_for(self._geo, self.strokes)
         self.update()
+        self.changed.emit()
 
-    def delete_stroke_at(self, pos: QPointF, tolerance: float = 20.0) -> None:
+    def delete_stroke_at(self, pos: QPointF, tolerance: float = DELETE_TOLERANCE) -> None:
+        """Delete the stroke whose line is nearest ``pos``, when it is within ``tolerance`` pixels."""
+        if not self.strokes:
+            return
         adjusted = pos - self._offset
-        px, py = adjusted.x(), adjusted.y()
-        best_idx, best_dist = -1, float("inf")
-        for i, stroke in enumerate(self.strokes):
-            pts = stroke.points
-            for j in range(len(pts)):
-                x0, y0 = pts[j]
-                d = math.hypot(x0 - px, y0 - py)
-                if d < best_dist:
-                    best_dist, best_idx = d, i
-                if j + 1 < len(pts):
-                    x1, y1 = pts[j + 1]
-                    dx, dy = x1 - x0, y1 - y0
-                    seg_len_sq = dx * dx + dy * dy
-                    if seg_len_sq > 0:
-                        t = max(0.0, min(1.0, ((px - x0) * dx + (py - y0) * dy) / seg_len_sq))
-                        cx, cy = x0 + t * dx, y0 + t * dy
-                        d = math.hypot(cx - px, cy - py)
-                        if d < best_dist:
-                            best_dist, best_idx = d, i
-        if best_idx >= 0 and best_dist <= tolerance:
-            self.strokes.pop(best_idx)
+        distances = [stroke.distance_to(adjusted.x(), adjusted.y()) for stroke in self.strokes]
+        nearest = min(range(len(distances)), key=distances.__getitem__)
+        if distances[nearest] <= tolerance:
+            self.strokes.pop(nearest)
             self._redraw_pixmap()
             save_strokes_for(self._geo, self.strokes)
             self.update()
+            self.changed.emit()
 
     def shift_by(self, delta: QPointF) -> None:
         self._offset += delta
@@ -169,11 +167,10 @@ class Canvas(QWidget):
 class DrawCapture(QWidget):
     """Invisible full-screen widget that captures mouse events while a tool is active."""
 
-    def __init__(self, canvas: Canvas, geometry: QRect, stop_active: Callable[[], None], toolbar: list) -> None:
+    def __init__(self, canvas: Canvas, geometry: QRect, stop_active: Callable[[], None]) -> None:
         super().__init__()
         self.canvas = canvas
         self._stop_active = stop_active
-        self._toolbar_ref = toolbar
         self.pan_mode = False
         self.delete_mode = False
         self._pan_last: QPointF | None = None
@@ -226,8 +223,22 @@ class DrawCapture(QWidget):
             return
         event.accept()
 
+    def finish_gesture(self) -> None:
+        """End what the mouse was in the middle of: the stroke being drawn is kept, the pan under way is applied.
+        Leaving a mode with the button still held (F8, a right click, Esc) never sends the release."""
+        if self.canvas.drawing:
+            self.canvas.end_stroke()
+        if self._pan_last is not None:
+            self._pan_last = None
+            self.canvas.apply_offset()
+
+    def hideEvent(self, event) -> None:
+        self.finish_gesture()
+        super().hideEvent(event)
+
     def keyPressEvent(self, event) -> None:
+        """Esc leaves the mode. Every other key is the toolbar's, whose shortcuts work from any Vitralis window."""
         if event.key() == Qt.Key.Key_Escape:
             self._stop_active()
         else:
-            QApplication.sendEvent(self._toolbar_ref[0], event)
+            super().keyPressEvent(event)

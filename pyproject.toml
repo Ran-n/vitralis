@@ -6,7 +6,6 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "pyqt6>=6.11.0",
-    "pywin32>=308; sys_platform == 'win32'",
     "keyboard>=0.13",
     "cryptography>=50.0.2",
     "blake3>=1.0.11",
@@ -72,4 +71,4 @@ omit = ["*/_version.py"]
 
 [tool.coverage.report]
 show_missing = true
-fail_under = 94
+fail_under = 95

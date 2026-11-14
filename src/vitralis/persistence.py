@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.127720
-Revised: 2026/11/14 11:44:53.234395
+Revised: 2026/11/14 12:31:24.019349
 
 The data folder (``%APPDATA%\\Vitralis``) and the drawings kept in it: ``strokes.json``, the strokes of every
 screen under the screen's top-left corner (``"x,y"``), and one file per named snapshot in ``snapshots``.
@@ -32,10 +32,9 @@ from vitralis.models import Stroke
 logger = logging.getLogger("vitralis.persistence")
 
 DATA_DIR = Path(os.getenv("APPDATA", Path.home())) / "Vitralis"
-DATA_DIR.mkdir(parents=True, exist_ok=True)
+"""Made when something is first written into it, never by importing this module (the tests import it too)."""
 STROKES_FILE = DATA_DIR / "strokes.json"
 SNAPSHOTS_DIR = DATA_DIR / "snapshots"
-SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
 
 PRIMARY_KEY = "0,0"
 """The screen whose strokes the first versions saved as a bare list."""
@@ -60,6 +59,7 @@ def write_json_atomic(path: Path, data: object, indent: int | None = 2) -> None:
     """Write ``data`` to ``path`` whole or not at all; ``OSError`` when it can't be written."""
     temporary = path.with_name(f"{path.name}.{secrets.token_hex(6)}.tmp")
     try:
+        path.parent.mkdir(parents=True, exist_ok=True)
         temporary.write_text(json.dumps(data, indent=indent), encoding="utf-8")
         os.replace(temporary, path)
     except OSError:
@@ -226,6 +226,8 @@ def list_snapshots() -> list[str]:
     """Snapshot names sorted alphabetically; none (and an error in the log) when the folder can't be read."""
     try:
         return sorted(f.stem for f in SNAPSHOTS_DIR.iterdir() if f.suffix == ".json")
+    except FileNotFoundError:  # none was ever saved
+        return []
     except OSError as ex:
         logger.error("couldn't list the snapshots in %s: %s", SNAPSHOTS_DIR, ex)
         return []
@@ -236,7 +238,6 @@ def save_snapshot(name: str, screens: dict[str, list[Stroke]]) -> None:
     path = _snapshot_path(name)
     data = {key: [s.to_dict() for s in strokes] for key, strokes in screens.items()}
     try:
-        SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
         write_json_atomic(path, data, indent=None)
     except OSError as ex:
         logger.error("couldn't save the snapshot %s: %s", path, ex)

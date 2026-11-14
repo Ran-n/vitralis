@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/04/27 10:48:03.565778 )
-[//]: # (+ Revised: 	2026/11/14 00:23:15.400308 )
+[//]: # (+ Revised: 	2026/11/14 12:31:23.184740 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 ![Vitralis icon](src/vitralis/media/logo/icon_title.png)
@@ -18,9 +18,9 @@ Draw annotations, shapes, and marks directly over your live desktop. They stay �
 
 - Transparent, always-on-top overlay spanning all monitors
 - Always click-through — use your computer normally at all times
-- Drawing activated via a small floating toolbar; finishes automatically after each stroke
+- Drawing activated via a small floating toolbar; it stays on for as many strokes as you need, until a right-click or Esc
 - Tools: freehand pen, eraser, rectangle, ellipse, line, arrow
-- Color palette with custom color picker, stroke size control, and scroll-wheel color cycling
+- Color palette with a custom color picker (pick a shade or type `#rrggbb`), stroke size control, and scroll-wheel color cycling
 - Per-stroke undo (the latest stroke, whichever monitor it is on) and click-to-delete individual strokes
 - Pan mode — drag all drawings to reposition them
 - Drawings persist across restarts (JSON stroke list, per-monitor), and so do the toolbar's tool, color, size and position

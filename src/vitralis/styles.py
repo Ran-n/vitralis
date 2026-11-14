@@ -2,26 +2,25 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.270010
-Revised: 2026/04/29 13:04:58.785417
+Revised: 2026/11/14 12:31:24.383051
 """
 
 from vitralis.models import Tool
 
-PANEL_BG = "rgba(18, 18, 22, 218)"
-PANEL_BORDER = "rgba(255,255,255,18)"
 BTN_BG = "rgba(255,255,255,12)"
 BTN_HOVER = "rgba(255,255,255,26)"
 BTN_CHECKED = "#e07020"
 BTN_RADIUS = "6px"
 
 TOOL_ICONS: dict[Tool, tuple[str, str]] = {
-    Tool.PEN: ("pen", "Pen  [P]"),
-    Tool.ERASER: ("eraser", "Eraser  [E]"),
-    Tool.LINE: ("line", "Line  [L]"),
-    Tool.ARROW: ("arrow", "Arrow  [A]"),
-    Tool.RECT: ("rect", "Rectangle  [R]"),
-    Tool.ELLIPSE: ("ellipse", "Ellipse  [O]"),
+    Tool.PEN: ("pen", "Pen"),
+    Tool.ERASER: ("eraser", "Eraser"),
+    Tool.LINE: ("line", "Line"),
+    Tool.ARROW: ("arrow", "Arrow"),
+    Tool.RECT: ("rect", "Rectangle"),
+    Tool.ELLIPSE: ("ellipse", "Ellipse"),
 }
+"""Each tool's icon and name. The icon's name is also the end of the tool's shortcut action (``tool_pen``)."""
 
 SIZES = list(range(2, 25))
 

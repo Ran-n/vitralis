@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:10.961213
-Revised: 2026/11/14 11:44:53.726212
+Revised: 2026/11/14 12:31:26.138976
 
 The drawings on disk (real files in the test's own data folder): strokes per screen surviving a restart, the
 first versions' bare list, damaged entries and files, writes that are whole or not at all and never make the
@@ -36,7 +36,9 @@ from vitralis.persistence import (
     write_json_atomic,
 )
 
-GOLDEN = Path(__file__).parent / "golden" / "strokes-v1.json"
+GOLDEN = Path(__file__).parent / "golden" / "strokes-v2.json"
+GOLDEN_BEFORE = Path(__file__).parent / "golden" / "strokes-v1.json"
+"""As written up to 1.3.0: every stroke carried a ``filled`` that no tool ever set."""
 PRIMARY = QRect(0, 0, 1920, 1080)
 SECOND = QRect(1920, 0, 1280, 1024)
 LINE = Stroke("LINE", "#00c853", 5, [[10.0, 20.0], [300.0, 40.5]], created=1_800_000_000.25)
@@ -202,12 +204,13 @@ def test_of_several_saves_waiting_only_the_latest_is_written(tmp_path, monkeypat
 def test_a_write_that_fails_is_logged_and_the_next_file_is_still_written(tmp_path, caplog):
     writer = BackgroundWriter()
     with caplog.at_level(logging.ERROR, "vitralis.persistence"):
-        writer.write(tmp_path / "gone" / "a.json", {"a": 1})  # no such folder
+        (tmp_path / "taken").write_text("a file where a.json's folder should be", encoding="utf-8")
+        writer.write(tmp_path / "taken" / "a.json", {"a": 1})
         writer.write(tmp_path / "bad.json", {"when": object()})  # not JSON: a bug, logged with its traceback
         writer.write(tmp_path / "b.json", {"b": 2})
         assert writer.flush(5)
     assert json.loads((tmp_path / "b.json").read_text(encoding="utf-8")) == {"b": 2}
-    assert [p.name for p in tmp_path.iterdir()] == ["b.json"]
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["b.json", "taken"]
     assert sum("a.json" in r.getMessage() for r in caplog.records) == 1
     assert any("bad.json" in r.getMessage() and r.exc_info for r in caplog.records)
 
@@ -249,8 +252,9 @@ def test_the_saved_file_is_the_golden_one():
     assert saved == json.loads(GOLDEN.read_text(encoding="utf-8"))
 
 
-def test_the_golden_file_loads_into_a_fresh_install():
-    persistence.STROKES_FILE.write_bytes(GOLDEN.read_bytes())
+@pytest.mark.parametrize("golden", [GOLDEN, GOLDEN_BEFORE], ids=["current", "up to 1.3.0"])
+def test_the_golden_file_loads_into_a_fresh_install(golden):
+    persistence.STROKES_FILE.write_bytes(golden.read_bytes())
     for geo, strokes in GOLDEN_SCREENS.items():
         assert load_strokes_for(geo) == strokes
 
@@ -322,7 +326,35 @@ def test_a_snapshot_that_cant_be_deleted_raises_and_is_logged(monkeypatch, caplo
 
 
 def test_a_snapshots_folder_that_cant_be_listed_is_empty_and_logged(monkeypatch, caplog):
-    monkeypatch.setattr(persistence, "SNAPSHOTS_DIR", persistence.SNAPSHOTS_DIR / "gone")
+    def refuse_listing(self):
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(Path, "iterdir", refuse_listing)
     with caplog.at_level(logging.ERROR, "vitralis.persistence"):
         assert list_snapshots() == []
     assert caplog.records
+
+
+def test_before_any_snapshot_was_saved_there_are_none_and_nothing_to_log(monkeypatch, caplog):
+    monkeypatch.setattr(persistence, "SNAPSHOTS_DIR", persistence.SNAPSHOTS_DIR / "not-made-yet")
+    with caplog.at_level(logging.DEBUG, "vitralis.persistence"):
+        assert list_snapshots() == []
+    assert caplog.records == []
+
+
+def test_the_data_folder_is_made_by_the_first_write_not_by_importing(tmp_path, monkeypatch):
+    """Regression guard: importing the module made ``%APPDATA%\\Vitralis`` and its ``snapshots`` folder, on
+    the machine of whoever only ran the tests."""
+    import ast
+
+    for node in ast.parse(Path(persistence.__file__).read_text(encoding="utf-8")).body:  # nothing runs at import
+        assert not (isinstance(node, ast.Expr) and isinstance(node.value, ast.Call)), ast.unparse(node)
+    fresh = tmp_path / "Vitralis"
+    monkeypatch.setattr(persistence, "STROKES_FILE", fresh / "strokes.json")
+    monkeypatch.setattr(persistence, "SNAPSHOTS_DIR", fresh / "snapshots")
+    assert load_strokes_for(PRIMARY) == [] and list_snapshots() == [] and not fresh.exists()
+    save_strokes_for(PRIMARY, [LINE])
+    save_snapshot("first", {"0,0": [LINE]})
+    assert flush_writes(5)
+    assert sorted(p.name for p in fresh.iterdir()) == ["snapshots", "strokes.json"]
+    assert list_snapshots() == ["first"]

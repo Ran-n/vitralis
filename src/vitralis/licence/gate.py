@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.187945
-Revised: 2026/11/14 12:01:47.224627
+Revised: 2026/11/14 12:31:23.644759
 
 Keeps Vitralis behind its licence. The overlay, the toolbar, the tray and the global hotkeys only exist while
 the licence holds (``on_unlock`` builds them, ``on_lock`` tears them down); otherwise the licence window asks
@@ -48,6 +48,8 @@ class LicencePrompt(Protocol):
     def show_error(self, text: str) -> None: ...
 
     def set_busy(self, busy: bool) -> None: ...
+
+    def bring_to_front(self) -> None: ...
 
     def dismiss(self) -> None: ...
 
@@ -135,6 +137,12 @@ class LicenceGate(QObject):
         if self._prompt is not None:
             self._prompt.dismiss()
             self._prompt = None
+
+    def show_window(self) -> None:
+        """Bring the licence window to the front, as it is (another start of Vitralis asked); nothing while
+        unlocked."""
+        if self._prompt is not None:
+            self._prompt.bring_to_front()
 
     def refresh(self) -> None:
         """Ask the saved licence again and act on a change (lock when it no longer holds). While nothing changed

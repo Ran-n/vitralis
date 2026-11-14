@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.495642
-Revised: 2026/11/14 12:01:48.676104
+Revised: 2026/11/14 12:31:25.347038
 
 The licence gate: the app runs only while the licence holds, locks again when it stops holding (a refusal from
 the daily check, 30 days offline, a clock set back), and every activation or check runs off the UI thread.
@@ -268,3 +268,16 @@ def test_the_gate_is_working_while_a_request_or_the_checker_runs(qapp, make_gate
     wait_until(qapp, lambda: not gate.working)
     checks.running = True
     assert gate.working
+
+
+def test_the_licence_window_is_brought_to_the_front_as_it_is(qapp, make_gate, events, activated):
+    gate = make_gate()
+    gate.begin()
+    gate.show_window()  # unlocked: there is no window, and nothing happens
+    assert events.prompts == []
+    locked = make_gate()
+    locked._licence._state.token = None  # as on a computer whose licence no longer holds
+    locked.begin()
+    shown = list(events.last_prompt.statuses)
+    locked.show_window()
+    assert events.last_prompt.fronted == 1 and events.last_prompt.statuses == shown  # its message untouched

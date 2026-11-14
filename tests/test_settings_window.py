@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:13.645333
-Revised: 2026/11/14 11:44:53.859088
+Revised: 2026/11/14 12:31:26.323150
 
 The settings window on the offscreen ``QApplication``, with a real ``SettingsManager`` on the test's own
 ``settings.json``: capturing a shortcut from a key press, one key never serving two actions, a key the global
@@ -14,7 +14,8 @@ import logging
 
 import pytest
 from PyQt6.QtCore import QEvent, Qt
-from PyQt6.QtGui import QKeyEvent
+from PyQt6.QtGui import QKeyEvent, QKeySequence, QShortcut
+from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication, QComboBox
 
 import vitralis.settings as settings_module
@@ -158,8 +159,94 @@ def test_the_window_opens_in_the_saved_language(qapp, icons):
 
 
 def test_closing_says_so(window):
-    closed, active = [], []
+    closed = []
     window.closed.connect(lambda: closed.append(1))
-    window.activation_changed.connect(active.append)
     window.close()
-    assert closed == [1] and active[-1] is False
+    assert closed == [1]
+
+
+# --- capturing beside the app's own shortcuts ------------------------------------------------------------------
+
+
+@pytest.fixture
+def taken(window):
+    """The toolbar's shortcuts, live in the app as while Settings is open: D, Ctrl+Q and Esc each do something."""
+    ran = []
+    shortcuts = []
+    for key in ("d", "ctrl+q"):
+        shortcut = QShortcut(QKeySequence(key), window, activated=lambda key=key: ran.append(key))
+        shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
+        shortcuts.append(shortcut)
+    window.show()
+    QApplication.setActiveWindow(window)
+    yield ran
+    for shortcut in shortcuts:
+        shortcut.deleteLater()
+
+
+def test_a_key_that_is_already_a_shortcut_is_captured_not_run(window, taken):
+    """Regression guard: pressing D for another action toggled draw mode and left the button on "…", and
+    Ctrl+Q quit Vitralis: an action's key could only be moved with the reset buttons."""
+    capture = window._captures["pan"]
+    capture.click()
+    QTest.keyClick(capture, Qt.Key.Key_D)
+    assert taken == [] and capture.text() == "D" and not capture.isChecked()
+    assert saved_shortcuts()["pan"] == "d" and saved_shortcuts()["draw"] == ""
+    window._captures["hide"].click()
+    QTest.keyClick(window._captures["hide"], Qt.Key.Key_Q, Qt.KeyboardModifier.ControlModifier)
+    assert taken == [] and saved_shortcuts()["hide"] == "ctrl+q" and saved_shortcuts()["quit"] == ""
+
+
+def test_a_key_pressed_while_no_button_listens_is_still_the_shortcuts(window, taken):
+    QTest.keyClick(window._captures["pan"], Qt.Key.Key_D)
+    assert taken == ["d"] and window.changes == []
+
+
+def test_escape_ends_the_listening_and_leaves_the_window_open(window, taken):
+    capture = window._captures["draw"]
+    capture.click()
+    QTest.keyClick(capture, Qt.Key.Key_Escape)
+    assert capture.text() == "D" and not capture.isChecked() and window.isVisible() and window.changes == []
+    QTest.keyClick(capture, Qt.Key.Key_Escape)  # not listening any more: Esc closes the window
+    assert not window.isVisible()
+
+
+def test_a_second_button_listening_ends_the_first(window):
+    """Regression guard: the first stayed on "…" in its listening colour for as long as the window was open."""
+    first, second = window._captures["draw"], window._captures["pan"]
+    first.click()
+    second.click()
+    assert first.text() == "D" and not first.isChecked() and second.text() == "…" and second.isChecked()
+    press(second, Qt.Key.Key_K)
+    assert saved_shortcuts()["pan"] == "k" and saved_shortcuts()["draw"] == "d"
+
+
+def test_an_action_without_a_key_goes_back_to_its_dash(window):
+    window._assign("pan", "d")  # draw is left without one
+    capture = window._captures["draw"]
+    capture.click()
+    capture.cancel()
+    capture.cancel()  # twice is fine
+    assert capture.text() == "—"
+
+
+def test_closing_the_window_ends_the_listening(window):
+    capture = window._captures["draw"]
+    capture.click()
+    window.close()
+    assert capture.text() == "D" and not capture.isChecked()
+
+
+def test_the_focus_leaving_a_listening_button_ends_the_listening(window):
+    from PyQt6.QtGui import QFocusEvent
+
+    capture = window._captures["draw"]
+    capture.click()
+    QApplication.sendEvent(capture, QFocusEvent(QEvent.Type.FocusOut))
+    assert capture.text() == "D" and not capture.isChecked()
+
+
+def test_the_title_bar_text_is_in_the_ui_language(window):
+    assert window.windowTitle() == "Vitralis — Settings"
+    window.findChild(QComboBox).setCurrentText("Galego")
+    assert window.windowTitle() == f"Vitralis — {_TRANSLATIONS['Galego']['Settings']}"

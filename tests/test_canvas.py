@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:10.362555
-Revised: 2026/11/14 00:23:22.098222
+Revised: 2026/11/14 12:31:25.826565
 
 A real canvas and its capture on the offscreen ``QApplication``, driven with Qt mouse and key events (never the
 real mouse): drawing with each tool, undo, delete, pan and clear, each saved for the next start, and what the
@@ -12,7 +12,7 @@ painter leaves on the canvas.
 import pytest
 from PyQt6.QtCore import QEvent, QPoint, QPointF, QRect, Qt
 from PyQt6.QtGui import QColor, QKeyEvent, QMouseEvent
-from PyQt6.QtWidgets import QApplication, QWidget
+from PyQt6.QtWidgets import QApplication
 
 import vitralis.persistence as persistence
 from vitralis.canvas import Canvas, DrawCapture
@@ -22,17 +22,6 @@ from vitralis.persistence import forget_strokes, load_strokes_for
 pytestmark = pytest.mark.ui
 GEO = QRect(0, 0, 400, 300)
 RED = "#ff0000"
-
-
-class KeySink(QWidget):
-    """Stands in for the toolbar, which gets the keys a capture doesn't handle."""
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.keys: list[int] = []
-
-    def keyPressEvent(self, event) -> None:
-        self.keys.append(event.key())
 
 
 @pytest.fixture
@@ -45,12 +34,10 @@ def canvas(qapp):
 @pytest.fixture
 def capture(qapp, canvas):
     stops: list[int] = []
-    sink = KeySink()
-    made = DrawCapture(canvas, GEO, stop_active=lambda: stops.append(1), toolbar=[sink])
-    made.stops, made.sink = stops, sink
+    made = DrawCapture(canvas, GEO, stop_active=lambda: stops.append(1))
+    made.stops = stops
     yield made
     made.deleteLater()
-    sink.deleteLater()
 
 
 def mouse(widget, kind, x: float, y: float, button=Qt.MouseButton.LeftButton) -> None:
@@ -118,9 +105,34 @@ def test_the_eraser_clears_what_it_crosses(canvas, capture):
     assert [s.tool for s in saved()] == ["PEN", "ERASER"]
 
 
-def test_a_click_without_a_drag_is_a_dot(canvas, capture):
+def test_a_click_without_a_drag_is_a_dot_that_shows(canvas, capture):
+    """Regression guard: the dot was saved but painted nothing, so the next Undo seemed to do nothing."""
+    canvas.active_color, canvas.active_width = RED, 8
     drag(capture, (40, 40))
     assert len(canvas.strokes) == 1 and canvas.strokes[0].points == [[40.0, 40.0]]
+    assert pixel(canvas, 40, 40) == QColor(RED) and pixel(canvas, 60, 40).alpha() == 0
+    canvas.load(saved())  # and it is still there after a restart
+    assert pixel(canvas, 40, 40) == QColor(RED)
+
+
+def test_the_eraser_clicked_once_clears_a_spot(canvas, capture):
+    canvas.active_color, canvas.active_width = RED, 12
+    drag(capture, (20, 50), (200, 50))
+    canvas.active_tool = Tool.ERASER
+    drag(capture, (100, 50))
+    assert pixel(canvas, 100, 50).alpha() == 0 and pixel(canvas, 40, 50) == QColor(RED)
+
+
+@pytest.mark.parametrize("tool", [Tool.LINE, Tool.ARROW, Tool.RECT, Tool.ELLIPSE])
+def test_a_shape_clicked_without_a_drag_leaves_nothing(canvas, capture, tool):
+    """Regression guard: an unseen stroke of one point was saved, and Undo and Delete then took it first."""
+    canvas.active_tool = tool
+    changes = []
+    canvas.changed.connect(lambda: changes.append(1))
+    drag(capture, (40, 40))
+    drag(capture, (40, 40), (40, 40))  # pressed, the mouse told of the same spot, released
+    assert canvas.strokes == [] and saved() == [] and changes == []
+    assert canvas.current is None and not canvas.drawing
 
 
 def test_moving_without_pressing_draws_nothing(canvas, capture):
@@ -159,6 +171,46 @@ def test_delete_mode_removes_the_stroke_nearest_the_click_only_when_close(canvas
     assert canvas.current is None
 
 
+def test_delete_mode_takes_a_rectangle_by_its_side_and_not_by_its_empty_middle(canvas, capture):
+    """Regression guard: the click was measured against the diagonal between the two saved corners."""
+    canvas.active_tool = Tool.RECT
+    drag(capture, (20, 20), (380, 280))
+    capture.delete_mode = True
+    drag(capture, (200, 150))  # the middle, on the diagonal: nothing is drawn there
+    assert len(canvas.strokes) == 1
+    drag(capture, (200, 24))  # beside the top side
+    assert canvas.strokes == [] and saved() == []
+
+
+def test_delete_mode_takes_the_nearer_of_two_strokes(canvas, capture):
+    canvas.active_tool = Tool.ELLIPSE
+    drag(capture, (20, 20), (380, 280))
+    canvas.active_tool = Tool.LINE
+    drag(capture, (150, 150), (250, 150))
+    ellipse, line = canvas.strokes
+    capture.delete_mode = True
+    drag(capture, (200, 160))  # inside the ellipse, beside the line
+    assert canvas.strokes == [ellipse]
+    drag(capture, (200, 22))  # the ellipse's top
+    assert canvas.strokes == []
+    drag(capture, (200, 22))  # nothing left: nothing happens
+    assert canvas.strokes == []
+
+
+def test_the_canvas_tells_of_every_change_to_its_strokes(canvas, capture):
+    changes = []
+    canvas.changed.connect(lambda: changes.append(len(canvas.strokes)))
+    drag(capture, (10, 10), (50, 10))
+    drag(capture, (10, 100), (50, 100))
+    canvas.undo()
+    capture.delete_mode = True
+    drag(capture, (30, 12))
+    canvas.load([Stroke("LINE", RED, 3, [[10.0, 50.0], [100.0, 50.0]])])
+    canvas.clear()
+    canvas.undo()  # nothing to undo: nothing to tell
+    assert changes == [1, 2, 1, 0, 1, 0]
+
+
 def test_pan_shifts_every_stroke_and_saves_on_release(canvas, capture):
     canvas.active_tool = Tool.LINE
     drag(capture, (10, 50), (100, 50))
@@ -195,6 +247,16 @@ def test_clear_removes_everything_and_saves(canvas, capture):
     assert canvas.strokes == [] and saved() == [] and pixel(canvas, 30, 10).alpha() == 0
 
 
+def test_clear_takes_the_stroke_still_being_drawn_too(canvas, capture):
+    """Regression guard: it stayed painted, in no list, where neither Undo nor Clear could reach it."""
+    mouse(capture, QEvent.Type.MouseButtonPress, 20, 50)
+    mouse(capture, QEvent.Type.MouseMove, 120, 50)
+    canvas.clear()
+    assert canvas.current is None and not canvas.drawing
+    mouse(capture, QEvent.Type.MouseButtonRelease, 120, 50)
+    assert canvas.strokes == [] and saved() == []
+
+
 def test_loading_replaces_the_strokes_and_repaints(canvas):
     canvas.load([Stroke("LINE", RED, 6, [[10.0, 50.0], [100.0, 50.0]])])
     assert pixel(canvas, 50, 50) == QColor(RED)
@@ -224,19 +286,55 @@ def test_a_right_click_and_escape_leave_the_mode(capture):
     mouse(capture, QEvent.Type.MouseButtonPress, 10, 10, Qt.MouseButton.RightButton)
     key = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Escape, Qt.KeyboardModifier.NoModifier)
     QApplication.sendEvent(capture, key)
-    assert capture.stops == [1, 1] and capture.sink.keys == []
+    assert capture.stops == [1, 1]
 
 
-def test_other_keys_go_to_the_toolbar(capture):
+def test_other_keys_are_not_the_captures_to_handle(capture):
+    """The toolbar's shortcuts work from any Vitralis window; the capture only knows Esc."""
     key = QKeyEvent(QEvent.Type.KeyPress, Qt.Key.Key_Z, Qt.KeyboardModifier.NoModifier)
     QApplication.sendEvent(capture, key)
-    assert capture.sink.keys == [Qt.Key.Key_Z] and capture.stops == []
+    assert capture.stops == [] and not key.isAccepted()
+
+
+def test_a_stroke_cut_short_by_leaving_the_mode_is_kept(canvas, capture):
+    """Regression guard: leaving the mode with the button held (F8, Esc) never sends the release, and the
+    half-drawn stroke stayed painted in no list."""
+    capture.show()
+    mouse(capture, QEvent.Type.MouseButtonPress, 20, 50)
+    mouse(capture, QEvent.Type.MouseMove, 120, 50)
+    capture.hide()  # what leaving the mode does
+    assert [s.points for s in canvas.strokes] == [[[20.0, 50.0], [120.0, 50.0]]]
+    assert canvas.current is None and not canvas.drawing and saved() == canvas.strokes
+
+
+def test_a_pan_cut_short_by_leaving_the_mode_is_applied(canvas, capture):
+    """Regression guard: the shift stayed shown but unsaved, and the next stroke was drawn off the cursor."""
+    canvas.active_tool = Tool.LINE
+    drag(capture, (10, 50), (100, 50))
+    capture.show()
+    capture.pan_mode = True
+    mouse(capture, QEvent.Type.MouseButtonPress, 200, 200)
+    mouse(capture, QEvent.Type.MouseMove, 230, 215)
+    capture.hide()
+    assert canvas.strokes[0].points == [[40.0, 65.0], [130.0, 65.0]] == saved()[0].points
+    capture.pan_mode = False
+    capture.show()
+    drag(capture, (10, 10), (60, 10))
+    assert canvas.strokes[1].points == [[10.0, 10.0], [60.0, 10.0]]  # where the cursor was
+
+
+def test_hiding_a_capture_with_nothing_under_way_changes_nothing(canvas, capture, monkeypatch):
+    saves = []
+    monkeypatch.setattr("vitralis.canvas.save_strokes_for", lambda *a: saves.append(a))
+    capture.show()
+    capture.hide()
+    assert saves == [] and canvas.strokes == []
 
 
 def test_a_capture_on_a_second_screen_draws_in_that_screens_coordinates(qapp):
     geo = QRect(400, 0, 300, 200)
     canvas = Canvas(geo)
-    capture = DrawCapture(canvas, geo, stop_active=lambda: None, toolbar=[])
+    capture = DrawCapture(canvas, geo, stop_active=lambda: None)
     drag(capture, (10, 10), (50, 10))
     assert canvas.strokes[0].points == [[10.0, 10.0], [50.0, 10.0]]
     forget_strokes()

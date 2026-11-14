@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.249623
-Revised: 2026/11/14 12:01:47.559001
+Revised: 2026/11/14 12:31:23.753148
 
 The licence window: what Vitralis shows instead of its overlay until a key is activated on this computer, and
 again whenever the licence stops holding. It says why (one message per outcome), takes a key, and offers an
@@ -13,7 +13,7 @@ from collections.abc import Callable
 
 from PyQt6.QtCore import QPoint, Qt
 from PyQt6.QtGui import QColor, QKeySequence, QPainter, QPen, QPixmap, QShortcut
-from PyQt6.QtWidgets import QApplication, QHBoxLayout, QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QApplication, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from vitralis.icons import media_base
 from vitralis.licence.gate import LicenceGate
@@ -21,6 +21,7 @@ from vitralis.licence.messages import CHECKABLE, PRIVACY, status_message
 from vitralis.licence.rules import LicenceStatus, normalize_key
 from vitralis.styles import accent_btn, danger_btn, muted_btn
 from vitralis.translations import t
+from vitralis.widgets import LineEdit
 
 KEY_PLACEHOLDER = "BRN-XXXX-XXXX-XXXX-XXXX"
 WIDTH = 380
@@ -90,7 +91,7 @@ class LicenceWindow(QWidget):
         self.message.setStyleSheet(_MESSAGE)
         root.addWidget(self.message)
 
-        self.key_field = QLineEdit()
+        self.key_field = LineEdit()
         self.key_field.setPlaceholderText(KEY_PLACEHOLDER)
         self.key_field.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.key_field.setStyleSheet(_FIELD)
@@ -135,7 +136,10 @@ class LicenceWindow(QWidget):
         if not self.isVisible():
             self.adjustSize()
             self._center()
-            self.show()
+        self.bring_to_front()
+
+    def bring_to_front(self) -> None:
+        self.show()
         self.raise_()
         self.activateWindow()
         self.key_field.setFocus()

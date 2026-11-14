@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.433417
-Revised: 2026/11/14 12:01:48.915893
+Revised: 2026/11/14 12:31:25.613810
 
 The overlay session behind the licence: nothing of the overlay exists while locked, it starts once the licence
 holds, and locking tears it all down (toolbar with its global hooks, canvases, captures, tray). The real toolbar
@@ -107,7 +107,10 @@ class FakeToolbar(FakeWidget):
         self.placed = None
         self.modes_stopped = 0
         self.synced = 0
-        self.raised = self.activated = False
+        self.fronted = 0
+
+    def show_toolbar(self) -> None:
+        self.fronted += 1
 
     def open_settings(self) -> None:
         self.settings_opened += 1
@@ -229,6 +232,16 @@ def test_a_licence_ending_while_running_takes_the_overlay_down(qapp, session, ac
     qapp.processEvents()
     assert not session.running and of(FakeToolbar)[0].closed
     gate.shutdown()
+
+
+def test_setup_logging_makes_the_data_folder_on_a_first_start(monkeypatch, tmp_path):
+    fresh = tmp_path / "Vitralis"
+    monkeypatch.setattr(app_module, "LOG_FILE", fresh / "vitralis.log")
+    root = logging.getLogger()
+    before = list(root.handlers)
+    monkeypatch.setattr(logging, "basicConfig", lambda **kwargs: [h.close() for h in kwargs["handlers"]])
+    app_module.setup_logging()
+    assert fresh.is_dir() and root.handlers == before
 
 
 def test_setup_logging_writes_to_the_data_folder(monkeypatch, tmp_path):
@@ -394,10 +407,8 @@ def test_a_capture_leaves_its_mode_through_the_toolbar(session):
     capture = of(FakeCapture)[0]
     capture.kwargs["stop_active"]()
     assert of(FakeToolbar)[0].modes_stopped == 1
-    assert capture.kwargs["toolbar"] == [of(FakeToolbar)[0]]
     session.stop()
     capture.kwargs["stop_active"]()  # a late click on a closing capture: nothing to stop, nothing raised
-    assert capture.kwargs["toolbar"] == []
 
 
 def test_a_change_of_screens_rebuilds_the_overlay_under_the_same_toolbar(qapp, session, caplog):
@@ -437,7 +448,7 @@ def test_another_start_of_vitralis_brings_the_toolbar_to_the_front(session):
     toolbar = of(FakeToolbar)[0]
     toolbar.hide()
     session.show_toolbar()
-    assert toolbar.shown and toolbar.raised and toolbar.activated
+    assert toolbar.fronted == 1
 
 
 def test_a_language_change_reaches_the_tray(session):
@@ -584,6 +595,9 @@ def wired_main(qapp, monkeypatch, tmp_path):
         def begin(self) -> None:
             record("begin")
 
+        def show_window(self) -> None:
+            record("licence window to the front")
+
         working = False
 
         def shutdown(self) -> None:
@@ -644,6 +658,16 @@ def test_main_wires_everything_in_order_and_shuts_it_all_down_on_quit(qapp, wire
         "updates closed",
         ("flush", app_module.FLUSH_SECONDS),  # last: everything that saves has stopped
     ]
+
+
+def test_another_start_while_locked_brings_the_licence_window_to_the_front(wired_main):
+    """Regression guard: with no toolbar yet, starting Vitralis again did nothing anyone could see."""
+    wired_main.use_instance(running=False)
+    with pytest.raises(SystemExit):
+        app_module.main()
+    del wired_main.order[:]
+    wired_main.instance.activated.emit()
+    assert wired_main.order == ["licence window to the front"]
 
 
 def test_writes_still_running_at_quit_are_said_in_the_log(qapp, wired_main, caplog):
