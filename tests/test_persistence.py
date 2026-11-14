@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:10.961213
-Revised: 2026/11/14 17:53:31.508633
+Revised: 2026/11/14 18:00:30.763574
 
 The drawings on disk (real files in the test's own data folder): strokes per screen surviving a restart, the
 first versions' bare list, damaged entries and files, writes that are whole or not at all and never make the
@@ -422,3 +422,67 @@ def test_the_data_folder_is_made_by_the_first_write_not_by_importing(tmp_path, m
     assert flush_writes(5)
     assert sorted(p.name for p in fresh.iterdir()) == ["snapshots", "strokes.json"]
     assert list_snapshots() == ["first"]
+
+
+# --- what mutation testing found unchecked ------------------------------------------------------------------
+
+
+def test_a_file_is_written_indented_by_two_unless_told(tmp_path):
+    """The settings are written this way, to be read and mended by hand."""
+    path = tmp_path / "written.json"
+    write_json_atomic(path, {"a": [1]})
+    assert path.read_text(encoding="utf-8") == '{\n  "a": [\n    1\n  ]\n}'
+    persistence.write_in_background(path, {"b": 2})
+    assert flush_writes(5)
+    assert path.read_text(encoding="utf-8") == '{\n  "b": 2\n}'
+    writer = persistence.BackgroundWriter()
+    writer.write(path, {"c": 3})
+    assert writer.flush(5)
+    assert path.read_text(encoding="utf-8") == '{\n  "c": 3\n}'
+    write_json_atomic(path, {"a": [1]}, indent=None)
+    assert path.read_text(encoding="utf-8") == '{"a": [1]}'
+
+
+def test_a_write_that_fails_before_anything_is_written_says_why(tmp_path, monkeypatch):
+    """The temporary file was never made: tidying it away must not hide the reason."""
+    path = tmp_path / "written.json"
+    monkeypatch.setattr(type(path), "write_text", refuse)
+    with pytest.raises(PermissionError, match="read-only"):
+        write_json_atomic(path, {"a": 1})
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_temporary_file_that_cant_be_tidied_away_is_logged_and_the_reason_kept(tmp_path, monkeypatch, caplog):
+    path = tmp_path / "written.json"
+
+    def no_replace(source, target):
+        raise PermissionError("the file is open elsewhere")
+
+    monkeypatch.setattr(persistence.os, "replace", no_replace)
+    monkeypatch.setattr(type(path), "unlink", refuse)
+    with (
+        caplog.at_level(logging.WARNING, "vitralis.persistence"),
+        pytest.raises(PermissionError, match="open elsewhere"),
+    ):
+        write_json_atomic(path, {"a": 1})
+    assert any("couldn't delete" in r.getMessage() for r in caplog.records)
+
+
+def test_only_json_files_are_snapshots():
+    save_snapshot("review", {"0,0": [LINE]})
+    for other in ("notes.txt", "old.bak", "review.json.damaged", "bare"):
+        (persistence.SNAPSHOTS_DIR / other).write_text("x", encoding="utf-8")
+    assert list_snapshots() == ["review"]
+
+
+def test_a_damaged_file_that_cant_be_copied_aside_is_logged_and_started_over(monkeypatch, caplog):
+    persistence.STROKES_FILE.write_text("{not json", encoding="utf-8")
+
+    def no_copy(source, target):
+        raise PermissionError("no room")
+
+    monkeypatch.setattr(persistence.shutil, "copyfile", no_copy)
+    with caplog.at_level(logging.WARNING, "vitralis.persistence"):
+        assert load_strokes_for(PRIMARY) == []
+    assert any("couldn't keep" in r.getMessage() for r in caplog.records)
+    assert not persistence.STROKES_FILE.with_name(persistence.STROKES_FILE.name + DAMAGED_SUFFIX).exists()

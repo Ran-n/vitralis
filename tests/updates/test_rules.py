@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:05.584374
-Revised: 2026/11/13 12:59:12.055120
+Revised: 2026/11/14 18:00:31.059035
 
 The updater's pure rules: versions parse and order numerically, which release is offered (newer, not skipped),
 release file names, and the b3sum format.
@@ -135,3 +135,18 @@ def test_anything_but_a_b3sum_line_is_refused(text):
 )
 def test_only_https_or_this_computer_is_allowed(url, ok):
     assert is_secure_url(url) is ok
+
+
+# --- what mutation testing found unchecked ------------------------------------------------------------------
+
+
+def test_a_release_older_than_the_skipped_one_is_not_offered():
+    """The skipped release was withdrawn and the latest is the one before it: still not worth a notice."""
+    assert update_to_offer(Version(1, 3, 0), release("v1.4.0"), "1.5.0") is None
+
+
+def test_versions_and_releases_cant_be_changed():
+    for value, name in ((Version(1, 3, 0), "major"), (release("v1.4.0"), "version")):
+        with pytest.raises(AttributeError):
+            setattr(value, name, None)
+        assert not hasattr(value, "__dict__")  # nor given anything new
