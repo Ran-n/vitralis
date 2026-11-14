@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 09:18:57.247928
-Revised: 2026/11/11 11:06:53.924354
+Revised: 2026/11/14 12:01:47.494483
 
 The licence kept on this computer: ``licence.dat`` in the data folder, protected with Windows DPAPI for the
 current user, so a copied file is useless on another computer or account. The product code is added as
@@ -109,5 +109,8 @@ class FileLicenceStore:
             temporary.write_bytes(protected)
             os.replace(temporary, self._path)
         except OSError as ex:
-            temporary.unlink(missing_ok=True)
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError as left:  # held by another program: the save's own error is the one to tell
+                logger.warning("couldn't delete %s: %s", temporary, left)
             raise LicenceStoreError(f"{self._path} can't be saved: {ex}") from ex

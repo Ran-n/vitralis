@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:10:58.341088
-Revised: 2026/11/14 00:23:19.187809
+Revised: 2026/11/14 12:01:48.265281
 
 The updater's rules, with no I/O and no Qt: release versions and how they compare, which release to offer,
 the file names a release carries, the ``b3sum`` checksum format, and the errors an install can end in.
@@ -110,6 +110,18 @@ class UpdateError(Exception):
 
 class DownloadUnreachable(UpdateError):
     """The download's server couldn't be reached, or the connection broke on the way."""
+
+
+class DownloadRefused(UpdateError):
+    """The download's server answered with an error."""
+
+    def __init__(self, what: str, status: int) -> None:
+        super().__init__(f"HTTP {status} for {what}")
+        self.status = status
+
+
+class SwapFailed(UpdateError):
+    """The downloaded exe couldn't be put in the running one's place, or started."""
 
 
 class ChecksumMismatch(UpdateError):

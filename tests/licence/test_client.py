@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 09:18:58.733165
-Revised: 2026/11/11 11:06:54.636666
+Revised: 2026/11/14 12:01:48.609493
 
 The licence use case against an in-memory Clavren that signs real tokens: activating, running offline, the
 daily check, every refusal, a clock set back, and saved state that is damaged or can't be written. Then the
@@ -161,11 +161,32 @@ def test_an_unreachable_server_is_said_so(licence, server):
     "answer",
     [(500, {"error": "internal_error"}, None), (200, None, None), (201, {"activation": "a"}, None), (418, None, None)],
 )
-def test_an_answer_that_isnt_clavrens_is_unreachable(licence, server, answer, caplog):
+def test_an_answer_that_isnt_clavrens_is_a_server_error_not_the_connections(licence, server, answer, caplog):
+    """Regression guard: this used to tell the user to check an internet connection that worked."""
     server.answers.append(answer)
     with caplog.at_level(logging.ERROR):
-        assert licence.activate(KEY).kind is LicenceKind.UNREACHABLE
+        assert licence.activate(KEY).kind is LicenceKind.SERVER_ERROR
     assert caplog.records
+
+
+def test_a_failed_check_says_what_kind_of_failure_it_was(activated, server, store):
+    server.down = True
+    with pytest.raises(LicenceCheckFailed) as unreachable:
+        activated.check()
+    server.down = False
+    server.answers.append((429, {"error": "rate_limited"}, 90))
+    with pytest.raises(LicenceCheckFailed) as limited:
+        activated.check()
+    server.answers.append((502, None, None))
+    with pytest.raises(LicenceCheckFailed) as broken:
+        activated.check()
+    store.fail_saves = True
+    with pytest.raises(LicenceCheckFailed) as unsaved:
+        activated.check()
+    assert unreachable.value.kind is LicenceKind.UNREACHABLE and unreachable.value.unsaved is None
+    assert limited.value.kind is LicenceKind.RATE_LIMITED and limited.value.retry_after == dt.timedelta(seconds=90)
+    assert broken.value.kind is LicenceKind.SERVER_ERROR
+    assert unsaved.value.unsaved == "disk full"
 
 
 def test_an_activation_whose_token_cant_be_used_is_kept_and_checked_next(licence, server, clock):
@@ -489,12 +510,19 @@ def test_unreadable_state_is_never_overwritten(clock, server, caplog):
 def test_secrets_never_reach_the_log(licence, server, clock, caplog):
     with caplog.at_level(logging.DEBUG):
         licence.activate(KEY)
+        state = json.loads(licence._store.data)
         licence.check()
+        server.down = True
+        with pytest.raises(LicenceCheckFailed):
+            licence.check()
+        server.down = False
         server.reset()
         licence.check()
-    token = server.calls  # every body sent
+    sent = server.calls  # every (path, body)
     assert CANONICAL not in caplog.text and KEY not in caplog.text
-    assert all(body.get("device_public_key", "@") not in caplog.text for _, body in token)
+    assert all(body.get("device_public_key", "@") not in caplog.text for _, body in sent)
+    for secret in ("token", "device_key", "activation"):
+        assert state[secret] and state[secret] not in caplog.text, secret
 
 
 def test_a_long_computer_name_is_cut_to_what_the_server_takes(clock, server):
@@ -624,7 +652,19 @@ def test_a_checker_that_wont_stop_is_logged(licence, caplog):
     hold = threading.Event()
     checks._thread = threading.Thread(target=hold.wait, daemon=True)
     checks._thread.start()
-    with caplog.at_level(logging.ERROR):
+    with caplog.at_level(logging.WARNING):
         checks.stop(timeout=0.01)
+    assert "still under way" in caplog.text and "stopped" not in caplog.text
+    assert checks.running  # its connection must not be closed under it
     hold.set()
-    assert "did not stop" in caplog.text
+    checks._thread.join(5)
+    assert not checks.running
+
+
+def test_a_checker_asleep_stops_at_once(licence):
+    checks = LicenceChecks(licence)
+    assert not checks.running
+    checks.start()
+    assert checks.running
+    checks.stop()
+    assert not checks.running

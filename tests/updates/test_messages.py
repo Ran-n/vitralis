@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:10.341228
-Revised: 2026/11/14 00:23:20.897378
+Revised: 2026/11/14 12:01:49.319886
 
 What Vitralis says about updates: every sentence is translated into every UI language with the same
 placeholders, and each state's sentence is filled in.
@@ -53,6 +53,8 @@ INSTALLS = [
     InstallState(InstallKind.FAILED, "1.4.0", failure=FailureKind.NOT_WRITABLE, detail="C:\\Program Files"),
     InstallState(InstallKind.FAILED, "1.4.0", failure=FailureKind.OTHER, detail="denied"),
     InstallState(InstallKind.FAILED, "1.4.0", failure=FailureKind.OFFLINE),
+    InstallState(InstallKind.FAILED, "1.4.0", failure=FailureKind.REFUSED, detail="503"),
+    InstallState(InstallKind.FAILED, "1.4.0", failure=FailureKind.NOT_REPLACED),
 ]
 
 
@@ -96,4 +98,21 @@ def test_the_english_failure_sentences():
         "Couldn't check for updates: GitHub is taking no more requests from this network for now. Try again in an hour."
     )
     assert install_line(INSTALLS[5]) == "The download failed. Check your internet connection and try again."
+    assert install_line(INSTALLS[6]) == (
+        "The download failed: the server answered with an error (HTTP 503). Try again later."
+    )
+    assert install_line(INSTALLS[7]) == (
+        "Couldn't put the new version in place: Vitralis's file is in use or can't be written. "
+        "Try again, or update by hand."
+    )
+
     assert error_line(UpdateStatus("1.3.0", error="odd")) == "Couldn't check for updates: odd"
+
+
+@pytest.mark.parametrize("language", [lang for lang in LANGUAGES if lang != "English"])
+def test_a_failure_vitralis_knows_is_said_in_the_ui_language(language):
+    """Regression guard: the reasons Vitralis writes itself were shown in English inside a translated line."""
+    set_language(language)
+    for state in INSTALLS[5:]:
+        line = install_line(state)
+        assert line and "couldn't" not in line.lower() and "the download" not in line.lower(), (language, line)

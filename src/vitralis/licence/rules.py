@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 09:18:55.657748
-Revised: 2026/11/11 11:06:53.707159
+Revised: 2026/11/14 12:01:47.357225
 
 The rules of a Clavren licence, without any I/O: how a typed key is read, what the device signs on each
 check, what the app knows about its licence (``LicenceState``) and what it may do with it (``LicenceStatus``).
@@ -26,9 +26,10 @@ CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 CHECK_MESSAGE_VERSION = "clavren-check-v1"
 NONCE_LENGTH = 32
 ROLLBACK_TOLERANCE = dt.timedelta(hours=1)
-REDACTED = "<redacted>"
 """A clock more than this behind the latest time seen, or set back more than this in all since the last check
 (many small steps count together), counts as set back: the saved licence isn't trusted until an online check."""
+REDACTED = "<redacted>"
+"""What stands for a secret wherever a state is shown."""
 
 
 def normalize_key(typed: str) -> str | None:
@@ -96,6 +97,8 @@ class LicenceKind(StrEnum):
     RATE_LIMITED = "rate_limited"
     UNREACHABLE = "unreachable"
     """Activating needs the licence server, which can't be reached."""
+    SERVER_ERROR = "server_error"
+    """The server answered, but nothing the app can use (an error of its own, a proxy's page)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -268,9 +271,14 @@ class LicenceState:
             if not isinstance(data, dict):
                 raise TypeError("not an object")
             known = {name: data[name] for name in cls.__slots__ if name in data}
+            for name in ("device_key", "activation", "token"):
+                if known.get(name) is not None and not isinstance(known[name], str):
+                    raise TypeError(f"{name} is not text")
             for name in ("latest_seen", "last_seen", "last_check", "refusal_at"):
                 if known.get(name) is not None:
                     known[name] = dt.datetime.fromisoformat(known[name])
+                    if known[name].tzinfo is None:  # every saved time is UTC; one without a zone can't be compared
+                        raise TypeError(f"{name} has no time zone")
             if known.get("refusal") is not None:
                 known["refusal"] = Refusal(known["refusal"])
             for name in ("rewound_seconds", "clock_offset_seconds"):

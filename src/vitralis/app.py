@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:03.794151
-Revised: 2026/11/14 11:44:53.075091
+Revised: 2026/11/14 12:01:47.016116
 
 Starts Vitralis behind its licence: the licence window first when no key is active on this computer, the
 overlay (``Session``) once the licence holds, and back to the licence window if it stops holding.
@@ -29,7 +29,7 @@ from vitralis.licence.gate import LicenceGate
 from vitralis.licence.window import LicenceWindow
 from vitralis.persistence import DATA_DIR, FLUSH_SECONDS, flush_writes, load_strokes_for
 from vitralis.settings import SettingsManager
-from vitralis.single_instance import SingleInstance
+from vitralis.single_instance import SingleInstance, mark_running
 from vitralis.toolbar import Toolbar
 from vitralis.translations import set_language
 from vitralis.tray import make_app_icon, make_tray_icon
@@ -291,7 +291,6 @@ def main() -> None:
         sys.exit(1)
     if args.updated:
         logger.info("updated from %s to %s", args.updated, app_version())
-    clean_after_updates(app_version())
     set_app_user_model_id()
 
     init_icons_dir()
@@ -301,6 +300,9 @@ def main() -> None:
         logger.info("Vitralis is already running: asked it to show its toolbar")
         sys.exit(0)
     instance.listen()
+    mark_running()
+    # only now: a second start must never tidy away the update the running Vitralis has downloaded
+    clean_after_updates(app_version())
     signal_timer = quit_on_signals(app)
     app.setQuitOnLastWindowClosed(False)
     app.setStyleSheet(
@@ -323,7 +325,7 @@ def main() -> None:
         instance.close()
         session.stop()  # stops the update checks and any download
         gate.shutdown()
-        parts.close()
+        parts.close(working=gate.working)
         updates.close()
         if not flush_writes(FLUSH_SECONDS):  # Python still waits for the writer's thread before it exits
             logger.warning("the drawings and settings are still being written after %.0f s", FLUSH_SECONDS)

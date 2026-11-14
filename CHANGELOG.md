@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/14 11:44:53.002452 )
+[//]: # (+ Revised: 	2026/11/14 12:01:46.936852 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -46,6 +46,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   termination signal quit through the clean shutdown.
 - A snapshot that can't be saved, loaded or deleted says so in the
   Snapshots window.
+- Uninstalling while Vitralis runs asks to close it first, instead of
+  leaving its exe behind.
 - Linting, formatting and the tests with a coverage gate run in CI.
 - `.python-version` pins Python 3.13, the version Vitralis is built with.
 
@@ -67,6 +69,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   off the UI thread, its buttons greyed out meanwhile.
 - The About window, README, CONTRIBUTING and landing page name the license
   version: PayBack License (PBL) v2.0.
+- A license check that fails says what failed: too many attempts (and how
+  long to wait), an answer the server shouldn't give, or a license that
+  couldn't be saved, instead of always blaming the internet connection.
+- A download the server refuses, and a new version that can't be put in
+  place, are explained in every language instead of with an English reason.
+- Quitting waits at most 5 seconds for a license check under way (it was
+  20), and no longer closes a connection a request is still using.
 
 ### Fixed
 
@@ -101,11 +110,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   ignored.
 - A snapshot named like a Windows device (`CON`, `NUL`, `COM1`…) couldn't be
   saved; it is now kept as `_CON`.
+- While locked, the license window took the focus back every minute and
+  replaced what it said about the last attempt ("That key isn't valid") with
+  the opening message; a refused key also hid **Check again**.
+- A `licence.dat` damaged in certain ways stopped Vitralis at every start;
+  it now counts as no license, like any other damage.
+- A temporary file held by another program while the license was saved
+  could end the daily license checks until the next start.
+- Starting a second Vitralis could delete the update the running one had
+  downloaded, so **Restart to update** failed.
 
 ### Security
 
 - `setuptools` (build only) updated past PYSEC-2026-3447 and
   GHSA-xmj3-9gf7-h52w.
+- The activation id could still reach `vitralis.log` inside the reason of a
+  failed license check; the address is now left out of it.
+- Update checks and downloads refuse any redirect to an address that isn't
+  HTTPS (only the first address was checked before).
 
 ## [1.3.0] - 2026-11-11
 

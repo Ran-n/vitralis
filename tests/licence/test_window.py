@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.558622
-Revised: 2026/11/11 11:06:55.091327
+Revised: 2026/11/14 12:01:48.843998
 
 The licence window and the settings' License section, as real Qt widgets rendered offscreen: what they say for
 each outcome, which buttons work when, and what they look like (pixels of the rendered window).
@@ -112,6 +112,20 @@ def test_a_licence_to_confirm_offers_check_again(qapp, window_gate, activated, c
     assert not window.check_button.isEnabled() and window.check_button.text() == "Checking…"
     wait_until(qapp, lambda: not window_gate.busy)
     assert events.unlocks == 1 and not window.isVisible()
+
+
+def test_a_refused_key_leaves_check_again_offered(qapp, window_gate, activated, clock, server):
+    """Regression guard: the button went with the refused key's message, though a check was as possible as
+    before."""
+    clock.advance(days=31)
+    window = opened(window_gate)
+    window.key_field.setText("BRN-0000-0000-0000-0000")
+    QTest.mouseClick(window.activate_button, Qt.MouseButton.LeftButton)
+    wait_until(qapp, lambda: not window_gate.busy)
+    assert window.message.text() == status_message(LicenceStatus(LicenceKind.INVALID_KEY))
+    assert window.check_button.isVisible() and window.check_button.isEnabled()
+    window_gate.refresh()  # the minute's watch: nothing changed, so the message stays and the focus isn't taken
+    assert window.message.text() == status_message(LicenceStatus(LicenceKind.INVALID_KEY))
 
 
 def test_check_again_offline_shows_the_error_under_the_buttons(qapp, window_gate, activated, clock, server):

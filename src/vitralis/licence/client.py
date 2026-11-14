@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 09:18:55.948032
-Revised: 2026/11/11 11:06:53.346695
+Revised: 2026/11/14 12:01:47.159249
 
 The app's licence from Clavren (``../clavren``): activating a key on this computer, running offline on the
 saved licence for up to 30 days, and checking it online once a day.
@@ -74,9 +74,19 @@ class LicenceCheckFailed(Exception):
     """An online check that couldn't decide anything (unreachable, rate limited, an unexpected answer, a state
     that couldn't be saved). While the saved token is valid it changes nothing; the checker retries later."""
 
-    def __init__(self, reason: str, retry_after: dt.timedelta | None = None) -> None:
+    def __init__(
+        self,
+        reason: str,
+        kind: LicenceKind = LicenceKind.SERVER_ERROR,
+        retry_after: dt.timedelta | None = None,
+        unsaved: str | None = None,
+    ) -> None:
         super().__init__(reason)
+        self.kind = kind
+        """What to tell the user: ``UNREACHABLE``, ``RATE_LIMITED`` or ``SERVER_ERROR``."""
         self.retry_after = retry_after
+        self.unsaved = unsaved
+        """Why the checked licence couldn't be saved, when that is what failed."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -228,7 +238,7 @@ class Licence:
             activation, token = _text(answer, "activation"), _text(answer, "token")
             if activation is None or token is None:
                 logger.error("activation got HTTP %s without an activation and a token", answer.status)
-                return LicenceStatus(LicenceKind.UNREACHABLE)
+                return LicenceStatus(LicenceKind.SERVER_ERROR)
             with self._lock:
                 now = self._clock()
                 activated = replace(
@@ -289,7 +299,7 @@ class Licence:
         try:
             return self._server.post(path, body)
         except ServerUnreachable as ex:
-            raise LicenceCheckFailed(f"the licence server couldn't be reached: {ex}") from ex
+            raise LicenceCheckFailed(f"the licence server couldn't be reached: {ex}", LicenceKind.UNREACHABLE) from ex
 
     def _refused(self, activation: str, answer: ServerAnswer) -> LicenceStatus:
         """Keep a definitive refusal; anything else is temporary."""
@@ -301,7 +311,7 @@ class Licence:
         elif code == "product_unavailable":
             refusal = Refusal.PRODUCT_UNAVAILABLE
         elif code == "rate_limited":
-            raise LicenceCheckFailed("the licence server asked to wait", _retry_after(answer))
+            raise LicenceCheckFailed("the licence server asked to wait", LicenceKind.RATE_LIMITED, _retry_after(answer))
         else:
             raise LicenceCheckFailed(f"HTTP {answer.status} ({code})")
         with self._lock:
@@ -355,7 +365,7 @@ class Licence:
         try:
             self._save(state)
         except LicenceStoreError as ex:
-            raise LicenceCheckFailed(f"the licence couldn't be saved: {ex}") from ex
+            raise LicenceCheckFailed(f"the licence couldn't be saved: {ex}", unsaved=str(ex)) from ex
 
     def _save(self, state: LicenceState) -> None:
         if self._unreadable is not None:
@@ -383,7 +393,7 @@ def _activation_refused(answer: ServerAnswer) -> LicenceStatus:
     if code in kinds:
         return LicenceStatus(kinds[code])
     logger.error("activation failed: HTTP %s (%s)", answer.status, code)
-    return LicenceStatus(LicenceKind.UNREACHABLE)
+    return LicenceStatus(LicenceKind.SERVER_ERROR)
 
 
 def _seed(state: LicenceState) -> bytes | None:
@@ -413,6 +423,8 @@ BACKOFF = (
     dt.timedelta(hours=1),
 )
 """Waits after failed checks, one after the other, the last one repeated."""
+STOP_SECONDS = 5.0
+"""How long quitting waits for a check under way."""
 LONGEST_SLEEP = dt.timedelta(minutes=10)
 """The checker wakes at least this often, to save the time seen and to notice a check that came due."""
 
@@ -442,13 +454,21 @@ class LicenceChecks:
         self._thread.start()
         logger.info("licence checks started")
 
-    def stop(self, timeout: float = 20.0) -> None:
-        """Wake the checker and wait for it; a check under way finishes first (two requests, 15 s each at most)."""
+    @property
+    def running(self) -> bool:
+        """Whether the checker's thread is alive (and so may be using the server's connection)."""
+        return self._thread is not None and self._thread.is_alive()
+
+    def stop(self, timeout: float = STOP_SECONDS) -> None:
+        """Wake the checker and give it ``timeout`` seconds: asleep it ends at once, and a check under way gets
+        that long to finish. One that takes longer (a stalled network) is left to end with the process: quitting
+        doesn't wait for it, and ``running`` says so."""
         self._stop.set()
         if self._thread is not None:
             self._thread.join(timeout)
             if self._thread.is_alive():
-                logger.error("the licence check thread did not stop within %.0fs", timeout)
+                logger.warning("a licence check is still under way after %.0f s", timeout)
+                return
         logger.info("licence checks stopped")
 
     def _loop(self) -> None:

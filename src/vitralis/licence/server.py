@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 09:18:57.542529
-Revised: 2026/11/13 09:11:14.023898
+Revised: 2026/11/14 12:01:47.423786
 
 Clavren's application API over HTTPS (``../clavren/docs/api.md``, "Application API"). A plain ``http://``
 address is refused unless it is this computer, because the key travels in the activation.
@@ -32,7 +32,9 @@ class HttpLicenceServer:
         try:
             response = self._http.post(url, json=body, timeout=TIMEOUT_SECONDS, headers={"User-Agent": USER_AGENT})
         except httpx.HTTPError as ex:
-            raise ServerUnreachable(f"{url}: {type(ex).__name__}: {ex}") from ex
+            # never the address: a check's carries this computer's activation id, and this text is logged
+            reason = str(ex).replace(url, self._base).replace(path, "")
+            raise ServerUnreachable(f"{self._base}: {type(ex).__name__}: {reason}") from ex
         try:
             parsed = response.json()
         except ValueError:

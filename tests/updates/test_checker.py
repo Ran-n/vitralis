@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:08.909997
-Revised: 2026/11/14 00:23:20.294878
+Revised: 2026/11/14 12:01:49.118368
 
 The update checker on the offscreen ``QApplication``: checks run off the UI thread and come back as one
 ``UpdateStatus``; skip and Don't skip need no new check; errors are shown and never leave it busy; the timer
@@ -25,7 +25,15 @@ from vitralis.updates.checker import (
     UpdateChecker,
 )
 from vitralis.updates.github import ReleaseFeedError
-from vitralis.updates.rules import ChecksumMismatch, DownloadUnreachable, FeedFailure, UpdateCancelled, UpdateError
+from vitralis.updates.rules import (
+    ChecksumMismatch,
+    DownloadRefused,
+    DownloadUnreachable,
+    FeedFailure,
+    SwapFailed,
+    UpdateCancelled,
+    UpdateError,
+)
 
 
 class Recorder:
@@ -247,11 +255,38 @@ def test_a_failed_swap_shows_why_and_does_not_quit(qapp, make, fake_install):
     check(qapp, checker)
     checker.install()
     wait_until(qapp, lambda: checker.status.install.kind is InstallKind.READY)
-    fake_install.outcome = UpdateError("couldn't start the new version: denied")
+    fake_install.outcome = SwapFailed("couldn't start the new version: denied")
     checker.restart_to_update(lambda: fake_install.events.append("quit"))
     assert "quit" not in fake_install.events
     state = checker.status.install
-    assert state.kind is InstallKind.FAILED and state.failure is FailureKind.OTHER and "denied" in state.detail
+    assert state.kind is InstallKind.FAILED and state.failure is FailureKind.NOT_REPLACED
+    assert state.path is not None  # the download is kept, so Restart can be tried again
+
+
+def test_an_unexpected_install_failure_shows_its_reason(qapp, make, fake_install):
+    checker, _ = make(installer=fake_install.installer())
+    check(qapp, checker)
+    checker.install()
+    wait_until(qapp, lambda: checker.status.install.kind is InstallKind.READY)
+    fake_install.outcome = UpdateError("odd")
+    checker.restart_to_update(lambda: fake_install.events.append("quit"))
+    state = checker.status.install
+    assert state.kind is InstallKind.FAILED and state.failure is FailureKind.OTHER and state.detail == "odd"
+
+
+def test_working_holds_while_a_check_or_a_download_runs(qapp, make, fake_install):
+    checker, _ = make(installer=fake_install.installer())
+    assert not checker.working
+    checker._feed.gate.clear()
+    checker.check_now()
+    assert checker.working  # its connection must not be closed under it
+    checker._feed.gate.set()
+    wait_until(qapp, lambda: not checker.working and not checker.busy)
+    fake_install.gate.clear()
+    checker.install()
+    assert checker.working
+    fake_install.gate.set()
+    wait_until(qapp, lambda: not checker.working)
 
 
 @pytest.mark.parametrize(
@@ -259,7 +294,8 @@ def test_a_failed_swap_shows_why_and_does_not_quit(qapp, make, fake_install):
     [
         (ChecksumMismatch("mismatch"), FailureKind.DAMAGED),
         (DownloadUnreachable("ConnectError: offline"), FailureKind.OFFLINE),
-        (UpdateError("HTTP 500 for the exe"), FailureKind.OTHER),
+        (DownloadRefused("the exe", 500), FailureKind.REFUSED),
+        (UpdateError("odd"), FailureKind.OTHER),
         (RuntimeError("bug"), FailureKind.OTHER),
     ],
 )
@@ -270,6 +306,8 @@ def test_a_failed_download_shows_why(qapp, make, fake_install, outcome, failure)
     checker.install()
     wait_until(qapp, lambda: checker.status.install.kind is InstallKind.FAILED)
     assert checker.status.install.failure is failure
+    if failure is FailureKind.REFUSED:
+        assert checker.status.install.detail == "500"
 
 
 def test_a_folder_that_cant_be_written_downloads_nothing(qapp, make, fake_install):

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:07.122997
-Revised: 2026/11/14 00:23:20.484713
+Revised: 2026/11/14 12:01:49.185951
 
 Downloading a release (respx, real bytes in ``tmp_path``): the verified exe lands with its checksum beside it;
 a checksum mismatch, a truncated or failed stream, a bad checksum file and stopping mid-way each raise and leave
@@ -17,9 +17,11 @@ import pytest
 import respx
 from blake3 import blake3
 
+from vitralis.net import InsecureAddress, secure_client
 from vitralis.updates.download import CHUNK_BYTES, download_release, file_hash
 from vitralis.updates.rules import (
     ChecksumMismatch,
+    DownloadRefused,
     DownloadUnreachable,
     Release,
     UpdateCancelled,
@@ -99,7 +101,7 @@ def test_a_truncated_stream_raises_with_no_file_left(tmp_path):
     respx.get(EXE_URL).mock(
         return_value=httpx.Response(200, stream=httpx.ByteStream(short), headers={"Content-Length": str(len(BODY))})
     )
-    with pytest.raises(UpdateError, match="stopped at"):
+    with pytest.raises(DownloadUnreachable, match="stopped at"):  # the connection's fault: said as such
         run(tmp_path)
     assert leftovers(tmp_path) == []
 
@@ -135,6 +137,45 @@ def test_server_failures_raise_a_reason(tmp_path, b3, exe, match):
     with pytest.raises(UpdateError, match=match):
         run(tmp_path)
     assert leftovers(tmp_path) == []
+
+
+@pytest.mark.parametrize(
+    ("b3", "exe", "status"),
+    [(httpx.Response(404), None, 404), (httpx.Response(200, text=HASH), httpx.Response(503), 503)],
+)
+@respx.mock
+def test_a_server_that_answers_with_an_error_is_refused_with_its_status(tmp_path, b3, exe, status):
+    respx.get(B3_URL).mock(return_value=b3)
+    respx.get(EXE_URL).mock(return_value=exe or httpx.Response(200, content=BODY))
+    with pytest.raises(DownloadRefused) as raised:
+        run(tmp_path)
+    assert raised.value.status == status and f"HTTP {status}" in str(raised.value)
+
+
+@respx.mock
+def test_a_redirect_off_https_is_never_followed(tmp_path):
+    """Regression guard: only the first address was checked; GitHub's redirects were followed wherever they
+    led, plain HTTP included."""
+    elsewhere = respx.get("http://evil.example/vitralis-1.4.0.exe").mock(return_value=httpx.Response(200, content=BODY))
+    respx.get(B3_URL).mock(return_value=httpx.Response(200, text=HASH))
+    respx.get(EXE_URL).mock(
+        return_value=httpx.Response(302, headers={"Location": "http://evil.example/vitralis-1.4.0.exe"})
+    )
+    with secure_client() as http, pytest.raises(UpdateError, match="not HTTPS") as raised:
+        download_release(http, RELEASE, tmp_path / "updates", lambda *_: None, threading.Event())
+    assert not elsewhere.called and isinstance(raised.value.__cause__, InsecureAddress)
+    assert not isinstance(raised.value, DownloadUnreachable) and leftovers(tmp_path) == []
+
+
+@respx.mock
+def test_a_redirect_that_stays_on_https_is_followed(tmp_path):
+    cdn = "https://release-assets.githubusercontent.com/vitralis-1.4.0.exe"
+    respx.get(B3_URL).mock(return_value=httpx.Response(200, text=HASH))
+    respx.get(EXE_URL).mock(return_value=httpx.Response(302, headers={"Location": cdn}))
+    respx.get(cdn).mock(return_value=httpx.Response(200, content=BODY))
+    with secure_client() as http:
+        path = download_release(http, RELEASE, tmp_path / "updates", lambda *_: None, threading.Event())
+    assert path.read_bytes() == BODY
 
 
 @respx.mock

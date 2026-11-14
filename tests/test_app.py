@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.433417
-Revised: 2026/11/14 11:44:53.660284
+Revised: 2026/11/14 12:01:48.915893
 
 The overlay session behind the licence: nothing of the overlay exists while locked, it starts once the licence
 holds, and locking tears it all down (toolbar with its global hooks, canvases, captures, tray). The real toolbar
@@ -347,7 +347,7 @@ def test_wait_pid_waits_before_building_anything(monkeypatch, quiet_main):
     monkeypatch.setattr(app_module, "wait_for_exit", lambda pid, timeout: quiet_main.append(("wait", pid)) or True)
     with pytest.raises(StopHere):
         app_module.main()
-    assert quiet_main == ["logging", ("wait", 42), "clean", ("app", ["vitralis.exe"])]
+    assert quiet_main == ["logging", ("wait", 42), ("app", ["vitralis.exe"])]
 
 
 def test_wait_pid_quits_when_the_old_process_never_ends(monkeypatch, quiet_main, caplog):
@@ -560,6 +560,7 @@ def wired_main(qapp, monkeypatch, tmp_path):
     monkeypatch.setattr(app_module, "install_error_logging", lambda: record("error logging"))
     monkeypatch.setattr(app_module, "clean_after_updates", lambda current: record("clean"))
     monkeypatch.setattr(app_module, "set_app_user_model_id", lambda: record("identity"))
+    monkeypatch.setattr(app_module, "mark_running", lambda: record("running mark"))
     monkeypatch.setattr(app_module, "init_icons_dir", lambda: record("icons"))
     monkeypatch.setattr(app_module, "QApplication", lambda argv: record("app") or qapp)
     monkeypatch.setattr(app_module, "make_app_icon", lambda: qapp.windowIcon())
@@ -567,7 +568,9 @@ def wired_main(qapp, monkeypatch, tmp_path):
     style = qapp.styleSheet()
     timer = SimpleNamespace(stop=lambda: record("timer stopped"))
     monkeypatch.setattr(app_module, "quit_on_signals", lambda app: record("signals") or timer)
-    parts = SimpleNamespace(licence="licence", checks="checks", close=lambda: record("licence closed"))
+    parts = SimpleNamespace(
+        licence="licence", checks="checks", close=lambda working: record(("licence closed", working))
+    )
     monkeypatch.setattr(app_module, "build_licence", lambda data_dir: record("licence") or parts)
     updates = SimpleNamespace(checker=None, close=lambda: record("updates closed"))
     made = SimpleNamespace(order=order, instance=None, flushed=True)
@@ -580,6 +583,8 @@ def wired_main(qapp, monkeypatch, tmp_path):
 
         def begin(self) -> None:
             record("begin")
+
+        working = False
 
         def shutdown(self) -> None:
             record("gate shut down")
@@ -613,12 +618,13 @@ def test_main_wires_everything_in_order_and_shuts_it_all_down_on_quit(qapp, wire
     assert wired_main.order == [
         "logging",
         "error logging",
-        "clean",
         "identity",
         "icons",
         "app",
         "notify",
         "listen",
+        "running mark",
+        "clean",  # after the others: only the one running Vitralis tidies the downloaded updates
         "signals",
         "licence",
         "updates",
@@ -634,7 +640,7 @@ def test_main_wires_everything_in_order_and_shuts_it_all_down_on_quit(qapp, wire
         "instance closed",
         "session stopped",
         "gate shut down",
-        "licence closed",
+        ("licence closed", False),
         "updates closed",
         ("flush", app_module.FLUSH_SECONDS),  # last: everything that saves has stopped
     ]
@@ -656,4 +662,6 @@ def test_a_second_start_asks_the_first_to_show_itself_and_builds_nothing(wired_m
         app_module.main()
     assert raised.value.code == 0
     assert wired_main.order[-2:] == ["app", "notify"]
+    # regression guard: a second start used to delete the update the running Vitralis had downloaded
+    assert "clean" not in wired_main.order and "running mark" not in wired_main.order
     assert any("already running" in r.getMessage() for r in caplog.records)

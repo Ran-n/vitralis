@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 09:18:58.416486
-Revised: 2026/11/11 11:06:55.005813
+Revised: 2026/11/14 12:01:48.775957
 
 The licence rules, pinned by Clavren's own test vectors (``../clavren/docs/api.md``, "Test vectors").
 """
@@ -210,7 +210,18 @@ def test_a_state_saved_with_fewer_fields_still_loads():
 
 @pytest.mark.parametrize(
     "raw",
-    [b"", b"[]", b"null", b'{"refusal": "gone"}', b'{"latest_seen": "yesterday"}', b'{"rewound_seconds": "3"}'],
+    [
+        b"",
+        b"[]",
+        b"null",
+        b'{"refusal": "gone"}',
+        b'{"latest_seen": "yesterday"}',
+        b'{"rewound_seconds": "3"}',
+        b'{"token": 5}',  # regression guard: these four loaded, and asking the licence then raised at every start
+        b'{"device_key": ["k"]}',
+        b'{"activation": {"id": 1}}',
+        b'{"latest_seen": "2026-01-01T00:00:00"}',
+    ],
 )
 def test_a_damaged_state_is_an_error(raw):
     with pytest.raises(ValueError):

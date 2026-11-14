@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.370504
-Revised: 2026/11/14 11:44:53.593760
+Revised: 2026/11/14 12:01:48.380512
 
 Shared fixtures for the licence's Qt tests: one offscreen ``QApplication``, a clock, an in-memory Clavren and
 store, a gate wired to them with a fake daily checker, and a way to wait for a worker thread's answer.
@@ -89,6 +89,7 @@ class FakeChecks:
         self.listeners = []
         self.started = 0
         self.stopped = 0
+        self.running = False
 
     def subscribe(self, listener) -> None:
         self.listeners.append(listener)
