@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 12:31:22.614829
-Revised: 2026/11/14 12:31:22.614829
+Revised: 2026/11/14 17:53:25.099580
 
 The Snapshots window: the drawings of every screen saved under a name, listed, loaded back and deleted. The
 disk is never waited for on the UI thread: the buttons are greyed out until it answers, and a failure is said in
@@ -42,7 +42,8 @@ class _SnapshotList(QListWidget):
 
     The keys are the list's own while it has the focus (it claims them before the shortcuts are looked at):
     as window-wide shortcuts, Enter in the name field loaded instead of saving, and Delete clashed with the
-    toolbar's Clear all, so that neither ran."""
+    toolbar's Clear all, so that neither ran. Typed characters are the list's too (they jump to the snapshot
+    that starts with them): as the toolbar's shortcuts, a Z typed to find a snapshot undid a stroke."""
 
     load_asked = pyqtSignal()
     delete_asked = pyqtSignal()
@@ -50,11 +51,19 @@ class _SnapshotList(QListWidget):
 
     def event(self, event) -> bool:
         if event.type() == QEvent.Type.ShortcutOverride and (
-            event.key() in self._OWN_KEYS or event.matches(QKeySequence.StandardKey.SelectAll)
+            event.key() in self._OWN_KEYS or event.matches(QKeySequence.StandardKey.SelectAll) or self._typed(event)
         ):
             event.accept()
             return True
         return super().event(event)
+
+    @staticmethod
+    def _typed(event) -> bool:
+        """Whether the key types a character (and isn't a Ctrl or Alt combination, which stay shortcuts)."""
+        combined = (
+            Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier | Qt.KeyboardModifier.MetaModifier
+        )
+        return bool(event.text()) and event.text().isprintable() and not event.modifiers() & combined
 
     def keyPressEvent(self, event) -> None:
         if event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):

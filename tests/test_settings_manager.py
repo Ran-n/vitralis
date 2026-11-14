@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:11.023352
-Revised: 2026/11/14 12:31:26.235961
+Revised: 2026/11/14 17:53:32.045409
 
 ``settings.json`` through ``SettingsManager`` (a real file in ``tmp_path``): the update defaults, an old file
 without ``"updates"``, values surviving a restart, two managers not undoing each other's changes, and a broken
@@ -17,7 +17,7 @@ import pytest
 
 import vitralis.persistence as persistence
 import vitralis.settings as settings_module
-from vitralis.persistence import flush_writes
+from vitralis.persistence import DAMAGED_SUFFIX, flush_writes
 from vitralis.settings import DEFAULT_SHORTCUTS, SettingsManager
 
 
@@ -89,6 +89,66 @@ def test_a_broken_file_falls_back_to_the_defaults(settings_file, content, caplog
     assert manager.update_check() is True and manager.skipped_version() == ""
     if content in ("{not json", "[1, 2]"):
         assert caplog.records
+
+
+@pytest.mark.parametrize("content", ["{not json", "[1, 2]"])
+def test_a_damaged_file_is_kept_aside_before_a_change_replaces_it(settings_file, content):
+    """Regression guard: the first change wrote a new file over the damaged one, and what it held was gone."""
+    settings_file.write_text(content, encoding="utf-8")
+    manager = SettingsManager()
+    kept = settings_file.with_name(settings_file.name + DAMAGED_SUFFIX)
+    assert kept.read_text(encoding="utf-8") == content
+    manager.set_skipped_version("1.4.0")
+    assert SettingsManager().skipped_version() == "1.4.0"
+
+
+def hold(monkeypatch, path) -> dict:
+    """Make ``path`` unreadable, as while another program holds it, until ``held`` is turned off."""
+    state = {"held": True}
+    read = type(path).read_bytes
+
+    def read_bytes(self):
+        if state["held"] and self == path:
+            raise PermissionError("held by another program")
+        return read(self)
+
+    monkeypatch.setattr(type(path), "read_bytes", read_bytes)
+    return state
+
+
+def test_a_file_that_cant_be_read_is_never_written_over(settings_file, monkeypatch, caplog):
+    """Regression guard: a file held by another program at start counted as empty, and the first change wrote
+    the defaults over every saved shortcut, the language and the toolbar's place."""
+    SettingsManager().set_language("Deutsch")
+    assert flush_writes(5)
+    before = settings_file.read_bytes()
+    state = hold(monkeypatch, settings_file)
+    with caplog.at_level(logging.ERROR, "vitralis.settings"):
+        manager = SettingsManager()
+        assert manager.skipped_version() == ""  # the defaults, for this run
+        manager.set_skipped_version("1.4.0")
+        assert flush_writes(5)
+    state["held"] = False  # for the test's own look at the file
+    assert settings_file.read_bytes() == before
+    assert manager.skipped_version() == "1.4.0"  # still holds for this run
+    messages = [r.getMessage() for r in caplog.records]
+    assert any("leaving the file as it is" in m for m in messages) and any("not saving" in m for m in messages)
+    assert not settings_file.with_name(settings_file.name + DAMAGED_SUFFIX).exists()
+
+
+def test_once_the_file_can_be_read_again_a_change_keeps_the_rest(settings_file, monkeypatch):
+    first = SettingsManager()
+    first.set_language("Deutsch")
+    first.set_skipped_version("1.3.5")
+    assert flush_writes(5)
+    state = hold(monkeypatch, settings_file)
+    manager = SettingsManager()
+    manager.set_skipped_version("1.4.0")  # refused: the file is held
+    state["held"] = False
+    manager.set_update_check(False)
+    fresh = SettingsManager()
+    assert fresh.language() == "Deutsch"  # kept from the file
+    assert fresh.skipped_version() == "1.4.0" and fresh.update_check() is False  # what changed since wins
 
 
 def test_a_failed_save_is_logged(settings_file, monkeypatch, caplog):

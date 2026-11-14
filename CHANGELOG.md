@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/14 17:10:53.527107 )
+[//]: # (+ Revised: 	2026/11/14 17:53:22.927466 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -107,6 +107,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Two starts of Vitralis at the same moment no longer both run (each with
+  its own overlay, writing the same files): only the first goes on.
+- Drawings and settings whose file can't be read at start (held by another
+  program, no permission) are no longer replaced by the first change: the
+  file is left as it is until it can be read, and a damaged
+  `settings.json` is kept aside as `settings.json.damaged`, as
+  `strokes.json` already was.
+- Typing in the Snapshots list jumps to the snapshot with that name instead
+  of running the toolbar's shortcuts (a Z undid a stroke).
+- Switching from pan to another mode with the mouse button still held
+  applies the pan, instead of leaving the drawings shifted but unsaved.
+- The license window and the toolbar no longer wait for the disk while the
+  license's clock is noted, and **Restart to update** puts the new exe in
+  place without freezing the window (it says **Installing…** meanwhile).
 - The toolbar's logo and name sit in the middle of the toolbar: the focus
   dot beside them pushed them a few pixels to the left.
 - Esc with the toolbar focused while drawing, panning or deleting leaves

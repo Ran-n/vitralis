@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:10.341228
-Revised: 2026/11/14 12:01:49.319886
+Revised: 2026/11/14 17:53:35.565633
 
 What Vitralis says about updates: every sentence is translated into every UI language with the same
 placeholders, and each state's sentence is filled in.
@@ -55,6 +55,7 @@ INSTALLS = [
     InstallState(InstallKind.FAILED, "1.4.0", failure=FailureKind.OFFLINE),
     InstallState(InstallKind.FAILED, "1.4.0", failure=FailureKind.REFUSED, detail="503"),
     InstallState(InstallKind.FAILED, "1.4.0", failure=FailureKind.NOT_REPLACED),
+    InstallState(InstallKind.REPLACING, "1.4.0"),
 ]
 
 
@@ -75,6 +76,7 @@ def test_the_english_sentences():
     assert error_line(STATES[3]) == "Couldn't check for updates: HTTP 500"
     assert install_line(INSTALLS[0]) == "Downloading 1.4.0… 50%"
     assert install_line(InstallState()) == ""
+    assert install_line(INSTALLS[8]) == "Installing 1.4.0…"
     assert settings_tooltip(OUT) == "Settings · Vitralis 1.4.0 is out"
     assert settings_tooltip(None) == settings_tooltip(STATES[0]) == "Settings"
     assert updated_message("1.4.0") == "Updated to 1.4.0"

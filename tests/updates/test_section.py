@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:09.620591
-Revised: 2026/11/14 00:23:20.966640
+Revised: 2026/11/14 17:53:36.138196
 
 Settings → Updates on the offscreen ``QApplication``, driven by a real ``UpdateChecker`` with a fake feed: each
 state shows the right texts and enabled buttons (up to date, out, out (skipped), error, checking, and the
@@ -138,8 +138,15 @@ def test_install_download_and_restart_states(qapp, build, tmp_path):
     fake.gate.set()
     wait_until(qapp, lambda: checker.status.install.kind is InstallKind.READY)
     assert section.install_button.text() == "Restart to update" and section.install_button.isEnabled()
+    fake.swap_gate.clear()
     section.install_button.click()
-    assert quits == [1] and fake.events[0].startswith("swap")
+    assert checker.status.install.kind is InstallKind.REPLACING and quits == []
+    assert section.install_label.text() == "Installing 1.4.0…"  # while the exe is put in place
+    assert visible(section.install_button) and section.install_button.text() == "Restart to update"
+    assert not section.install_button.isEnabled() and not section.skip_button.isEnabled()
+    fake.swap_gate.set()
+    wait_until(qapp, lambda: quits == [1])
+    assert fake.events[0].startswith("swap")
 
 
 @pytest.mark.parametrize(

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 08:16:03.814171
-Revised: 2026/11/14 12:31:24.641368
+Revised: 2026/11/14 17:53:25.708027
 """
 
 # fmt: off
@@ -124,6 +124,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Downloading {version}… {percent}%": "Descargando {version}… {percent}%",
         "Downloading {version}… {mb} MB": "Descargando {version}… {mb} MB",
         "Restart to update": "Reiniciar para actualizar",
+        "Installing {version}…": "Instalando {version}…",
         "Can't update {dir}: move Vitralis to a folder you can write to, or update by hand": "Non se pode actualizar {dir}: move Vitralis a un cartafol no que poidas escribir, ou actualiza a man",
         "The download is damaged (checksum mismatch): try again": "A descarga está danada (a suma de comprobación non coincide): téntao de novo",
         "Couldn't install the update: {reason}": "Non se puido instalar a actualización: {reason}",
@@ -254,6 +255,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Downloading {version}… {percent}%": "Descarregando {version}… {percent}%",
         "Downloading {version}… {mb} MB": "Descarregando {version}… {mb} MB",
         "Restart to update": "Reiniciar para atualizar",
+        "Installing {version}…": "Instalando {version}…",
         "Can't update {dir}: move Vitralis to a folder you can write to, or update by hand": "Nom se pode atualizar {dir}: move Vitralis para umha pasta na que poidas escrever, ou atualiza à mao",
         "The download is damaged (checksum mismatch): try again": "A descarga está danada (a soma de verificaçom nom coincide): tenta-o de novo",
         "Couldn't install the update: {reason}": "Nom se pudo instalar a atualizaçom: {reason}",
@@ -378,6 +380,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Downloading {version}… {percent}%": "Descargando {version}… {percent}%",
         "Downloading {version}… {mb} MB": "Descargando {version}… {mb} MB",
         "Restart to update": "Reiniciar para actualizar",
+        "Installing {version}…": "Instalando {version}…",
         "Can't update {dir}: move Vitralis to a folder you can write to, or update by hand": "No se puede actualizar {dir}: mueve Vitralis a una carpeta en la que puedas escribir, o actualiza a mano",
         "The download is damaged (checksum mismatch): try again": "La descarga está dañada (la suma de comprobación no coincide): inténtalo de nuevo",
         "Couldn't install the update: {reason}": "No se pudo instalar la actualización: {reason}",
@@ -508,6 +511,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Downloading {version}… {percent}%": "A transferir {version}… {percent}%",
         "Downloading {version}… {mb} MB": "A transferir {version}… {mb} MB",
         "Restart to update": "Reiniciar para atualizar",
+        "Installing {version}…": "A instalar {version}…",
         "Can't update {dir}: move Vitralis to a folder you can write to, or update by hand": "Não é possível atualizar {dir}: mova o Vitralis para uma pasta onde possa escrever, ou atualize manualmente",
         "The download is damaged (checksum mismatch): try again": "A transferência está danificada (a soma de verificação não coincide): tente novamente",
         "Couldn't install the update: {reason}": "Não foi possível instalar a atualização: {reason}",
@@ -638,6 +642,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Downloading {version}… {percent}%": "Téléchargement de {version}… {percent} %",
         "Downloading {version}… {mb} MB": "Téléchargement de {version}… {mb} Mo",
         "Restart to update": "Redémarrer pour mettre à jour",
+        "Installing {version}…": "Installation de {version}…",
         "Can't update {dir}: move Vitralis to a folder you can write to, or update by hand": "Impossible de mettre à jour {dir} : déplacez Vitralis dans un dossier où vous pouvez écrire, ou mettez à jour à la main",
         "The download is damaged (checksum mismatch): try again": "Le téléchargement est endommagé (somme de contrôle incorrecte) : réessayez",
         "Couldn't install the update: {reason}": "Impossible d’installer la mise à jour : {reason}",
@@ -768,6 +773,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Downloading {version}… {percent}%": "{version} wird heruntergeladen… {percent} %",
         "Downloading {version}… {mb} MB": "{version} wird heruntergeladen… {mb} MB",
         "Restart to update": "Neu starten zum Aktualisieren",
+        "Installing {version}…": "{version} wird installiert…",
         "Can't update {dir}: move Vitralis to a folder you can write to, or update by hand": "{dir} kann nicht aktualisiert werden: Verschiebe Vitralis in einen Ordner mit Schreibrechten oder aktualisiere von Hand",
         "The download is damaged (checksum mismatch): try again": "Der Download ist beschädigt (Prüfsumme stimmt nicht): bitte erneut versuchen",
         "Couldn't install the update: {reason}": "Das Update konnte nicht installiert werden: {reason}",
@@ -898,6 +904,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Downloading {version}… {percent}%": "正在下载 {version}… {percent}%",
         "Downloading {version}… {mb} MB": "正在下载 {version}… {mb} MB",
         "Restart to update": "重启以更新",
+        "Installing {version}…": "正在安装 {version}…",
         "Can't update {dir}: move Vitralis to a folder you can write to, or update by hand": "无法更新 {dir}：请将 Vitralis 移到你可写入的文件夹，或手动更新",
         "The download is damaged (checksum mismatch): try again": "下载已损坏（校验和不匹配）：请重试",
         "Couldn't install the update: {reason}": "无法安装更新：{reason}",
@@ -1028,6 +1035,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Downloading {version}… {percent}%": "{version} をダウンロード中… {percent}%",
         "Downloading {version}… {mb} MB": "{version} をダウンロード中… {mb} MB",
         "Restart to update": "再起動して更新",
+        "Installing {version}…": "{version} をインストール中…",
         "Can't update {dir}: move Vitralis to a folder you can write to, or update by hand": "{dir} を更新できません：書き込み可能なフォルダーに Vitralis を移動するか、手動で更新してください",
         "The download is damaged (checksum mismatch): try again": "ダウンロードが破損しています（チェックサム不一致）：もう一度お試しください",
         "Couldn't install the update: {reason}": "アップデートをインストールできませんでした：{reason}",

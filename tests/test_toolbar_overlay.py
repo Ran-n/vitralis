@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:14.471868
-Revised: 2026/11/14 12:31:26.457159
+Revised: 2026/11/14 17:53:33.764140
 
 The real toolbar driving real canvases and captures on the offscreen ``QApplication`` (its system-wide hooks
 replaced by inert stand-ins, as in ``test_toolbar``): modes, Esc, quitting once, undo across screens, the tool,
@@ -998,3 +998,57 @@ def test_closing_a_capture_from_outside_only_leaves_the_mode(overlay):
     capture.closeEvent(event)
     assert not event.isAccepted() and not overlay.bar.mode_active and overlay.quits == []
     assert capture.close()  # the session can still close it
+
+
+def test_typing_in_the_list_finds_a_snapshot_and_is_no_toolbar_shortcut(overlay, snapshots):
+    """Regression guard: a Z typed to jump to a snapshot was the toolbar's Undo, and took back a stroke."""
+    left = overlay.canvases[0]
+    overlay.bar.show()  # its shortcuts only work while it shows
+    for name in ("alpha", "zeta"):
+        snapshots._name_edit.setText(name)
+        snapshots._save()
+        settle(snapshots)
+    left.load([stroke(5.0), stroke(6.0)])
+    select(snapshots, "alpha")
+    snapshots._list.setCurrentRow(0)
+    keys_to(snapshots, snapshots._list)
+    for key in (Qt.Key.Key_Z, Qt.Key.Key_D, Qt.Key.Key_H, Qt.Key.Key_X):  # undo, draw, hide and delete mode
+        QTest.keyClick(snapshots._list, key)
+    assert [s.created for s in left.strokes] == [5.0, 6.0]
+    assert overlay.bar._mode is None and not overlay.bar._vis_btn.isChecked()
+    QTest.qWait(QApplication.keyboardInputInterval() + 50)  # a new search, not "zdhx" going on
+    QTest.keyClick(snapshots._list, Qt.Key.Key_Z)
+    assert snapshots._list.currentItem().text() == "zeta"
+    QTest.keyClick(snapshots._list, Qt.Key.Key_Z, Qt.KeyboardModifier.ControlModifier)  # not typing: no claim
+    assert [s.created for s in left.strokes] == [5.0, 6.0]  # and Ctrl+Z is nobody's shortcut
+
+
+def test_leaving_pan_for_another_mode_with_the_button_held_applies_the_pan(overlay):
+    """Regression guard: the capture stays up from one mode to the next, so the pan under way was left pending
+    and the strokes drawn next were off the cursor."""
+    left, capture = overlay.canvases[0], overlay.captures[0]
+    left.load([stroke(1.0)])
+    overlay.bar._toggle_mode(toolbar_module.PAN, True)
+    press = QMouseEvent(
+        QEvent.Type.MouseButtonPress,
+        QPointF(200, 200),
+        QPointF(200, 200),
+        Qt.MouseButton.LeftButton,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    move = QMouseEvent(
+        QEvent.Type.MouseMove,
+        QPointF(230, 215),
+        QPointF(230, 215),
+        Qt.MouseButton.NoButton,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    QApplication.sendEvent(capture, press)
+    QApplication.sendEvent(capture, move)
+    overlay.bar._toggle_mode(toolbar_module.DRAW, True)  # D, with the button still held
+    assert capture.isVisible() and not capture.pan_mode
+    assert left.strokes[0].points == [[40.0, 25.0], [130.0, 25.0]]  # moved for good
+    assert flush_writes(5)
+    assert [s.points for s in persistence.load_strokes_for(left.geometry())] == [[[40.0, 25.0], [130.0, 25.0]]]
