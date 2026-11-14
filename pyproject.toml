@@ -57,11 +57,12 @@ build = "vitralis.build:main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--import-mode=importlib -m 'not live'"
+addopts = "--import-mode=importlib -m 'not live and not desktop'"
 markers = [
     "property: property-based (hypothesis)",
     "ui: drives real Qt widgets offscreen",
     "live: talks to the real licence server (clavren.breren.com); deselected unless run with -m live",
+    "desktop: runs the real windows on the screen (tests/rendered); deselected unless run with -m desktop",
 ]
 
 [tool.coverage.run]

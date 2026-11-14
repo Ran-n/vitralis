@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/14 16:34:58.344738 )
+[//]: # (+ Revised: 	2026/11/14 16:56:40.607385 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -56,6 +56,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Linting, formatting and the tests with a coverage gate run in CI (the
   linter on GitHub, GitLab and Codeberg; the tests on GitHub, on Windows).
 - `.python-version` pins Python 3.13, the version Vitralis is built with.
+- Rendered tests of the real windows (`uv run pytest -m desktop`,
+  Windows): the toolbar, its windows and an overlay run in a process of
+  their own on a scratch data folder, clicked with posted window messages
+  and compared with reviewed pictures, without touching the mouse, the
+  keyboard or the user's own Vitralis.
 
 ### Changed
 
@@ -100,6 +105,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The toolbar's logo and name sit in the middle of the toolbar: the focus
+  dot beside them pushed them a few pixels to the left.
 - Esc with the toolbar focused while drawing, panning or deleting leaves
   the mode instead of quitting Vitralis.
 - The toolbar showed stroke size 5 at start while drawing 3 px wide.

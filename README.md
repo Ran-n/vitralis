@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/04/27 10:48:03.565778 )
-[//]: # (+ Revised: 	2026/11/14 12:31:23.184740 )
+[//]: # (+ Revised: 	2026/11/14 16:56:41.171448 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 ![Vitralis icon](src/vitralis/media/logo/icon_title.png)
@@ -97,6 +97,18 @@ The contract test against the real license server is left out of the default run
 
 ```
 VITRALIS_LICENCE_TEST_KEY=BRN-... uv run pytest -m live
+```
+
+The rendered tests (`tests/rendered`, Windows only) are left out of the default run too, because they put real windows on your screen for about a minute: the real toolbar, its windows and a small overlay run in a process of their own on a scratch data folder, with a license and an update feed held in memory. They click and drag by posting window messages and look at the windows with `PrintWindow`, so your mouse, keyboard, running Vitralis and its data are left alone. Each test checks the pixels a click leaves and what it saved, and the windows are compared with the reviewed pictures in `tests/rendered/baselines` (taken at 100 % scaling; at another scaling those comparisons are skipped):
+
+```
+uv run pytest -m desktop --no-cov
+```
+
+After a deliberate change of look, write the pictures again, look at each one, and commit them with the change (what differs on a failure is written to `tests/rendered/failures`):
+
+```
+VITRALIS_UPDATE_BASELINES=1 uv run pytest -m desktop --no-cov
 ```
 
 ## Build
