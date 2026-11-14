@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:07:07.959602 )
-[//]: # (+ Revised: 	2026/11/14 00:23:15.306982 )
+[//]: # (+ Revised: 	2026/11/14 16:56:42.544351 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 Thank you for your interest in contributing.
@@ -54,7 +54,11 @@ Open an issue with:
    gate included, and so must `uv run ruff format --check .` and
    `uv run ruff check .` (CI runs all three; the live license test runs only
    with `-m live` and `VITRALIS_LICENCE_TEST_KEY`; never commit a license
-   key). A new sentence on screen needs its translation in every language
+   key). A change to what a window looks like or does on a click also runs
+   `uv run pytest -m desktop --no-cov` (the real windows, on Windows; see
+   the README's Tests), with its reviewed pictures in
+   `tests/rendered/baselines` updated in the same commit. A new sentence on
+   screen needs its translation in every language
    of `src/vitralis/translations.py`: `tests/test_translations.py` fails
    otherwise
 4. Commit following the [Commit Style](#commit-style) below

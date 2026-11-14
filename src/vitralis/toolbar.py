@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.341523
-Revised: 2026/11/14 12:31:24.523567
+Revised: 2026/11/14 16:56:39.164982
 
 The floating toolbar that drives the overlay (modes, tools, colours, size, undo, clear, hide) and opens its
 windows (Settings, Snapshots, About, the colour picker). What it is left at is remembered for the next start:
@@ -48,6 +48,8 @@ logger = logging.getLogger("vitralis.toolbar")
 
 DEFAULT_SIZE = 5
 """The stroke width a first start draws with."""
+DOT_GAP = 6
+"""Between the toolbar's name and the dot that says whether Vitralis has the keyboard."""
 PANEL_GAP = 8
 """How far right of the toolbar its windows open, until one is dragged elsewhere."""
 DRAW, PAN, DELETE = "draw", "pan", "delete"
@@ -116,6 +118,9 @@ class _TitleHeader(QWidget):
         logo_row.setContentsMargins(0, 0, 0, 0)
         logo_row.setSpacing(0)
         logo_row.addStretch()
+        logo_row.addSpacing(DOT_GAP + dot.width())  # as much as the dot takes on the right: the name stays centred
+        self.name_parts: list[QLabel] = []
+        """The logo and the name, which sit in the middle of the toolbar."""
         if icon_path and icon_path.exists():
             px = QPixmap(str(icon_path)).scaled(
                 14, 14, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
@@ -125,6 +130,7 @@ class _TitleHeader(QWidget):
             icon_lbl.setFixedSize(14, 14)
             icon_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
             logo_row.addWidget(icon_lbl)
+            self.name_parts.append(icon_lbl)
         text_lbl = QLabel("itralis")
         text_lbl.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         text_lbl.setStyleSheet(
@@ -132,7 +138,8 @@ class _TitleHeader(QWidget):
             "letter-spacing: 1.5px; background: transparent;"
         )
         logo_row.addWidget(text_lbl)
-        logo_row.addSpacing(6)
+        self.name_parts.append(text_lbl)
+        logo_row.addSpacing(DOT_GAP)
         logo_row.addWidget(dot)
         logo_row.addStretch()
         root.addLayout(logo_row)
@@ -361,7 +368,7 @@ class Toolbar(QWidget):
         self._quit_btn.setStyleSheet(danger_btn())
         self._quit_btn.clicked.connect(self.quit)
 
-        header = _TitleHeader(
+        header = self._header = _TitleHeader(
             icon_path=base / "media" / "logo" / "icon.png",
             dot=self._focus_dot,
             buttons=[self._settings_btn, self._info_btn, _spacer, self._quit_btn],

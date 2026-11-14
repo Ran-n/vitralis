@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:11.688678
-Revised: 2026/11/13 09:11:12.021907
+Revised: 2026/11/14 16:56:39.847670
 
 The real toolbar on the offscreen ``QApplication``, with its system-wide keyboard and mouse hooks replaced by
 inert stand-ins: the accent dot on the Settings button shows only while an update is offered, painted inside
@@ -140,3 +140,16 @@ def test_the_about_window_shows_the_versioned_licence(qapp, icons, language):
     texts = [label.text() for label in window.findChildren(QLabel)]
     assert LICENCE_NAME in texts and "PayBack License (PBL)" not in texts
     window.deleteLater()
+
+
+def test_the_logo_and_name_sit_in_the_middle_of_the_toolbar(make_toolbar, qapp):
+    """Regression guard: the focus dot on the name's right pushed the name left of the middle."""
+    bar = make_toolbar()
+    bar.show()
+    qapp.processEvents()
+    parts = bar._header.name_parts
+    assert len(parts) == 2  # the logo and the name
+    left = parts[0].mapTo(bar, parts[0].rect().topLeft()).x()
+    right = parts[-1].mapTo(bar, parts[-1].rect().topRight()).x() + 1
+    assert abs((left + right) / 2 - bar.width() / 2) <= 1
+    assert bar._focus_dot.mapTo(bar, bar._focus_dot.rect().topLeft()).x() >= right  # the dot stays beside it

@@ -12,3 +12,4 @@ src/vitralis/_version.py
 .coverage
 .pytest_cache/
 .hypothesis/
+tests/rendered/failures/
