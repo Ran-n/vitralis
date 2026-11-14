@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/14 00:28:44.996102 )
+[//]: # (+ Revised: 	2026/11/14 11:44:53.002452 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -35,7 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Settings → Apps.
 - The landing page's download button gets the installer.
 - The toolbar remembers its tool, color, stroke size and position between
-  runs.
+  runs, and whether the drawings were hidden (the Show/Hide button shows
+  it).
 - The overlay follows the monitors: plugging one in, unplugging it or
   changing its resolution rebuilds the overlay, each monitor getting its
   own drawings back.
@@ -60,6 +61,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `strokes.json`, `settings.json` and the snapshots are written whole or not
   at all, so a crash can't leave half a file; strokes now carry the time
   they were drawn.
+- Drawing and changing a setting never wait for the disk: `strokes.json` and
+  `settings.json` are written in the background (and finished before
+  Vitralis quits), and the Snapshots window lists, saves, loads and deletes
+  off the UI thread, its buttons greyed out meanwhile.
+- The About window, README, CONTRIBUTING and landing page name the license
+  version: PayBack License (PBL) v2.0.
 
 ### Fixed
 
@@ -89,17 +96,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   running with no toolbar; it now quits cleanly.
 - The log no longer holds the address of every request, which carried this
   computer's license activation id.
+- Two parts of Vitralis saving settings at once no longer undo each other's
+  changes, and an unreadable `settings.json` is logged instead of silently
+  ignored.
+- A snapshot named like a Windows device (`CON`, `NUL`, `COM1`…) couldn't be
+  saved; it is now kept as `_CON`.
 
 ### Security
 
 - `setuptools` (build only) updated past PYSEC-2026-3447 and
   GHSA-xmj3-9gf7-h52w.
-
-- The About window, README, CONTRIBUTING and landing page name the license
-  version: PayBack License (PBL) v2.0.
-- Two parts of Vitralis saving settings at once no longer undo each other's
-  changes, and an unreadable `settings.json` is logged instead of silently
-  ignored.
 
 ## [1.3.0] - 2026-11-11
 

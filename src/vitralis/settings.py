@@ -2,12 +2,13 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 07:52:06.389478
-Revised: 2026/11/14 00:23:16.160398
+Revised: 2026/11/14 11:44:53.334414
 
 ``settings.json`` (``SettingsManager``) and the settings window: the keyboard shortcuts, the language, the
 updates and the licence.
 """
 
+import copy
 import json
 import logging
 import re
@@ -31,7 +32,7 @@ from vitralis.installed import installer_language
 from vitralis.licence.gate import LicenceGate
 from vitralis.licence.section import LicenceSection
 from vitralis.models import MAX_WIDTH, TOOL_NAMES
-from vitralis.persistence import DATA_DIR, write_json_atomic
+from vitralis.persistence import DATA_DIR, flush_writes, write_in_background
 from vitralis.styles import base_btn, danger_btn, muted_btn
 from vitralis.translations import set_language, t
 from vitralis.updates.checker import UpdateChecker
@@ -105,16 +106,23 @@ GLOBAL_ACTION = "focus_toggle"
 """The one shortcut that works from any app: it goes through the ``keyboard`` library, not Qt."""
 
 
+_saved: dict = {}
+"""``settings.json`` as last read or changed: one table for every ``SettingsManager``."""
+
+
 class SettingsManager:
-    """``settings.json``. Several managers may be alive at once (the toolbar's, the updater's), so every write
-    reads the file again first and changes only its own key: one never undoes another's change."""
+    """``settings.json``. Several managers may be alive at once (the toolbar's, the updater's), so they all work
+    on the one table in memory: one never undoes another's change. A new manager reads the file again; a
+    change is written without waiting for the disk."""
 
     def __init__(self, language_source: Callable[[], str | None] | None = None) -> None:
-        self._data: dict = {}
+        self._data = _saved
         self._installer_language = language_source or installer_language
         self._load()
 
     def _load(self) -> None:
+        flush_writes()  # a change still on its way to the file must not be read over
+        self._data.clear()
         if not SETTINGS_FILE.exists():
             return
         try:
@@ -123,17 +131,13 @@ class SettingsManager:
             logger.warning("couldn't read %s, using the defaults: %s", SETTINGS_FILE, ex)
             return
         if isinstance(data, dict):
-            self._data = data
+            self._data.update(data)
         else:
             logger.warning("%s isn't a JSON object, using the defaults", SETTINGS_FILE)
 
     def _put(self, key: str, value) -> None:
-        self._load()
         self._data[key] = value
-        try:
-            write_json_atomic(SETTINGS_FILE, self._data)
-        except OSError as ex:
-            logger.error("couldn't save %s: %s", SETTINGS_FILE, ex)
+        write_in_background(SETTINGS_FILE, copy.deepcopy(self._data))  # a copy: the table goes on changing
 
     def shortcuts(self) -> dict[str, str]:
         """The saved shortcuts over the defaults; saved entries that aren't a known action with a text key are
@@ -175,7 +179,6 @@ class SettingsManager:
         return bool(self._updates().get("check", True))
 
     def set_update_check(self, enabled: bool) -> None:
-        self._load()
         self._put("updates", {**self._updates(), "check": enabled})
 
     def skipped_version(self) -> str:
@@ -184,13 +187,12 @@ class SettingsManager:
         return skipped if isinstance(skipped, str) else ""
 
     def set_skipped_version(self, version: str) -> None:
-        self._load()
         self._put("updates", {**self._updates(), "skipped": version})
 
     def toolbar_state(self) -> dict:
         """What the toolbar was left at: any of ``tool`` (a ``Tool`` name), ``color`` (``#rrggbb``), ``size``
-        (a stroke width) and ``position`` (``[x, y]``). Damaged entries are left out, so the toolbar falls back
-        to its defaults for them."""
+        (a stroke width), ``position`` (``[x, y]``) and ``hidden`` (whether the drawings were hidden). Damaged
+        entries are left out, so the toolbar falls back to its defaults for them."""
         saved = self._data.get("toolbar", {})
         if not isinstance(saved, dict):
             return {}
@@ -210,11 +212,12 @@ class SettingsManager:
             and all(isinstance(part, int) and not isinstance(part, bool) for part in position)
         ):
             state["position"] = position
+        if isinstance(saved.get("hidden"), bool):
+            state["hidden"] = saved["hidden"]
         return state
 
     def set_toolbar_state(self, **changes) -> None:
         """Remember the given parts of the toolbar's state; nothing is written when nothing changed."""
-        self._load()
         saved = self._data.get("toolbar", {})
         current = saved if isinstance(saved, dict) else {}
         merged = {**current, **changes}

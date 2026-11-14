@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:11.023352
-Revised: 2026/11/14 00:23:19.956753
+Revised: 2026/11/14 11:44:53.792107
 
 ``settings.json`` through ``SettingsManager`` (a real file in ``tmp_path``): the update defaults, an old file
 without ``"updates"``, values surviving a restart, two managers not undoing each other's changes, and a broken
@@ -11,10 +11,13 @@ file falling back to the defaults with a warning.
 
 import json
 import logging
+import threading
 
 import pytest
 
+import vitralis.persistence as persistence
 import vitralis.settings as settings_module
+from vitralis.persistence import flush_writes
 from vitralis.settings import DEFAULT_SHORTCUTS, SettingsManager
 
 
@@ -46,6 +49,27 @@ def test_update_values_survive_a_restart(settings_file):
     assert json.loads(settings_file.read_text(encoding="utf-8"))["updates"] == {"check": False, "skipped": "1.4.0"}
 
 
+def test_a_change_is_seen_at_once_and_written_without_waiting_for_the_disk(settings_file, monkeypatch):
+    held, release = threading.Event(), threading.Event()
+    real = persistence.write_json_atomic
+
+    def slow(path, data, indent=2):
+        held.set()
+        assert release.wait(5)
+        real(path, data, indent)
+
+    monkeypatch.setattr(persistence, "write_json_atomic", slow)
+    manager, other = SettingsManager(), SettingsManager()
+    manager.set_language("Galego")  # returns although the disk hasn't taken a byte yet
+    assert held.wait(5) and not settings_file.exists()
+    assert manager.language() == "Galego" == other.language()
+    manager.set_skipped_version("1.4.0")  # changed while the first write is still held: written after it
+    release.set()
+    assert flush_writes(5)
+    saved = json.loads(settings_file.read_text(encoding="utf-8"))
+    assert saved == {"language": "Galego", "updates": {"skipped": "1.4.0"}}
+
+
 def test_two_managers_dont_undo_each_others_changes(settings_file):
     """Regression guard: the toolbar's manager saving shortcuts used to write back its stale copy of the file,
     which would drop the updater's skipped version."""
@@ -73,9 +97,11 @@ def test_a_failed_save_is_logged(settings_file, monkeypatch, caplog):
 
     manager = SettingsManager()
     monkeypatch.setattr(type(settings_file), "write_text", refuse)
-    with caplog.at_level(logging.ERROR, "vitralis.settings"):
+    with caplog.at_level(logging.ERROR, "vitralis.persistence"):
         manager.set_skipped_version("1.4.0")
-    assert any("couldn't save" in r.getMessage() for r in caplog.records)
+        assert flush_writes(5)
+    assert any("couldn't save" in r.getMessage() and "settings.json" in r.getMessage() for r in caplog.records)
+    assert manager.skipped_version() == "1.4.0"  # still holds for this run
 
 
 def test_without_a_language_it_starts_in_english(settings_file):
@@ -139,6 +165,7 @@ def test_a_saved_language_vitralis_doesnt_have_falls_back(settings_file, saved, 
 
 def test_a_save_leaves_no_temporary_file(settings_file):
     SettingsManager().set_language("Deutsch")
+    assert flush_writes(5)
     assert [p.name for p in settings_file.parent.iterdir() if p.suffix == ".tmp"] == []
 
 
@@ -152,18 +179,26 @@ def test_no_toolbar_state_until_one_is_saved(settings_file):
 def test_the_toolbar_state_survives_a_restart_part_by_part(settings_file):
     manager = SettingsManager()
     manager.set_toolbar_state(tool="ARROW", color="#12AB34")
-    manager.set_toolbar_state(size=9, position=[40, -60])
-    assert SettingsManager().toolbar_state() == {"tool": "ARROW", "color": "#12ab34", "size": 9, "position": [40, -60]}
+    manager.set_toolbar_state(size=9, position=[40, -60], hidden=True)
+    assert SettingsManager().toolbar_state() == {
+        "tool": "ARROW",
+        "color": "#12ab34",
+        "size": 9,
+        "position": [40, -60],
+        "hidden": True,
+    }
 
 
 def test_saving_the_same_toolbar_state_writes_nothing(settings_file, monkeypatch):
     manager = SettingsManager()
     manager.set_toolbar_state(tool="LINE")
     writes = []
-    monkeypatch.setattr(settings_module, "write_json_atomic", lambda *a, **k: writes.append(a))
+    monkeypatch.setattr(settings_module, "write_in_background", lambda *a, **k: writes.append(a))
     manager.set_toolbar_state(tool="LINE")
     assert writes == []
-    manager.set_toolbar_state(tool="PEN")
+    manager.set_toolbar_state(tool="PEN", hidden=True)
+    assert len(writes) == 1
+    manager.set_toolbar_state(hidden=True)
     assert len(writes) == 1
 
 
@@ -171,8 +206,8 @@ def test_saving_the_same_toolbar_state_writes_nothing(settings_file, monkeypatch
     "saved",
     [
         "PEN",
-        {"tool": "LASER", "color": "red", "size": 0, "position": [1]},
-        {"tool": 3, "color": 255, "size": "5", "position": "1,2"},
+        {"tool": "LASER", "color": "red", "size": 0, "position": [1], "hidden": "yes"},
+        {"tool": 3, "color": 255, "size": "5", "position": "1,2", "hidden": 1},
         {"size": True, "position": [1.5, 2]},
         {"size": 5000, "position": [True, False]},
     ],

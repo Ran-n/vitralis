@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.064124
-Revised: 2026/11/14 00:23:15.851129
+Revised: 2026/11/14 11:44:53.146231
 
 What a drawing is made of: the tools and the strokes they leave, as they are kept in ``strokes.json`` and in
 the snapshots.
@@ -44,6 +44,8 @@ class Stroke:
     before this was kept."""
 
     def to_dict(self) -> dict:
+        """The saved form. It shares ``points`` with the stroke, and is written to disk from another thread: a
+        finished stroke's points are replaced (``stroke.points = [...]``), never changed in place."""
         return {
             "tool": self.tool,
             "color": self.color,

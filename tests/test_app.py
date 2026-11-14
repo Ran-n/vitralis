@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.433417
-Revised: 2026/11/14 00:23:19.878379
+Revised: 2026/11/14 11:44:53.660284
 
 The overlay session behind the licence: nothing of the overlay exists while locked, it starts once the licence
 holds, and locking tears it all down (toolbar with its global hooks, canvases, captures, tray). The real toolbar
@@ -570,6 +570,8 @@ def wired_main(qapp, monkeypatch, tmp_path):
     parts = SimpleNamespace(licence="licence", checks="checks", close=lambda: record("licence closed"))
     monkeypatch.setattr(app_module, "build_licence", lambda data_dir: record("licence") or parts)
     updates = SimpleNamespace(checker=None, close=lambda: record("updates closed"))
+    made = SimpleNamespace(order=order, instance=None, flushed=True)
+    monkeypatch.setattr(app_module, "flush_writes", lambda timeout: record(("flush", timeout)) or made.flushed)
     monkeypatch.setattr(app_module, "build_updates", lambda data_dir, settings: record("updates") or updates)
 
     class Gate:
@@ -590,7 +592,6 @@ def wired_main(qapp, monkeypatch, tmp_path):
             super().stop()
 
     monkeypatch.setattr(app_module, "Session", RecordedSession)
-    made = SimpleNamespace(order=order, instance=None)
 
     def instance(running: bool) -> None:
         made.instance = FakeInstance(order, running)
@@ -635,7 +636,18 @@ def test_main_wires_everything_in_order_and_shuts_it_all_down_on_quit(qapp, wire
         "gate shut down",
         "licence closed",
         "updates closed",
+        ("flush", app_module.FLUSH_SECONDS),  # last: everything that saves has stopped
     ]
+
+
+def test_writes_still_running_at_quit_are_said_in_the_log(qapp, wired_main, caplog):
+    wired_main.use_instance(running=False)
+    wired_main.flushed = False
+    with pytest.raises(SystemExit):
+        app_module.main()
+    with caplog.at_level(logging.WARNING, "vitralis.app"):
+        qapp.aboutToQuit.emit()
+    assert any("still being written" in r.getMessage() for r in caplog.records)
 
 
 def test_a_second_start_asks_the_first_to_show_itself_and_builds_nothing(wired_main, caplog):

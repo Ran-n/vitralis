@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:14.471868
-Revised: 2026/11/14 00:23:23.066098
+Revised: 2026/11/14 11:44:53.926648
 
 The real toolbar driving real canvases and captures on the offscreen ``QApplication`` (its system-wide hooks
 replaced by inert stand-ins, as in ``test_toolbar``): modes, Esc, quitting once, undo across screens, the tool,
@@ -12,19 +12,21 @@ failures said in words.
 
 import json
 import logging
+import threading
 
 import pytest
 from PyQt6.QtCore import QPoint, QRect
 from PyQt6.QtGui import QCloseEvent, QColor
-from PyQt6.QtWidgets import QLabel
+from PyQt6.QtWidgets import QApplication, QLabel
 
 import vitralis.persistence as persistence
 import vitralis.settings as settings_module
+from tests.conftest import wait_until
 from tests.test_toolbar import InertThread
 from vitralis import toolbar as toolbar_module
 from vitralis.canvas import Canvas, DrawCapture
 from vitralis.models import Stroke, Tool
-from vitralis.persistence import SnapshotError, forget_strokes, list_snapshots, load_strokes_for
+from vitralis.persistence import SnapshotError, flush_writes, forget_strokes, list_snapshots, load_strokes_for
 from vitralis.styles import PALETTE, SIZES
 from vitralis.toolbar import (
     DEFAULT_SIZE,
@@ -79,6 +81,7 @@ def overlay(qapp, icons, monkeypatch):
 
 
 def saved_toolbar() -> dict:
+    assert flush_writes(5)
     return json.loads(settings_module.SETTINGS_FILE.read_text(encoding="utf-8"))["toolbar"]
 
 
@@ -92,7 +95,7 @@ def test_a_first_start_draws_with_the_pen_the_first_colour_and_the_shown_size(ov
     for canvas in overlay.canvases:
         assert (canvas.active_tool, canvas.active_color, canvas.active_width) == (Tool.PEN, PALETTE[0], DEFAULT_SIZE)
     assert bar._tool_btns[Tool.PEN].isChecked() and bar._swatch_btns[0].isChecked()
-    assert not settings_module.SETTINGS_FILE.exists()  # opening the toolbar saves nothing
+    assert flush_writes(5) and not settings_module.SETTINGS_FILE.exists()  # opening the toolbar saves nothing
 
 
 # --- modes and Esc ------------------------------------------------------------------------------------------
@@ -228,7 +231,7 @@ def test_a_dismissed_colour_picker_changes_nothing(overlay, monkeypatch):
     monkeypatch.setattr(toolbar_module.QColorDialog, "getColor", lambda *a: QColor())
     overlay.bar._custom_btn.click()
     assert overlay.canvases[0].active_color == PALETTE[0] and overlay.bar._swatch_btns[0].isChecked()
-    assert not settings_module.SETTINGS_FILE.exists()
+    assert flush_writes(5) and not settings_module.SETTINGS_FILE.exists()
 
 
 def test_the_wheel_cycles_the_palette_only_while_vitralis_has_the_focus(overlay, monkeypatch):
@@ -294,6 +297,28 @@ def test_hiding_the_overlay_hides_every_canvas_and_showing_brings_them_back(over
     assert all(c.isVisible() for c in overlay.canvases) and bar._vis_btn.toolTip() == "Hide overlay  [H]"
 
 
+def test_a_hidden_overlay_is_still_hidden_at_the_next_start_and_the_button_says_so(overlay):
+    for canvas in overlay.canvases:
+        canvas.show()
+    overlay.bar._vis_btn.click()
+    assert saved_toolbar()["hidden"] is True
+    for canvas in overlay.canvases:
+        canvas.show()  # as a new start builds them
+    again = overlay.build()
+    assert not any(c.isVisible() for c in overlay.canvases)
+    assert again._vis_btn.isChecked() and again._vis_btn.toolTip() == "Show overlay  [H]"
+    again._vis_btn.click()
+    assert all(c.isVisible() for c in overlay.canvases) and saved_toolbar()["hidden"] is False
+    assert not overlay.build()._vis_btn.isChecked()
+
+
+def test_restoring_the_hidden_overlay_writes_nothing(overlay, monkeypatch):
+    settings_module.SettingsManager().set_toolbar_state(hidden=True)
+    writes = []
+    monkeypatch.setattr(settings_module, "write_in_background", lambda *a, **k: writes.append(a))
+    assert overlay.build()._vis_btn.isChecked() and writes == []
+
+
 # --- position -----------------------------------------------------------------------------------------------
 
 
@@ -317,7 +342,7 @@ def test_where_the_toolbar_was_dragged_to_is_remembered(overlay, qapp):
 
 def test_a_release_without_a_drag_saves_nothing(overlay):
     overlay.bar.mouseReleaseEvent(None)
-    assert not settings_module.SETTINGS_FILE.exists()
+    assert flush_writes(5) and not settings_module.SETTINGS_FILE.exists()
 
 
 def test_a_saved_spot_no_screen_shows_any_more_falls_back_to_the_default(overlay):
@@ -382,10 +407,17 @@ def test_changing_the_shortcuts_restarts_the_focus_hotkey(overlay):
 # --- snapshots ----------------------------------------------------------------------------------------------
 
 
+def settle(window: SnapshotWindow) -> None:
+    """Let the window's disk work end and its answer reach the UI thread."""
+    wait_until(QApplication.instance(), lambda: not window.busy)
+
+
 @pytest.fixture
 def snapshots(overlay):
     window = SnapshotWindow(overlay.canvases)
+    settle(window)
     yield window
+    settle(window)
     window.close()
     window.deleteLater()
 
@@ -404,24 +436,29 @@ def test_a_snapshot_is_saved_listed_loaded_back_and_deleted(overlay, snapshots):
     assert not snapshots._save_btn.isEnabled() and not snapshots._load_btn.isEnabled()
     snapshots._name_edit.setText("review")
     snapshots._save_btn.click()
+    settle(snapshots)
     assert list_snapshots() == ["review"] and snapshots._name_edit.text() == ""
     assert [snapshots._list.item(i).text() for i in range(snapshots._list.count())] == ["review"]
     overlay.bar._clear()
     select(snapshots, "review")
     snapshots._load_btn.click()
+    settle(snapshots)
     assert [s.created for s in left.strokes] == [1.0] and [s.created for s in right.strokes] == [2.0, 3.0]
     forget_strokes()
     assert load_strokes_for(RIGHT) == right.strokes  # a loaded snapshot is what the next start shows
     snapshots._del_btn.click()
+    settle(snapshots)
     assert list_snapshots() == [] and snapshots._list.count() == 0 and not snapshots._error_lbl.isVisibleTo(snapshots)
 
 
 def test_saving_with_one_snapshot_selected_overwrites_it(overlay, snapshots):
     snapshots._name_edit.setText("review")
     snapshots._save()
+    settle(snapshots)
     overlay.canvases[0].load([stroke(5.0)])
     select(snapshots, "review")
     snapshots._save()
+    settle(snapshots)
     assert list_snapshots() == ["review"]
     assert [s.created for s in persistence.load_snapshot("review")["0,0"]] == [5.0]
 
@@ -430,6 +467,7 @@ def test_typing_filters_the_list_and_keeps_the_selection(snapshots):
     for name in ("alpha", "beta", "alphabet"):
         snapshots._name_edit.setText(name)
         snapshots._save()
+        settle(snapshots)
     select(snapshots, "alphabet")
     snapshots._name_edit.setText("ALPHA")
     shown = [snapshots._list.item(i).text() for i in range(snapshots._list.count())]
@@ -441,15 +479,20 @@ def test_several_snapshots_are_deleted_together_but_not_loaded_or_saved(snapshot
     for name in ("one", "two", "three"):
         snapshots._name_edit.setText(name)
         snapshots._save()
+        settle(snapshots)
     select(snapshots, "one", "two")
     assert (
         snapshots._del_btn.isEnabled() and not snapshots._load_btn.isEnabled() and not snapshots._save_btn.isEnabled()
     )
     snapshots._load()  # more than one selected: nothing to load
+    settle(snapshots)
     snapshots._delete()
+    settle(snapshots)
     assert list_snapshots() == ["three"]
     snapshots._delete()  # nothing selected: nothing happens
+    settle(snapshots)
     snapshots._save()  # no name and nothing selected: nothing happens
+    settle(snapshots)
     assert list_snapshots() == ["three"]
 
 
@@ -462,9 +505,11 @@ def test_a_snapshot_that_cant_be_saved_says_so_and_keeps_the_name(snapshots, mon
     with monkeypatch.context() as patch:  # only this one patch ends here: the test's data folder stays its own
         patch.setattr(toolbar_module, "save_snapshot", refuse)
         snapshots._save()
+        settle(snapshots)
     assert snapshots._error_lbl.text() == SNAPSHOT_SAVE_FAILED and snapshots._error_lbl.isVisibleTo(snapshots)
     assert snapshots._name_edit.text() == "review" and list_snapshots() == []
     snapshots._save()
+    settle(snapshots)
     assert list_snapshots() == ["review"]
     assert not snapshots._error_lbl.isVisibleTo(snapshots) and snapshots._error_lbl.text() == ""
 
@@ -473,9 +518,11 @@ def test_a_snapshot_that_cant_be_loaded_says_so_and_leaves_the_drawing(overlay, 
     overlay.canvases[0].load([stroke(1.0)])
     (persistence.SNAPSHOTS_DIR / "broken.json").write_text("{not json", encoding="utf-8")
     snapshots._refresh_list()
+    settle(snapshots)
     select(snapshots, "broken")
     with caplog.at_level(logging.ERROR, "vitralis.persistence"):
         snapshots._load()
+        settle(snapshots)
     assert snapshots._error_lbl.text() == SNAPSHOT_LOAD_FAILED and caplog.records
     assert [s.created for s in overlay.canvases[0].strokes] == [1.0]
 
@@ -483,9 +530,11 @@ def test_a_snapshot_that_cant_be_loaded_says_so_and_leaves_the_drawing(overlay, 
 def test_a_snapshot_that_cant_be_deleted_says_so_in_the_ui_language(snapshots, monkeypatch):
     snapshots._name_edit.setText("kept")
     snapshots._save()
+    settle(snapshots)
     select(snapshots, "kept")
     monkeypatch.setattr(toolbar_module, "delete_snapshot", refuse)
     snapshots._delete()
+    settle(snapshots)
     assert snapshots._error_lbl.text() == SNAPSHOT_DELETE_FAILED and list_snapshots() == ["kept"]
     set_language("Español")
     snapshots.retranslate()
@@ -498,10 +547,73 @@ def test_a_snapshot_of_other_screens_changes_only_the_screens_it_has(overlay, sn
     persistence.save_snapshot("left only", {"0,0": [stroke(9.0)]})
     overlay.canvases[1].load([stroke(2.0)])
     snapshots._refresh_list()
+    settle(snapshots)
     select(snapshots, "left only")
     snapshots._load()
+    settle(snapshots)
     assert [s.created for s in overlay.canvases[0].strokes] == [9.0]
     assert [s.created for s in overlay.canvases[1].strokes] == [2.0]
+
+
+def test_while_the_disk_is_busy_the_buttons_wait_and_the_ui_thread_doesnt(overlay, snapshots, monkeypatch):
+    """A slow disk greys the buttons out until it answers; the click itself returns at once."""
+    held, release = threading.Event(), threading.Event()
+    real = toolbar_module.save_snapshot
+
+    def slow(name, screens) -> None:
+        held.set()
+        assert release.wait(5)
+        real(name, screens)
+
+    monkeypatch.setattr(toolbar_module, "save_snapshot", slow)
+    overlay.canvases[0].load([stroke(1.0)])
+    snapshots._name_edit.setText("review")
+    snapshots._save_btn.click()  # returns while the disk hasn't answered
+    assert held.wait(5) and snapshots.busy
+    assert not (snapshots._save_btn.isEnabled() or snapshots._load_btn.isEnabled() or snapshots._del_btn.isEnabled())
+    overlay.canvases[0].load([stroke(1.0), stroke(2.0)])  # drawn on meanwhile: not part of this snapshot
+    snapshots._save()  # a second save while busy does nothing
+    snapshots._load()
+    snapshots._delete()
+    release.set()
+    settle(snapshots)
+    assert snapshots._save_btn.isEnabled() is False and snapshots._name_edit.text() == ""  # no name, none selected
+    assert [s.created for s in persistence.load_snapshot("review")["0,0"]] == [1.0]
+    select(snapshots, "review")
+    assert snapshots._save_btn.isEnabled() and snapshots._load_btn.isEnabled() and snapshots._del_btn.isEnabled()
+
+
+def test_an_error_the_snapshots_didnt_expect_is_logged_and_said(snapshots, monkeypatch, caplog):
+    def bug(name, screens) -> None:
+        raise TypeError("a bug")
+
+    monkeypatch.setattr(toolbar_module, "save_snapshot", bug)
+    snapshots._name_edit.setText("review")
+    with caplog.at_level(logging.ERROR, "vitralis.toolbar"):
+        snapshots._save()
+        settle(snapshots)
+    assert snapshots._error_lbl.text() == SNAPSHOT_SAVE_FAILED
+    assert any(r.exc_info and "unexpectedly" in r.getMessage() for r in caplog.records)
+
+
+def test_one_snapshot_that_cant_be_deleted_doesnt_keep_the_others(snapshots, monkeypatch):
+    for name in ("one", "two", "three"):
+        snapshots._name_edit.setText(name)
+        snapshots._save()
+        settle(snapshots)
+    real = toolbar_module.delete_snapshot
+
+    def refuse_two(name) -> None:
+        if name == "two":
+            raise SnapshotError("in use")
+        real(name)
+
+    monkeypatch.setattr(toolbar_module, "delete_snapshot", refuse_two)
+    select(snapshots, "one", "two", "three")
+    snapshots._delete()
+    settle(snapshots)
+    assert list_snapshots() == ["two"] and snapshots._error_lbl.text() == SNAPSHOT_DELETE_FAILED
+    assert [snapshots._list.item(i).text() for i in range(snapshots._list.count())] == ["two"]
 
 
 # --- closed from outside ------------------------------------------------------------------------------------
