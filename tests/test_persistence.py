@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:10.961213
-Revised: 2026/11/14 18:18:39.361467
+Revised: 2026/11/14 18:22:13.022450
 
 The drawings on disk (real files in the test's own data folder): strokes per screen surviving a restart, the
 first versions' bare list, damaged entries and files, writes that are whole or not at all and never make the
@@ -474,13 +474,14 @@ def test_a_file_is_written_indented_by_two_unless_told(tmp_path):
     assert path.read_text(encoding="utf-8") == '{"a": [1]}'
 
 
-def test_a_write_that_fails_before_anything_is_written_says_why(tmp_path, monkeypatch):
-    """The temporary file was never made: tidying it away must not hide the reason."""
+def test_a_write_that_fails_before_anything_is_written_says_why(tmp_path, monkeypatch, caplog):
+    """The temporary file was never made: tidying it away must not hide the reason, nor complain that there is
+    nothing to tidy."""
     path = tmp_path / "written.json"
     monkeypatch.setattr(type(path), "write_text", refuse)
-    with pytest.raises(PermissionError, match="read-only"):
+    with caplog.at_level(logging.WARNING, "vitralis.persistence"), pytest.raises(PermissionError, match="read-only"):
         write_json_atomic(path, {"a": 1})
-    assert list(tmp_path.iterdir()) == []
+    assert list(tmp_path.iterdir()) == [] and caplog.records == []
 
 
 def test_a_temporary_file_that_cant_be_tidied_away_is_logged_and_the_reason_kept(tmp_path, monkeypatch, caplog):
