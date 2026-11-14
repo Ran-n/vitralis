@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/14 12:31:23.094436 )
+[//]: # (+ Revised: 	2026/11/14 16:34:58.344738 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -53,7 +53,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Snapshots window.
 - Uninstalling while Vitralis runs asks to close it first, instead of
   leaving its exe behind.
-- Linting, formatting and the tests with a coverage gate run in CI.
+- Linting, formatting and the tests with a coverage gate run in CI (the
+  linter on GitHub, GitLab and Codeberg; the tests on GitHub, on Windows).
 - `.python-version` pins Python 3.13, the version Vitralis is built with.
 
 ### Changed
