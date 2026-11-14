@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 16:56:38.227152
-Revised: 2026/11/14 16:56:38.227152
+Revised: 2026/11/14 18:33:18.470323
 
 The rendered tests' app: the driver process (``driver.py``) started once on a scratch data folder, and what a
 test does with it: ask it where a widget is, click and drag there with posted window messages, read what the
@@ -47,7 +47,12 @@ class App:
         )
         self._answers: queue.Queue[str | None] = queue.Queue()
         threading.Thread(target=self._read, daemon=True).start()
-        self._answer()  # it says when its windows are up
+        try:
+            self._answer()  # it says when its windows are up
+        except BaseException:
+            self._process.kill()  # never leave a test copy running, its windows on the screen
+            self._errors.close()
+            raise
 
     def _read(self) -> None:
         for line in self._process.stdout:

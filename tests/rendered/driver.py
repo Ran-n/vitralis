@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 16:56:37.129213
-Revised: 2026/11/14 16:56:37.129213
+Revised: 2026/11/14 18:33:18.845269
 
 The real toolbar, its windows and one overlay canvas, running as a process of its own for the rendered tests:
 ``python -m tests.rendered.driver <data folder>``. It reads one JSON command per line on stdin and answers each
@@ -103,6 +103,7 @@ class Driver:
     def build(self) -> None:
         """The toolbar over one canvas, as a start of Vitralis builds them from what is saved."""
         self.teardown()
+        forget_strokes()  # a start reads the file: what was drawn must have reached it
         self.canvas = Canvas(CANVAS)
         self.canvas.load(load_strokes_for(CANVAS))
         self.canvas.show()
@@ -173,7 +174,7 @@ class Driver:
         return {"hwnd": int(window.winId()), "rect": [round(value * ratio) for value in box], "ratio": ratio}
 
     def do_state(self, **_) -> dict:
-        flush_writes()
+        forget_strokes()  # what the file holds, not what the app remembers having saved
         bar = self.bar
         saved = load_strokes_for(CANVAS)
         snapshots = bar._snapshot_win
