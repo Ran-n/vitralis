@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.127720
-Revised: 2026/11/14 17:53:24.131092
+Revised: 2026/11/14 18:18:37.367578
 
 The data folder (``%APPDATA%\\Vitralis``) and the drawings kept in it: ``strokes.json``, the strokes of every
 screen under the screen's top-left corner (``"x,y"``), and one file per named snapshot in ``snapshots``.
@@ -16,6 +16,7 @@ Nothing here makes the UI wait for the disk while it draws: ``strokes.json`` (an
 read and deleted by whoever calls, which the Snapshots window does off the UI thread.
 """
 
+import filecmp
 import json
 import logging
 import os
@@ -191,10 +192,21 @@ def keep_damaged(path: Path) -> None:
     recovered from it."""
     kept = path.with_name(path.name + DAMAGED_SUFFIX)
     try:
+        number = 1
+        while kept.exists():  # an earlier copy is never written over; the same content isn't kept twice
+            if filecmp.cmp(path, kept, shallow=False):
+                return
+            number += 1
+            kept = path.with_name(f"{path.name}{DAMAGED_SUFFIX}.{number}")
         shutil.copyfile(path, kept)
         logger.info("kept the unreadable file as %s", kept)
     except OSError as ex:
         logger.warning("couldn't keep the unreadable file as %s: %s", kept, ex)
+
+
+def strokes_unreadable() -> bool:
+    """Whether ``strokes.json`` couldn't be read, so that drawings aren't being saved."""
+    return _strokes_unreadable
 
 
 def _all_strokes() -> dict[str, list]:

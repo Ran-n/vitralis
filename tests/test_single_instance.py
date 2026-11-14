@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:14.047917
-Revised: 2026/11/14 17:53:32.807331
+Revised: 2026/11/14 18:18:40.009840
 
 One Vitralis per account, over a real local socket with a name of the test's own: the first start listens, a
 second finds it and asks it to show itself, and once the first is gone the next start is the first again. And
@@ -12,12 +12,19 @@ the named mutex a running Vitralis holds for the uninstaller, under a name of th
 import logging
 import secrets
 import sys
+import threading
 
 import pytest
 
 from tests.conftest import wait_until
 from vitralis import single_instance
-from vitralis.single_instance import SingleInstance, default_name, mark_running
+from vitralis.single_instance import (
+    SingleInstance,
+    default_name,
+    mark_running,
+    release_mark,
+    wait_for_turn,
+)
 
 
 @pytest.fixture
@@ -143,3 +150,57 @@ def test_a_mutex_windows_refuses_is_logged_and_not_fatal(monkeypatch, caplog):
     with caplog.at_level(logging.WARNING, "vitralis.single_instance"):
         assert mark_running("vitralis-test-refused") is None
     assert any("error" in r.getMessage() for r in caplog.records)
+
+
+# --- a start that finds the mark held ------------------------------------------------------------------------
+
+windows_only = pytest.mark.skipif(sys.platform != "win32", reason="a named mutex is Windows's")
+
+
+@windows_only
+def test_a_start_beside_one_that_begins_to_listen_asks_it_to_show_itself_and_quits(qapp, first, name):
+    """Two starts at the same moment: the other made the mark first and listens a moment later."""
+    other = mark_running(name)
+    mine = mark_running(name)
+    assert not mine.first
+    shown = []
+    first.activated.connect(lambda: shown.append(1))
+    first.listen()
+    assert wait_for_turn(SingleInstance(name), mine, name, timeout=5, pause=0.01) is False
+    wait_until(qapp, lambda: shown == [1])
+    release_mark(other)
+    release_mark(mine)
+
+
+@windows_only
+def test_a_start_beside_one_that_is_quitting_goes_on_once_it_is_gone(qapp, name):
+    """Regression guard: the one quitting no longer listens but still holds the mark; the new start quit too,
+    without a word, and Vitralis didn't come up."""
+    leaving = mark_running(name)
+    mine = mark_running(name)
+    assert not mine.first
+    threading.Timer(0.3, release_mark, [leaving]).start()
+    assert wait_for_turn(SingleInstance(name), mine, name, timeout=10, pause=0.01) is True
+    assert mutex_exists(name)  # held by this start now, as the first
+    late = mark_running(name)
+    assert not late.first
+    release_mark(late)
+
+
+@windows_only
+def test_a_start_beside_one_that_is_stuck_goes_on_after_a_while(qapp, name, caplog):
+    stuck = mark_running(name)
+    mine = mark_running(name)
+    with caplog.at_level(logging.WARNING, "vitralis.single_instance"):
+        assert wait_for_turn(SingleInstance(name), mine, name, timeout=0.2, pause=0.01) is True
+    assert any("neither answers nor quits" in r.getMessage() for r in caplog.records)
+    release_mark(stuck)
+
+
+@windows_only
+def test_a_mark_that_cant_be_made_again_doesnt_stop_the_start(qapp, name, monkeypatch):
+    other = mark_running(name)
+    mine = mark_running(name)
+    monkeypatch.setattr(single_instance, "mark_running", lambda name: None)
+    assert wait_for_turn(SingleInstance(name), mine, name, timeout=5, pause=0.01) is True
+    release_mark(other)

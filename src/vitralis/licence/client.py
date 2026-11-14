@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 09:18:55.948032
-Revised: 2026/11/14 17:53:23.836539
+Revised: 2026/11/14 18:18:37.012802
 
 The app's licence from Clavren (``../clavren``): activating a key on this computer, running offline on the
 saved licence for up to 30 days, and checking it online once a day.
@@ -206,6 +206,7 @@ class Licence:
             self._store.save(seen.to_json())
         with self._lock:
             if self._saves != saves:  # a check or an activation was saved meanwhile: that is what the file keeps
+                self._saved_latest = None  # the file may hold the older copy until this is written: try until it is
                 self._save(self._state)
             else:
                 self._saved_latest, self._saved_rewound = seen.latest_seen, seen.rewound_seconds

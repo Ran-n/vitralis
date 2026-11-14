@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/14 17:53:22.927466 )
+[//]: # (+ Revised: 	2026/11/14 18:18:36.036422 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -66,6 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- `uv run build` no longer leaves an unversioned `dist\vitralis.exe` beside
+  `vitralis-<version>.exe`.
 - Undo takes back the latest stroke on whichever monitor it was drawn,
   instead of one stroke on every monitor at once.
 - Assigning a shortcut another action already had moves it: the other
@@ -108,12 +110,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - Two starts of Vitralis at the same moment no longer both run (each with
-  its own overlay, writing the same files): only the first goes on.
+  its own overlay, writing the same files): only the first goes on. A
+  start while the previous Vitralis is still quitting waits for it and
+  then comes up.
 - Drawings and settings whose file can't be read at start (held by another
   program, no permission) are no longer replaced by the first change: the
-  file is left as it is until it can be read, and a damaged
-  `settings.json` is kept aside as `settings.json.damaged`, as
-  `strokes.json` already was.
+  file is left as it is until it can be read, and a tray message says
+  that changes aren't being saved. A damaged `settings.json` is kept aside
+  as `settings.json.damaged`, as `strokes.json` already was, and a copy
+  kept aside is never replaced by a later one.
 - Typing in the Snapshots list jumps to the snapshot with that name instead
   of running the toolbar's shortcuts (a Z undid a stroke).
 - Switching from pan to another mode with the mouse button still held

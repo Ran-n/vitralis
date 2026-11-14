@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:03.794151
-Revised: 2026/11/14 17:53:23.243290
+Revised: 2026/11/14 18:18:36.345720
 
 Starts Vitralis behind its licence: the licence window first when no key is active on this computer, the
 overlay (``Session``) once the licence holds, and back to the licence window if it stops holding.
@@ -27,11 +27,11 @@ from vitralis.installed import sync_installed_version
 from vitralis.licence import build_licence
 from vitralis.licence.gate import LicenceGate
 from vitralis.licence.window import LicenceWindow
-from vitralis.persistence import DATA_DIR, FLUSH_SECONDS, flush_writes, load_strokes_for
-from vitralis.settings import SettingsManager
-from vitralis.single_instance import SingleInstance, mark_running
+from vitralis.persistence import DATA_DIR, FLUSH_SECONDS, flush_writes, load_strokes_for, strokes_unreadable
+from vitralis.settings import SettingsManager, settings_unreadable
+from vitralis.single_instance import SingleInstance, mark_running, wait_for_turn
 from vitralis.toolbar import Toolbar
-from vitralis.translations import set_language
+from vitralis.translations import set_language, t
 from vitralis.tray import make_app_icon, make_tray_icon
 from vitralis.updates import UPDATES_DIR, build_updates, is_packaged
 from vitralis.updates.checker import UpdateChecker, UpdateStatus
@@ -41,6 +41,11 @@ from vitralis.updates.rules import Version, parse_version_or_none
 from vitralis.version import app_version
 
 logger = logging.getLogger("vitralis.app")
+
+NOT_SAVING = (
+    "Vitralis couldn't read its saved drawings or settings, so changes aren't being saved. "
+    "Close any program that may be using them, then restart Vitralis."
+)
 
 APP_USER_MODEL_ID = "ran.vitralis"
 """What Windows groups Vitralis's windows and tray messages under."""
@@ -93,6 +98,9 @@ class Session:
         if self._announce_updated:
             self._announce_updated = False
             self._show_message(updated_message(app_version()), about_update=False)
+        if strokes_unreadable() or settings_unreadable():  # said, not only logged: the user would lose work
+            self._tray_says_update = False
+            self._tray.showMessage("Vitralis", t(NOT_SAVING), QSystemTrayIcon.MessageIcon.Warning)
         if self._updates is not None:
             self._updates.changed.connect(self._on_update_status)
             self._updates.start()
@@ -294,8 +302,9 @@ def main() -> None:
         logger.info("Vitralis is already running: asked it to show its toolbar")
         sys.exit(0)
     mark = mark_running()
-    if mark is not None and not mark.first:  # started at the same moment: neither found the other listening
-        logger.info("another Vitralis is starting or quitting: leaving it to that one")
+    # held by a Vitralis that didn't answer: one started at the same moment, or one on its way out
+    if mark is not None and not mark.first and not wait_for_turn(instance, mark):
+        logger.info("another Vitralis started at the same moment: asked it to show its toolbar")
         sys.exit(0)
     instance.listen()
     # only now: a second start must never tidy away the update the running Vitralis has downloaded

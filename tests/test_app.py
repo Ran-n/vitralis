@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.433417
-Revised: 2026/11/14 17:53:27.545670
+Revised: 2026/11/14 18:18:39.061111
 
 The overlay session behind the licence: nothing of the overlay exists while locked, it starts once the licence
 holds, and locking tears it all down (toolbar with its global hooks, canvases, captures, tray). The real toolbar
@@ -318,6 +318,23 @@ def test_a_start_after_an_update_says_so_once(qapp, session, monkeypatch):
     session.stop()
     session.start()
     assert session.trays[1].messages == []
+
+
+@pytest.mark.parametrize("unread", ["strokes_unreadable", "settings_unreadable"])
+def test_the_tray_says_when_changes_arent_being_saved(qapp, session, monkeypatch, unread):
+    """Regression guard: only the log said so, and the drawings of the whole run were gone at the next start."""
+    monkeypatch.setattr(app_module, unread, lambda: True)
+    session = session()
+    session.start()
+    assert session.trays[0].messages == [app_module.NOT_SAVING]
+    session.trays[0].messageClicked.emit()  # not about an update: opens nothing
+    assert of(FakeToolbar)[0].settings_opened == 0
+
+
+def test_the_tray_says_nothing_about_saving_when_all_is_read(qapp, session):
+    session = session()
+    session.start()
+    assert session.trays[0].messages == []
 
 
 def test_no_tray_message_after_the_session_stopped(qapp, session, updates):
@@ -685,12 +702,28 @@ def test_a_start_at_the_same_moment_as_another_leaves_it_to_that_one(wired_main,
     from vitralis.single_instance import RunningMark
 
     wired_main.use_instance(running=False)
-    monkeypatch.setattr(app_module, "mark_running", lambda: RunningMark(handle=1, first=False))
+    mark = RunningMark(handle=1, first=False)
+    waited = []
+    monkeypatch.setattr(app_module, "mark_running", lambda: mark)
+    monkeypatch.setattr(app_module, "wait_for_turn", lambda instance, held: waited.append((instance, held)) or False)
     with caplog.at_level(logging.INFO, "vitralis.app"), pytest.raises(SystemExit) as raised:
         app_module.main()
     assert raised.value.code == 0
+    assert waited == [(wired_main.instance, mark)]
     assert wired_main.order[-2:] == ["app", "notify"]  # no listening, no tidying, no licence, no overlay
     assert any("another Vitralis" in r.getMessage() for r in caplog.records)
+
+
+def test_a_start_beside_one_that_is_quitting_goes_on_when_its_turn_comes(wired_main, monkeypatch):
+    """Regression guard: it quit without a word, so Vitralis didn't come up when started again too soon."""
+    from vitralis.single_instance import RunningMark
+
+    wired_main.use_instance(running=False)
+    monkeypatch.setattr(app_module, "mark_running", lambda: RunningMark(handle=1, first=False))
+    monkeypatch.setattr(app_module, "wait_for_turn", lambda instance, held: True)
+    with pytest.raises(SystemExit) as raised:
+        app_module.main()
+    assert raised.value.code == 0 and "listen" in wired_main.order and "exec" in wired_main.order
 
 
 def test_a_first_start_that_made_the_mark_goes_on(wired_main, monkeypatch):

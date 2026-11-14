@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:10.171960
-Revised: 2026/11/14 17:53:24.808607
+Revised: 2026/11/14 18:18:38.037123
 
 One Vitralis per Windows account: two would mean two overlays, two sets of global hooks and two writers of the
 same files. The first one listens on a local socket named after the account; a second start finds it, asks it
@@ -15,6 +15,7 @@ it for one of them only, and the other quits.
 import ctypes
 import getpass
 import logging
+import time
 from dataclasses import dataclass
 
 from PyQt6.QtCore import QObject, pyqtSignal
@@ -25,6 +26,10 @@ logger = logging.getLogger("vitralis.single_instance")
 CONNECT_TIMEOUT_MS = 500
 RUNNING_MUTEX = "VitralisRunning"
 """The mutex's name; ``installer/vitralis.iss`` names the same one (``AppMutex``)."""
+START_WAIT_SECONDS = 15.0
+"""How long a start waits for a Vitralis that holds the mark without answering: longer than its quitting takes
+(``persistence.FLUSH_SECONDS`` at most for the last writes)."""
+START_PAUSE_SECONDS = 0.25
 ERROR_ALREADY_EXISTS = 183
 """What Windows says when the mutex asked for was already there: the handle it gives is to that one."""
 
@@ -53,6 +58,39 @@ def mark_running(name: str = RUNNING_MUTEX) -> RunningMark | None:
         logger.warning("couldn't mark Vitralis as running (error %d)", error)
         return None
     return RunningMark(handle, first=error != ERROR_ALREADY_EXISTS)
+
+
+def release_mark(mark: RunningMark) -> None:
+    """Let go of the mutex (Windows also does, when the process ends)."""
+    ctypes.WinDLL("kernel32", use_last_error=True).CloseHandle(ctypes.c_void_p(mark.handle))
+
+
+def wait_for_turn(
+    instance: "SingleInstance",
+    mark: RunningMark,
+    name: str = RUNNING_MUTEX,
+    timeout: float = START_WAIT_SECONDS,
+    pause: float = START_PAUSE_SECONDS,
+) -> bool:
+    """Another Vitralis holds the mark and didn't answer: it is starting (and listens in a moment), quitting
+    (its mark goes with it) or stuck. Wait for whichever comes; whether this start goes on.
+
+    ``False`` once the other answers: it was asked to show itself. ``True`` once the other is gone, this start
+    holding the mark as the first. ``True`` too when neither happens within ``timeout``: a Vitralis that
+    neither answers nor quits must not keep every later start from running, which is logged."""
+    deadline = time.monotonic() + timeout
+    while True:
+        if instance.notify_running():
+            return False
+        release_mark(mark)
+        again = mark_running(name)
+        if again is None or again.first:
+            return True
+        mark = again
+        if time.monotonic() >= deadline:
+            logger.warning("another Vitralis neither answers nor quits after %.0f s: starting beside it", timeout)
+            return True
+        time.sleep(pause)
 
 
 def default_name() -> str:

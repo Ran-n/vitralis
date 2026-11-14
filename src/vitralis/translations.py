@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 08:16:03.814171
-Revised: 2026/11/14 17:53:25.708027
+Revised: 2026/11/14 18:18:38.368930
 """
 
 # fmt: off
@@ -129,6 +129,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "The download is damaged (checksum mismatch): try again": "A descarga está danada (a suma de comprobación non coincide): téntao de novo",
         "Couldn't install the update: {reason}": "Non se puido instalar a actualización: {reason}",
         "Updated to {version}": "Actualizado a {version}",
+        "Vitralis couldn't read its saved drawings or settings, so changes aren't being saved. Close any program that may be using them, then restart Vitralis.": "Vitralis non puido ler os debuxos ou os axustes gardados, así que os cambios non se están a gardar. Pecha calquera programa que os poida estar usando e reinicia Vitralis.",
         # tray menu, colour picker, snapshot and connection failures
         "Pick color": "Escoller cor",
         "Show toolbar": "Mostrar a barra de ferramentas",
@@ -260,6 +261,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "The download is damaged (checksum mismatch): try again": "A descarga está danada (a soma de verificaçom nom coincide): tenta-o de novo",
         "Couldn't install the update: {reason}": "Nom se pudo instalar a atualizaçom: {reason}",
         "Updated to {version}": "Atualizado a {version}",
+        "Vitralis couldn't read its saved drawings or settings, so changes aren't being saved. Close any program that may be using them, then restart Vitralis.": "Vitralis nom puido ler os desenhos ou as definiçons guardadas, polo que as mudanças nom se estám a guardar. Fecha qualquer programa que os poida estar a usar e reinicia Vitralis.",
         # tray menu, colour picker, snapshot and connection failures
         "Pick color": "Escolher cor",
         "Show toolbar": "Mostrar a barra de ferramentas",
@@ -385,6 +387,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "The download is damaged (checksum mismatch): try again": "La descarga está dañada (la suma de comprobación no coincide): inténtalo de nuevo",
         "Couldn't install the update: {reason}": "No se pudo instalar la actualización: {reason}",
         "Updated to {version}": "Actualizado a {version}",
+        "Vitralis couldn't read its saved drawings or settings, so changes aren't being saved. Close any program that may be using them, then restart Vitralis.": "Vitralis no pudo leer los dibujos o los ajustes guardados, así que los cambios no se están guardando. Cierra cualquier programa que pueda estar usándolos y reinicia Vitralis.",
         # tray menu, colour picker, snapshot and connection failures
         "Pick color": "Elegir color",
         "Show toolbar": "Mostrar la barra de herramientas",
@@ -516,6 +519,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "The download is damaged (checksum mismatch): try again": "A transferência está danificada (a soma de verificação não coincide): tente novamente",
         "Couldn't install the update: {reason}": "Não foi possível instalar a atualização: {reason}",
         "Updated to {version}": "Atualizado para {version}",
+        "Vitralis couldn't read its saved drawings or settings, so changes aren't being saved. Close any program that may be using them, then restart Vitralis.": "O Vitralis não conseguiu ler os desenhos ou as definições guardadas, pelo que as alterações não estão a ser guardadas. Feche qualquer programa que os possa estar a usar e reinicie o Vitralis.",
         # tray menu, colour picker, snapshot and connection failures
         "Pick color": "Escolher cor",
         "Show toolbar": "Mostrar a barra de ferramentas",
@@ -647,6 +651,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "The download is damaged (checksum mismatch): try again": "Le téléchargement est endommagé (somme de contrôle incorrecte) : réessayez",
         "Couldn't install the update: {reason}": "Impossible d’installer la mise à jour : {reason}",
         "Updated to {version}": "Mis à jour vers {version}",
+        "Vitralis couldn't read its saved drawings or settings, so changes aren't being saved. Close any program that may be using them, then restart Vitralis.": "Vitralis n'a pas pu lire les dessins ou les réglages enregistrés : les modifications ne sont donc pas enregistrées. Fermez tout programme qui pourrait les utiliser, puis redémarrez Vitralis.",
         # tray menu, colour picker, snapshot and connection failures
         "Pick color": "Choisir une couleur",
         "Show toolbar": "Afficher la barre d'outils",
@@ -778,6 +783,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "The download is damaged (checksum mismatch): try again": "Der Download ist beschädigt (Prüfsumme stimmt nicht): bitte erneut versuchen",
         "Couldn't install the update: {reason}": "Das Update konnte nicht installiert werden: {reason}",
         "Updated to {version}": "Aktualisiert auf {version}",
+        "Vitralis couldn't read its saved drawings or settings, so changes aren't being saved. Close any program that may be using them, then restart Vitralis.": "Vitralis konnte die gespeicherten Zeichnungen oder Einstellungen nicht lesen, daher werden Änderungen nicht gespeichert. Schließe alle Programme, die sie verwenden könnten, und starte Vitralis neu.",
         # tray menu, colour picker, snapshot and connection failures
         "Pick color": "Farbe wählen",
         "Show toolbar": "Werkzeugleiste anzeigen",
@@ -909,6 +915,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "The download is damaged (checksum mismatch): try again": "下载已损坏（校验和不匹配）：请重试",
         "Couldn't install the update: {reason}": "无法安装更新：{reason}",
         "Updated to {version}": "已更新到 {version}",
+        "Vitralis couldn't read its saved drawings or settings, so changes aren't being saved. Close any program that may be using them, then restart Vitralis.": "Vitralis 无法读取已保存的绘图或设置，因此更改不会被保存。请关闭可能正在使用它们的程序，然后重新启动 Vitralis。",
         # tray menu, colour picker, snapshot and connection failures
         "Pick color": "选择颜色",
         "Show toolbar": "显示工具栏",
@@ -1040,6 +1047,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "The download is damaged (checksum mismatch): try again": "ダウンロードが破損しています（チェックサム不一致）：もう一度お試しください",
         "Couldn't install the update: {reason}": "アップデートをインストールできませんでした：{reason}",
         "Updated to {version}": "{version} に更新しました",
+        "Vitralis couldn't read its saved drawings or settings, so changes aren't being saved. Close any program that may be using them, then restart Vitralis.": "Vitralis は保存された描画または設定を読み込めなかったため、変更は保存されていません。それらを使用している可能性のあるプログラムを閉じてから、Vitralis を再起動してください。",
         # tray menu, colour picker, snapshot and connection failures
         "Pick color": "色を選択",
         "Show toolbar": "ツールバーを表示",
