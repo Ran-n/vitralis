@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/04/27 10:48:03.565778 )
-[//]: # (+ Revised: 	2026/11/14 16:56:41.171448 )
+[//]: # (+ Revised: 	2026/11/14 17:09:10.169077 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 ![Vitralis icon](src/vitralis/media/logo/icon_title.png)
@@ -93,7 +93,7 @@ uv run ruff format --check . && uv run ruff check .
 
 The tests never touch your own `%APPDATA%\Vitralis`: each one gets a data folder of its own.
 
-The contract test against the real license server is left out of the default run. Run it with a Vitralis test license's key in an environment variable (never write a key in the repository; each run adds an activation named `<computer> (live test)`):
+The contract tests against the real license server are left out of the default run. `uv run pytest -m live` checks that the server refuses an unknown key; with a Vitralis test license's key in an environment variable it also activates and checks that license (never write a key in the repository; each run with a key adds an activation named `<computer> (live test)`):
 
 ```
 VITRALIS_LICENCE_TEST_KEY=BRN-... uv run pytest -m live
