@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.187945
-Revised: 2026/11/11 11:06:53.501959
+Revised: 2026/11/14 12:01:47.224627
 
 Keeps Vitralis behind its licence. The overlay, the toolbar, the tray and the global hotkeys only exist while
 the licence holds (``on_unlock`` builds them, ``on_lock`` tears them down); otherwise the licence window asks
@@ -25,12 +25,19 @@ from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from vitralis.licence.client import Licence, LicenceCheckFailed, LicenceChecks
 from vitralis.licence.messages import save_failed_message, status_message
 from vitralis.licence.ports import LicenceStoreError
-from vitralis.licence.rules import LicenceKind, LicenceStatus
+from vitralis.licence.rules import LicenceStatus
 
 logger = logging.getLogger("vitralis.licence.gate")
 
 WATCH_INTERVAL_MS = 60_000
 """How often the saved licence is asked while the app runs (offline; costs nothing)."""
+
+
+def _check_failed_message(failure: LicenceCheckFailed) -> str:
+    """Why a check asked for by hand decided nothing, in words: not every failure is the connection's."""
+    if failure.unsaved is not None:
+        return save_failed_message(failure.unsaved)
+    return status_message(LicenceStatus(failure.kind, retry_after=failure.retry_after))
 
 
 class LicencePrompt(Protocol):
@@ -75,6 +82,9 @@ class LicenceGate(QObject):
         self._unlocked = False
         self._busy = False
         self._started = False
+        self._watched: LicenceStatus | None = None
+        """What the saved licence said the last time it was asked, so the watch acts on changes only."""
+        self._worker: threading.Thread | None = None
         self._finished.connect(self._on_finished)
         self._reported.connect(self.apply)
         self._watch = QTimer(self)
@@ -105,12 +115,19 @@ class LicenceGate(QObject):
         self._checks.start()
         self._started = True
         self._watch.start()
-        self.apply(self._licence.status())
+        self._watched = self._licence.status()
+        self.apply(self._watched)
         if self._licence.unreadable is not None:  # another program holds the file: say so, never overwrite it
             self._report_error(save_failed_message(self._licence.unreadable))
 
+    @property
+    def working(self) -> bool:
+        """Whether an activation, a check or the daily checker may still be talking to the server."""
+        return self._checks.running or (self._worker is not None and self._worker.is_alive())
+
     def shutdown(self) -> None:
-        """Stop the watch and the daily checks (a check under way finishes first). Safe to call twice."""
+        """Stop the watch and the daily checks (a check under way gets a few seconds to finish; see
+        ``working``). Safe to call twice."""
         self._watch.stop()
         if self._started:
             self._started = False
@@ -120,8 +137,14 @@ class LicenceGate(QObject):
             self._prompt = None
 
     def refresh(self) -> None:
-        """Ask the saved licence again and act on it (lock when it no longer holds)."""
-        self.apply(self._licence.status())
+        """Ask the saved licence again and act on a change (lock when it no longer holds). While nothing changed
+        the licence window is left alone: showing the same status again would wipe what it says about the last
+        attempt and take the focus back every minute."""
+        status = self._licence.status()
+        if status == self._watched and status.licensed == self._unlocked:
+            return
+        self._watched = status
+        self.apply(status)
 
     def apply(self, status: LicenceStatus) -> None:
         """Unlock on a licence that holds; otherwise lock and show why."""
@@ -163,7 +186,7 @@ class LicenceGate(QObject):
                 self._finished.emit(work(), None)
             except LicenceCheckFailed as ex:
                 logger.warning("licence check failed: %s", ex)
-                self._finished.emit(None, status_message(LicenceStatus(LicenceKind.UNREACHABLE)))
+                self._finished.emit(None, _check_failed_message(ex))
             except LicenceStoreError as ex:
                 logger.error("the licence couldn't be saved: %s", ex)
                 self._finished.emit(None, save_failed_message(str(ex)))
@@ -171,11 +194,13 @@ class LicenceGate(QObject):
                 logger.exception("licence %s failed unexpectedly", name)
                 self._finished.emit(None, save_failed_message(f"{type(ex).__name__}: {ex}"))
 
-        threading.Thread(target=worker, name=f"vitralis-licence-{name}", daemon=True).start()
+        self._worker = threading.Thread(target=worker, name=f"vitralis-licence-{name}", daemon=True)
+        self._worker.start()
 
     def _on_finished(self, status: LicenceStatus | None, error: str | None) -> None:
         self._set_busy(False)
-        self.apply(status if status is not None else self._licence.status())
+        self._watched = self._licence.status()
+        self.apply(status if status is not None else self._watched)
         if error is not None:
             self._report_error(error)
 

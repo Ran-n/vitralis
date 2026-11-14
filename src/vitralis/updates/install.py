@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:00.709191
-Revised: 2026/11/13 09:11:01.167116
+Revised: 2026/11/14 12:01:48.107007
 
 Puts a downloaded release in place of the running exe, on Windows. Windows lets a running exe be renamed but
 not overwritten or deleted, so the running file moves aside to ``<name>.old``, the new one takes its path
@@ -19,7 +19,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from vitralis.updates.download import file_hash
-from vitralis.updates.rules import UpdateError, Version, checksum_name, exe_version, parse_b3
+from vitralis.updates.rules import SwapFailed, Version, checksum_name, exe_version, parse_b3
 
 logger = logging.getLogger("vitralis.updates.install")
 
@@ -55,12 +55,12 @@ def swap_and_start(
     try:
         os.replace(running, old)
     except OSError as ex:
-        raise UpdateError(f"couldn't move {running.name} aside: {ex}") from ex
+        raise SwapFailed(f"couldn't move {running.name} aside: {ex}") from ex
     try:
         shutil.move(new, running)  # a copy when %APPDATA% and the exe sit on different drives
     except OSError as ex:
         _put_back(old, running)
-        raise UpdateError(f"couldn't put the new version in place: {ex}") from ex
+        raise SwapFailed(f"couldn't put the new version in place: {ex}") from ex
     try:
         popen(
             [str(running), "--updated", old_version, "--wait-pid", str(pid)],
@@ -74,7 +74,7 @@ def swap_and_start(
         except OSError as move_ex:
             logger.warning("couldn't move the new version back to %s: %s", new, move_ex)
         _put_back(old, running)
-        raise UpdateError(f"couldn't start the new version: {ex}") from ex
+        raise SwapFailed(f"couldn't start the new version: {ex}") from ex
     logger.info("started %s; %s is kept until it runs", running, old.name)
 
 

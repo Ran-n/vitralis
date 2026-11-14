@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.249623
-Revised: 2026/11/11 11:06:53.996982
+Revised: 2026/11/14 12:01:47.559001
 
 The licence window: what Vitralis shows instead of its overlay until a key is activated on this computer, and
 again whenever the licence stops holding. It says why (one message per outcome), takes a key, and offers an
@@ -172,7 +172,9 @@ class LicenceWindow(QWidget):
         busy = self._busy
         self.activate_button.setText(t("Activating…") if busy else t("Activate"))
         self.activate_button.setEnabled(not busy and normalize_key(self.key_field.text()) is not None)
-        checkable = self._status is not None and self._status.kind in CHECKABLE
+        # by the saved licence, not the last attempt's outcome: a refused key leaves a check as possible as before
+        checkable = self._status is not None and CHECKABLE & {self._status.kind, self._gate.status().kind}
+        checkable = bool(checkable)
         self.check_button.setVisible(checkable)
         self.check_button.setText(t("Checking…") if busy else t("Check again"))
         self.check_button.setEnabled(checkable and not busy)

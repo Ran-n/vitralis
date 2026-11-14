@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:10:59.829681
-Revised: 2026/11/14 00:23:16.527646
+Revised: 2026/11/14 12:01:48.029852
 
 Downloads a release's exe into ``%APPDATA%\\Vitralis\\updates`` and checks it against the release's BLAKE3
 checksum before it may be installed. The exe streams to ``<name>.part`` and only becomes ``<name>`` once its
@@ -21,6 +21,7 @@ from blake3 import blake3
 from vitralis.net import is_secure_url
 from vitralis.updates.rules import (
     ChecksumMismatch,
+    DownloadRefused,
     DownloadUnreachable,
     Release,
     UpdateCancelled,
@@ -64,7 +65,7 @@ def download_release(
         expected = parse_b3(_get_text(http, release.checksum_url))
         received, total, actual = _stream(http, release.exe_url, part, progress, stop)
         if total is not None and received != total:
-            raise UpdateError(f"the download stopped at {received} of {total} bytes")
+            raise DownloadUnreachable(f"the download stopped at {received} of {total} bytes")
         if actual != expected:
             logger.warning("checksum mismatch for %s: expected %s, got %s", name, expected, actual)
             raise ChecksumMismatch(f"checksum mismatch for {name}")
@@ -99,7 +100,7 @@ def _check_url(url: str | None) -> str:
 def _get_text(http: httpx.Client, url: str | None) -> str:
     response = http.get(_check_url(url), timeout=TIMEOUT_SECONDS, headers=_HEADERS, follow_redirects=True)
     if response.status_code != 200:
-        raise UpdateError(f"HTTP {response.status_code} for the checksum")
+        raise DownloadRefused("the checksum", response.status_code)
     return response.text
 
 
@@ -110,7 +111,7 @@ def _stream(
     received = 0
     with http.stream("GET", _check_url(url), timeout=TIMEOUT_SECONDS, headers=_HEADERS, follow_redirects=True) as r:
         if r.status_code != 200:
-            raise UpdateError(f"HTTP {r.status_code} for the exe")
+            raise DownloadRefused("the exe", r.status_code)
         length = r.headers.get("Content-Length", "")
         encoded = r.headers.get("Content-Encoding", "identity") != "identity"  # the length then counts the encoding
         total = int(length) if length.isdigit() and not encoded else None

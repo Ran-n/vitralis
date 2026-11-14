@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 09:18:59.311762
-Revised: 2026/11/13 09:11:16.013714
+Revised: 2026/11/14 12:01:48.449150
 
 The Clavren adapters: Ed25519 tokens checked against the trusted keys, the licence file protected with the
 real Windows DPAPI, and the HTTPS API (through respx).
@@ -133,6 +133,24 @@ def test_a_failed_write_leaves_no_temporary_file_and_the_old_one_whole(tmp_path,
     assert store.load() == b"old"
 
 
+def test_a_temporary_file_that_cant_be_deleted_is_logged_and_the_save_still_fails_its_own_way(
+    tmp_path, monkeypatch, caplog
+):
+    """Regression guard: the second error escaped as a plain OSError, which ended the daily checker's thread."""
+    import logging
+    from pathlib import Path
+
+    def held(*args, **kwargs):
+        raise PermissionError("in use")
+
+    store = _reversing(tmp_path / "licence.dat")
+    monkeypatch.setattr("vitralis.licence.store.os.replace", _fail)
+    monkeypatch.setattr(Path, "unlink", held)
+    with caplog.at_level(logging.WARNING, "vitralis.licence.store"), pytest.raises(LicenceStoreError, match="saved"):
+        store.save(b"new")
+    assert any("couldn't delete" in r.getMessage() for r in caplog.records)
+
+
 def _fail(*_args):
     raise PermissionError("denied")
 
@@ -231,3 +249,16 @@ def test_no_answer_is_unreachable(error):
     respx.post(f"{LICENCE_SERVER}/x").mock(side_effect=error)
     with httpx.Client() as http, pytest.raises(ServerUnreachable, match="clavren.breren.com"):
         HttpLicenceServer(http).post("/x", {})
+
+
+@respx.mock
+@pytest.mark.parametrize("error", [httpx.ConnectError("refused"), httpx.ReadTimeout("slow")])
+def test_what_an_unreachable_server_says_never_holds_the_activation(error):
+    """Regression guard: the address of a check, activation id included, went into the error and so the log."""
+    path = "/api/v1/activations/11111111-2222-3333-4444-555555555555/challenges"
+    respx.post(f"{LICENCE_SERVER}{path}").mock(side_effect=type(error)(f"can't reach {LICENCE_SERVER}{path}"))
+    with httpx.Client() as http, pytest.raises(ServerUnreachable) as raised:
+        HttpLicenceServer(http).post(path, {})
+    said = str(raised.value)
+    assert "11111111" not in said and "challenges" not in said
+    assert LICENCE_SERVER in said and type(error).__name__ in said

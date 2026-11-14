@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.125637
-Revised: 2026/11/11 11:06:53.570016
+Revised: 2026/11/14 12:01:47.288926
 
 What Vitralis tells the user about its licence, in the current UI language: one message for each outcome, and
 the dates the settings show. Kept apart from the widgets so every outcome's text is tested without a window.
@@ -33,6 +33,9 @@ _MESSAGES: dict[LicenceKind, str] = {
     LicenceKind.NEEDS_CHECK: "Vitralis needs to check its license online. Connect to the internet and check again.",
     LicenceKind.RATE_LIMITED: "Too many attempts. Wait {seconds} seconds and try again.",
     LicenceKind.UNREACHABLE: "The license server can't be reached. Check your internet connection and try again.",
+    LicenceKind.SERVER_ERROR: (
+        "The license server gave an answer Vitralis couldn't use. Try again later, or contact {contact}."
+    ),
 }
 EXPIRED_ON = "This license expired on {date}. Contact {contact} to extend it."
 SAVE_FAILED = "Vitralis couldn't save its license: {reason}"

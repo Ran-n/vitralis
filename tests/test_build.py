@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 19:56:04.526845
-Revised: 2026/11/13 20:11:36.531653
+Revised: 2026/11/14 12:01:48.983098
 
 ``uv run build``'s installer step: finding Inno Setup, the command it runs, the installer's name (never taken
 for the exe the updater swaps in), and a real compile of ``installer/vitralis.iss`` around a stand-in exe.
@@ -145,6 +145,20 @@ def messages(path: Path) -> dict[str, str]:
     return dict(
         line.split("=", 1) for line in path.read_text(encoding="utf-8").splitlines() if re.match(r"[A-Za-z0-9]+=", line)
     )
+
+
+def test_the_uninstaller_looks_for_the_mutex_a_running_vitralis_holds():
+    """The script and the app must name the same mutex, or uninstalling under a running Vitralis goes ahead and
+    leaves its exe behind. Every language's messages file has the sentence that asks to close it."""
+    from vitralis.single_instance import RUNNING_MUTEX
+
+    script = SCRIPT.read_text(encoding="utf-8")
+    assert f'#define AppMutex "{RUNNING_MUTEX}"' in script
+    code = " ".join(script_section("Code"))
+    assert "function InitializeUninstall(): Boolean;" in code
+    assert "CheckForMutexes('{#AppMutex}')" in code and "msgUninstallAppRunningError" in code
+    for path in LANGUAGE_FILES.glob("*.isl"):
+        assert "%1" in messages(path)["UninstallAppRunningError"], path.name
 
 
 def test_the_installer_speaks_every_language_vitralis_does():

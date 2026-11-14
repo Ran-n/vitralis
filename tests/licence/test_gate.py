@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.495642
-Revised: 2026/11/11 11:06:54.714204
+Revised: 2026/11/14 12:01:48.676104
 
 The licence gate: the app runs only while the licence holds, locks again when it stops holding (a refusal from
 the daily check, 30 days offline, a clock set back), and every activation or check runs off the UI thread.
@@ -16,7 +16,7 @@ from tests.conftest import wait_until
 from tests.licence.fakes import CANONICAL, KEY, OTHER_KEY, FakeLicenceRecord, licence_config
 from vitralis.licence.client import Licence
 from vitralis.licence.gate import WATCH_INTERVAL_MS, LicenceGate
-from vitralis.licence.messages import status_message
+from vitralis.licence.messages import save_failed_message, status_message
 from vitralis.licence.ports import LicenceStoreUnreadable
 from vitralis.licence.rules import LicenceKind, LicenceStatus
 
@@ -195,3 +195,76 @@ def test_shutdown_stops_the_checks_and_closes_the_window_once(make_gate, events,
 def test_server_time_follows_the_licence(make_gate, activated, clock):
     gate = make_gate()
     assert abs(gate.server_time() - clock()) < dt.timedelta(seconds=1)
+
+
+def test_the_watch_leaves_the_window_alone_while_nothing_changed(qapp, make_gate, events):
+    """Regression guard: every minute the watch showed the status again, which wiped "That key isn't valid" and
+    took the focus back."""
+    gate = make_gate()
+    gate.begin()
+    gate.activate(OTHER_KEY)
+    wait_until(qapp, lambda: not gate.busy)
+    shown = list(events.last_prompt.statuses)
+    assert shown[-1].kind is not LicenceKind.NEEDS_ACTIVATION  # what the attempt came to
+    for _ in range(3):
+        gate.refresh()
+    assert events.last_prompt.statuses == shown
+
+
+def test_the_watch_tells_the_window_once_when_the_saved_licence_changes(make_gate, events, activated, clock):
+    gate = make_gate()
+    gate.begin()
+    clock.advance(days=31)
+    gate.refresh()
+    gate.refresh()
+    assert [status.kind for status in events.last_prompt.statuses] == [LicenceKind.NEEDS_CHECK]
+
+
+def locked_after_a_month(make_gate, clock):
+    gate = make_gate()
+    gate.begin()
+    clock.advance(days=31)
+    gate.refresh()
+    return gate
+
+
+def test_check_now_rate_limited_says_how_long_to_wait(qapp, make_gate, events, activated, clock, server):
+    """Regression guard: every failed check said "check your internet connection"."""
+    gate = locked_after_a_month(make_gate, clock)
+    server.answers.append((429, {"error": "rate_limited"}, 90))
+    gate.check_now()
+    wait_until(qapp, lambda: not gate.busy)
+    waiting = LicenceStatus(LicenceKind.RATE_LIMITED, retry_after=dt.timedelta(seconds=90))
+    assert events.last_prompt.errors == [status_message(waiting)] and "90" in events.last_prompt.errors[0]
+
+
+def test_check_now_with_an_answer_that_isnt_clavrens_says_so(qapp, make_gate, events, activated, clock, server):
+    gate = locked_after_a_month(make_gate, clock)
+    server.answers.append((502, None, None))
+    gate.check_now()
+    wait_until(qapp, lambda: not gate.busy)
+    assert events.last_prompt.errors == [status_message(LicenceStatus(LicenceKind.SERVER_ERROR))]
+
+
+def test_check_now_that_cant_save_the_licence_says_why(qapp, make_gate, events, activated, clock, store):
+    gate = locked_after_a_month(make_gate, clock)
+    store.fail_saves = True
+    gate.check_now()
+    wait_until(qapp, lambda: not gate.busy)
+    assert events.last_prompt.errors == [save_failed_message("disk full")]
+
+
+def test_the_gate_is_working_while_a_request_or_the_checker_runs(qapp, make_gate, checks, monkeypatch):
+    import threading
+
+    gate = make_gate()
+    gate.begin()
+    assert not gate.working
+    release = threading.Event()
+    monkeypatch.setattr(Licence, "activate", lambda self, key: release.wait(5) and self.status())
+    gate.activate(KEY)
+    assert gate.working
+    release.set()
+    wait_until(qapp, lambda: not gate.working)
+    checks.running = True
+    assert gate.working

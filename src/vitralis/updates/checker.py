@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:01.548894
-Revised: 2026/11/14 00:23:16.448983
+Revised: 2026/11/14 12:01:47.948196
 
 Asks for the latest release at start (after ``FIRST_CHECK_DELAY_MS``, so start-up isn't slowed) and then
 every ``UPDATE_CHECK_EVERY``, and, in the packaged exe, downloads and installs it on request. The network work
@@ -26,9 +26,11 @@ from vitralis.updates.github import ReleaseFeed, ReleaseFeedError
 from vitralis.updates.install import can_write, pending, swap_and_start
 from vitralis.updates.rules import (
     ChecksumMismatch,
+    DownloadRefused,
     DownloadUnreachable,
     FeedFailure,
     Release,
+    SwapFailed,
     UpdateCancelled,
     UpdateError,
     Version,
@@ -72,6 +74,10 @@ class FailureKind(enum.Enum):
     """The exe's folder can't be written to; ``detail`` is the folder."""
     OFFLINE = "offline"
     """The download's server couldn't be reached, or the connection broke."""
+    REFUSED = "refused"
+    """The download's server answered with an error; ``detail`` is the HTTP status."""
+    NOT_REPLACED = "not_replaced"
+    """The downloaded exe couldn't take the running one's place, or be started."""
     OTHER = "other"
     """``detail`` is the reason."""
 
@@ -159,6 +165,8 @@ class UpdateChecker(QObject):
         self._announced: set[Version] = set()
         self._stop = threading.Event()
         self._download: threading.Thread | None = None
+        self._workers: list[threading.Thread] = []
+        """The check and the look for a pending download, which also use the feed's connection."""
         self._status = self._compute()
         self._checked.connect(self._on_checked)
         self._install_step.connect(self._on_install_step)
@@ -191,7 +199,18 @@ class UpdateChecker(QObject):
         self._stop.clear()
         self._timer.start(FIRST_CHECK_DELAY_MS)
         if self._installer is not None and self._install.kind is InstallKind.IDLE:
-            threading.Thread(target=self._find_pending, name="vitralis-update-pending", daemon=True).start()
+            self._work(self._find_pending, "vitralis-update-pending")
+
+    def _work(self, target: Callable[[], None], name: str) -> None:
+        self._workers = [worker for worker in self._workers if worker.is_alive()]
+        self._workers.append(threading.Thread(target=target, name=name, daemon=True))
+        self._workers[-1].start()
+
+    @property
+    def working(self) -> bool:
+        """Whether a check, a download or the look for a pending one still runs on its thread."""
+        downloading = self._download is not None and self._download.is_alive()
+        return downloading or any(worker.is_alive() for worker in self._workers)
 
     def stop(self) -> None:
         """Stop the timer and any download (whose ``.part`` file is deleted). Safe to call twice."""
@@ -224,7 +243,7 @@ class UpdateChecker(QObject):
                 logger.exception("the update check failed unexpectedly")
                 self._checked.emit(None, f"{type(ex).__name__}: {ex}", FeedFailure.OTHER)
 
-        threading.Thread(target=worker, name="vitralis-update-check", daemon=True).start()
+        self._work(worker, "vitralis-update-check")
 
     def _on_checked(self, release: Release | None, error: str | None, kind: FeedFailure | None) -> None:
         if release is not None:
@@ -291,6 +310,11 @@ class UpdateChecker(QObject):
             except DownloadUnreachable as ex:
                 logger.warning("couldn't download %s: %s", version, ex)
                 self._install_step.emit(InstallState(InstallKind.FAILED, version, failure=FailureKind.OFFLINE))
+            except DownloadRefused as ex:
+                logger.warning("couldn't download %s: %s", version, ex)
+                self._install_step.emit(
+                    InstallState(InstallKind.FAILED, version, failure=FailureKind.REFUSED, detail=str(ex.status))
+                )
             except UpdateError as ex:
                 logger.warning("couldn't download %s: %s", version, ex)
                 self._install_step.emit(
@@ -312,6 +336,10 @@ class UpdateChecker(QObject):
             return
         try:
             self._installer.swap(self._installer.exe, self._install.path, self._current_text, os.getpid())
+        except SwapFailed as ex:
+            logger.error("couldn't install %s: %s", self._install.version, ex)
+            self._set_install(replace(self._install, kind=InstallKind.FAILED, failure=FailureKind.NOT_REPLACED))
+            return
         except UpdateError as ex:
             logger.error("couldn't install %s: %s", self._install.version, ex)
             self._set_install(

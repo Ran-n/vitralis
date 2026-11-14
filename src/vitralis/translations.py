@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 08:16:03.814171
-Revised: 2026/11/14 00:23:16.305103
+Revised: 2026/11/14 12:01:47.781478
 """
 
 # fmt: off
@@ -90,6 +90,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Vitralis needs to check its license online. Connect to the internet and check again.": "Vitralis ten que comprobar a súa licenza en liña. Conéctate a internet e volve comprobala.",
         "Too many attempts. Wait {seconds} seconds and try again.": "Demasiados intentos. Agarda {seconds} segundos e téntao de novo.",
         "The license server can't be reached. Check your internet connection and try again.": "Non se pode contactar co servidor de licenzas. Revisa a túa conexión a internet e téntao de novo.",
+        "The license server gave an answer Vitralis couldn't use. Try again later, or contact {contact}.": "O servidor de licenzas deu unha resposta que Vitralis non puido usar. Téntao de novo máis tarde ou contacta con {contact}.",
         "This license expired on {date}. Contact {contact} to extend it.": "Esta licenza caducou o {date}. Contacta con {contact} para ampliala.",
         "Vitralis couldn't save its license: {reason}": "Vitralis non puido gardar a súa licenza: {reason}",
         "Your key is checked at clavren.breren.com. Once a day Vitralis confirms it there, sending this computer's name and the app version.": "A túa clave compróbase en clavren.breren.com. Unha vez ao día Vitralis confírmaa alí, enviando o nome deste ordenador e a versión da aplicación.",
@@ -134,6 +135,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Couldn't check for updates: GitHub can't be reached. Check your internet connection and try again.": "Non se puideron buscar actualizacións: non se pode contactar con GitHub. Revisa a túa conexión a internet e téntao de novo.",
         "Couldn't check for updates: GitHub is taking no more requests from this network for now. Try again in an hour.": "Non se puideron buscar actualizacións: GitHub non acepta máis peticións desta rede polo de agora. Téntao de novo dentro dunha hora.",
         "The download failed. Check your internet connection and try again.": "A descarga fallou. Revisa a túa conexión a internet e téntao de novo.",
+        "The download failed: the server answered with an error (HTTP {status}). Try again later.": "A descarga fallou: o servidor respondeu cun erro (HTTP {status}). Téntao de novo máis tarde.",
+        "Couldn't put the new version in place: Vitralis's file is in use or can't be written. Try again, or update by hand.": "Non se puido colocar a nova versión: o ficheiro de Vitralis está en uso ou non se pode escribir. Téntao de novo, ou actualiza a man.",
     },
     "Galego reintegrado": {
         # info window
@@ -214,6 +217,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Vitralis needs to check its license online. Connect to the internet and check again.": "Vitralis tem que verificar a sua licença em linha. Liga-te à internet e verifica de novo.",
         "Too many attempts. Wait {seconds} seconds and try again.": "Demasiadas tentativas. Aguarda {seconds} segundos e tenta de novo.",
         "The license server can't be reached. Check your internet connection and try again.": "Nom é possível contactar com o servidor de licenças. Revê a tua ligaçom à internet e tenta de novo.",
+        "The license server gave an answer Vitralis couldn't use. Try again later, or contact {contact}.": "O servidor de licenças deu umha resposta que Vitralis nom pudo usar. Tenta de novo mais tarde ou contacta com {contact}.",
         "This license expired on {date}. Contact {contact} to extend it.": "Esta licença caducou o {date}. Contacta com {contact} para alargá-la.",
         "Vitralis couldn't save its license: {reason}": "Vitralis nom pudo guardar a sua licença: {reason}",
         "Your key is checked at clavren.breren.com. Once a day Vitralis confirms it there, sending this computer's name and the app version.": "A tua chave verifica-se em clavren.breren.com. Umha vez ao dia Vitralis confirma-a ali, enviando o nome deste computador e a versom da aplicaçom.",
@@ -258,6 +262,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Couldn't check for updates: GitHub can't be reached. Check your internet connection and try again.": "Nom se pudo procurar atualizaçons: nom é possível contactar com o GitHub. Revê a tua ligaçom à internet e tenta de novo.",
         "Couldn't check for updates: GitHub is taking no more requests from this network for now. Try again in an hour.": "Nom se pudo procurar atualizaçons: o GitHub nom aceita mais pedidos desta rede por agora. Tenta de novo dentro de umha hora.",
         "The download failed. Check your internet connection and try again.": "A descarga falhou. Revê a tua ligaçom à internet e tenta de novo.",
+        "The download failed: the server answered with an error (HTTP {status}). Try again later.": "A descarga falhou: o servidor respondeu com um erro (HTTP {status}). Tenta de novo mais tarde.",
+        "Couldn't put the new version in place: Vitralis's file is in use or can't be written. Try again, or update by hand.": "Nom se pudo colocar a nova versom: o ficheiro de Vitralis está em uso ou nom se pode escrever. Tenta de novo, ou atualiza à mao.",
     },
     "Español": {
         # info window
@@ -332,6 +338,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Vitralis needs to check its license online. Connect to the internet and check again.": "Vitralis necesita comprobar su licencia en línea. Conéctate a internet y vuelve a comprobarla.",
         "Too many attempts. Wait {seconds} seconds and try again.": "Demasiados intentos. Espera {seconds} segundos e inténtalo de nuevo.",
         "The license server can't be reached. Check your internet connection and try again.": "No se puede contactar con el servidor de licencias. Revisa tu conexión a internet e inténtalo de nuevo.",
+        "The license server gave an answer Vitralis couldn't use. Try again later, or contact {contact}.": "El servidor de licencias dio una respuesta que Vitralis no pudo usar. Inténtalo de nuevo más tarde o contacta con {contact}.",
         "This license expired on {date}. Contact {contact} to extend it.": "Esta licencia caducó el {date}. Contacta con {contact} para ampliarla.",
         "Vitralis couldn't save its license: {reason}": "Vitralis no ha podido guardar su licencia: {reason}",
         "Your key is checked at clavren.breren.com. Once a day Vitralis confirms it there, sending this computer's name and the app version.": "Tu clave se comprueba en clavren.breren.com. Una vez al día Vitralis la confirma allí, enviando el nombre de este ordenador y la versión de la aplicación.",
@@ -376,6 +383,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Couldn't check for updates: GitHub can't be reached. Check your internet connection and try again.": "No se pudieron buscar actualizaciones: no se puede contactar con GitHub. Revisa tu conexión a internet e inténtalo de nuevo.",
         "Couldn't check for updates: GitHub is taking no more requests from this network for now. Try again in an hour.": "No se pudieron buscar actualizaciones: GitHub no acepta más peticiones desde esta red por ahora. Inténtalo de nuevo dentro de una hora.",
         "The download failed. Check your internet connection and try again.": "La descarga ha fallado. Revisa tu conexión a internet e inténtalo de nuevo.",
+        "The download failed: the server answered with an error (HTTP {status}). Try again later.": "La descarga ha fallado: el servidor respondió con un error (HTTP {status}). Inténtalo de nuevo más tarde.",
+        "Couldn't put the new version in place: Vitralis's file is in use or can't be written. Try again, or update by hand.": "No se pudo colocar la nueva versión: el archivo de Vitralis está en uso o no se puede escribir. Inténtalo de nuevo, o actualiza a mano.",
     },
     "Português": {
         # info window
@@ -456,6 +465,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Vitralis needs to check its license online. Connect to the internet and check again.": "O Vitralis precisa de verificar a licença online. Ligue-se à internet e verifique novamente.",
         "Too many attempts. Wait {seconds} seconds and try again.": "Demasiadas tentativas. Aguarde {seconds} segundos e tente novamente.",
         "The license server can't be reached. Check your internet connection and try again.": "Não é possível contactar o servidor de licenças. Verifique a sua ligação à internet e tente novamente.",
+        "The license server gave an answer Vitralis couldn't use. Try again later, or contact {contact}.": "O servidor de licenças deu uma resposta que o Vitralis não conseguiu usar. Tente novamente mais tarde ou contacte {contact}.",
         "This license expired on {date}. Contact {contact} to extend it.": "Esta licença expirou a {date}. Contacte {contact} para a prolongar.",
         "Vitralis couldn't save its license: {reason}": "O Vitralis não conseguiu guardar a licença: {reason}",
         "Your key is checked at clavren.breren.com. Once a day Vitralis confirms it there, sending this computer's name and the app version.": "A sua chave é verificada em clavren.breren.com. Uma vez por dia o Vitralis confirma-a lá, enviando o nome deste computador e a versão da aplicação.",
@@ -500,6 +510,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Couldn't check for updates: GitHub can't be reached. Check your internet connection and try again.": "Não foi possível procurar atualizações: não é possível contactar o GitHub. Verifique a sua ligação à internet e tente novamente.",
         "Couldn't check for updates: GitHub is taking no more requests from this network for now. Try again in an hour.": "Não foi possível procurar atualizações: o GitHub não aceita mais pedidos desta rede por agora. Tente novamente dentro de uma hora.",
         "The download failed. Check your internet connection and try again.": "A transferência falhou. Verifique a sua ligação à internet e tente novamente.",
+        "The download failed: the server answered with an error (HTTP {status}). Try again later.": "A transferência falhou: o servidor respondeu com um erro (HTTP {status}). Tente novamente mais tarde.",
+        "Couldn't put the new version in place: Vitralis's file is in use or can't be written. Try again, or update by hand.": "Não foi possível colocar a nova versão: o ficheiro do Vitralis está em uso ou não pode ser escrito. Tente novamente, ou atualize manualmente.",
     },
     "Français": {
         # info window
@@ -580,6 +592,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Vitralis needs to check its license online. Connect to the internet and check again.": "Vitralis doit vérifier sa licence en ligne. Connectez-vous à Internet et vérifiez de nouveau.",
         "Too many attempts. Wait {seconds} seconds and try again.": "Trop de tentatives. Attendez {seconds} secondes et réessayez.",
         "The license server can't be reached. Check your internet connection and try again.": "Le serveur de licences est injoignable. Vérifiez votre connexion Internet et réessayez.",
+        "The license server gave an answer Vitralis couldn't use. Try again later, or contact {contact}.": "Le serveur de licences a donné une réponse que Vitralis n’a pas pu utiliser. Réessayez plus tard ou contactez {contact}.",
         "This license expired on {date}. Contact {contact} to extend it.": "Cette licence a expiré le {date}. Contactez {contact} pour la prolonger.",
         "Vitralis couldn't save its license: {reason}": "Vitralis n'a pas pu enregistrer sa licence : {reason}",
         "Your key is checked at clavren.breren.com. Once a day Vitralis confirms it there, sending this computer's name and the app version.": "Votre clé est vérifiée sur clavren.breren.com. Une fois par jour, Vitralis la confirme auprès de ce serveur, en envoyant le nom de cet ordinateur et la version de l'application.",
@@ -624,6 +637,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Couldn't check for updates: GitHub can't be reached. Check your internet connection and try again.": "Impossible de rechercher les mises à jour : GitHub est injoignable. Vérifiez votre connexion Internet et réessayez.",
         "Couldn't check for updates: GitHub is taking no more requests from this network for now. Try again in an hour.": "Impossible de rechercher les mises à jour : GitHub n'accepte plus de requêtes depuis ce réseau pour le moment. Réessayez dans une heure.",
         "The download failed. Check your internet connection and try again.": "Le téléchargement a échoué. Vérifiez votre connexion Internet et réessayez.",
+        "The download failed: the server answered with an error (HTTP {status}). Try again later.": "Le téléchargement a échoué : le serveur a répondu par une erreur (HTTP {status}). Réessayez plus tard.",
+        "Couldn't put the new version in place: Vitralis's file is in use or can't be written. Try again, or update by hand.": "Impossible de mettre en place la nouvelle version : le fichier de Vitralis est utilisé ou ne peut pas être écrit. Réessayez, ou mettez à jour à la main.",
     },
     "Deutsch": {
         # info window
@@ -704,6 +719,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Vitralis needs to check its license online. Connect to the internet and check again.": "Vitralis muss seine Lizenz online prüfen. Verbinde dich mit dem Internet und prüfe erneut.",
         "Too many attempts. Wait {seconds} seconds and try again.": "Zu viele Versuche. Warte {seconds} Sekunden und versuche es erneut.",
         "The license server can't be reached. Check your internet connection and try again.": "Der Lizenzserver ist nicht erreichbar. Prüfe deine Internetverbindung und versuche es erneut.",
+        "The license server gave an answer Vitralis couldn't use. Try again later, or contact {contact}.": "Der Lizenzserver hat eine Antwort gegeben, die Vitralis nicht verwenden konnte. Versuche es später erneut oder wende dich an {contact}.",
         "This license expired on {date}. Contact {contact} to extend it.": "Diese Lizenz ist am {date} abgelaufen. Wende dich an {contact}, um sie zu verlängern.",
         "Vitralis couldn't save its license: {reason}": "Vitralis konnte seine Lizenz nicht speichern: {reason}",
         "Your key is checked at clavren.breren.com. Once a day Vitralis confirms it there, sending this computer's name and the app version.": "Dein Schlüssel wird bei clavren.breren.com geprüft. Einmal am Tag bestätigt Vitralis ihn dort und sendet dabei den Namen dieses Computers und die App-Version.",
@@ -748,6 +764,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Couldn't check for updates: GitHub can't be reached. Check your internet connection and try again.": "Updates konnten nicht gesucht werden: GitHub ist nicht erreichbar. Prüfe deine Internetverbindung und versuche es erneut.",
         "Couldn't check for updates: GitHub is taking no more requests from this network for now. Try again in an hour.": "Updates konnten nicht gesucht werden: GitHub nimmt von diesem Netzwerk vorerst keine Anfragen mehr an. Versuche es in einer Stunde erneut.",
         "The download failed. Check your internet connection and try again.": "Der Download ist fehlgeschlagen. Prüfe deine Internetverbindung und versuche es erneut.",
+        "The download failed: the server answered with an error (HTTP {status}). Try again later.": "Der Download ist fehlgeschlagen: Der Server hat mit einem Fehler geantwortet (HTTP {status}). Versuche es später erneut.",
+        "Couldn't put the new version in place: Vitralis's file is in use or can't be written. Try again, or update by hand.": "Die neue Version konnte nicht eingesetzt werden: Die Datei von Vitralis wird verwendet oder ist nicht beschreibbar. Versuche es erneut oder aktualisiere von Hand.",
     },
     "中文": {
         # info window
@@ -828,6 +846,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Vitralis needs to check its license online. Connect to the internet and check again.": "Vitralis 需要在线检查许可证。请连接互联网后再次检查。",
         "Too many attempts. Wait {seconds} seconds and try again.": "尝试次数过多。请等待 {seconds} 秒后重试。",
         "The license server can't be reached. Check your internet connection and try again.": "无法连接许可证服务器。请检查网络连接后重试。",
+        "The license server gave an answer Vitralis couldn't use. Try again later, or contact {contact}.": "许可证服务器返回了 Vitralis 无法使用的响应。请稍后重试，或联系 {contact}。",
         "This license expired on {date}. Contact {contact} to extend it.": "此许可证已于 {date} 过期。请联系 {contact} 续期。",
         "Vitralis couldn't save its license: {reason}": "Vitralis 无法保存其许可证：{reason}",
         "Your key is checked at clavren.breren.com. Once a day Vitralis confirms it there, sending this computer's name and the app version.": "您的密钥在 clavren.breren.com 上验证。Vitralis 每天在该处确认一次，并发送此电脑的名称和应用版本。",
@@ -872,6 +891,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Couldn't check for updates: GitHub can't be reached. Check your internet connection and try again.": "无法检查更新：无法连接 GitHub。请检查网络连接后重试。",
         "Couldn't check for updates: GitHub is taking no more requests from this network for now. Try again in an hour.": "无法检查更新：GitHub 暂时不再接受来自此网络的请求。请一小时后重试。",
         "The download failed. Check your internet connection and try again.": "下载失败。请检查网络连接后重试。",
+        "The download failed: the server answered with an error (HTTP {status}). Try again later.": "下载失败：服务器返回错误（HTTP {status}）。请稍后重试。",
+        "Couldn't put the new version in place: Vitralis's file is in use or can't be written. Try again, or update by hand.": "无法替换为新版本：Vitralis 的文件正在使用中或无法写入。请重试，或手动更新。",
     },
     "日本語": {
         # info window
@@ -952,6 +973,7 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Vitralis needs to check its license online. Connect to the internet and check again.": "Vitralis はライセンスをオンラインで確認する必要があります。インターネットに接続して、もう一度確認してください。",
         "Too many attempts. Wait {seconds} seconds and try again.": "試行回数が多すぎます。{seconds} 秒待ってからもう一度お試しください。",
         "The license server can't be reached. Check your internet connection and try again.": "ライセンスサーバーに接続できません。インターネット接続を確認して、もう一度お試しください。",
+        "The license server gave an answer Vitralis couldn't use. Try again later, or contact {contact}.": "ライセンスサーバーから Vitralis が利用できない応答が返されました。しばらくしてからもう一度試すか、{contact} にお問い合わせください。",
         "This license expired on {date}. Contact {contact} to extend it.": "このライセンスは {date} に期限切れになりました。延長するには {contact} にお問い合わせください。",
         "Vitralis couldn't save its license: {reason}": "Vitralis はライセンスを保存できませんでした：{reason}",
         "Your key is checked at clavren.breren.com. Once a day Vitralis confirms it there, sending this computer's name and the app version.": "キーは clavren.breren.com で確認されます。Vitralis は 1 日に 1 回そこで確認し、このコンピューターの名前とアプリのバージョンを送信します。",
@@ -996,6 +1018,8 @@ _TRANSLATIONS: dict[str, dict[str, str]] = {
         "Couldn't check for updates: GitHub can't be reached. Check your internet connection and try again.": "アップデートを確認できませんでした：GitHub に接続できません。インターネット接続を確認して、もう一度お試しください。",
         "Couldn't check for updates: GitHub is taking no more requests from this network for now. Try again in an hour.": "アップデートを確認できませんでした：GitHub は現在このネットワークからのリクエストを受け付けていません。1 時間後にもう一度お試しください。",
         "The download failed. Check your internet connection and try again.": "ダウンロードに失敗しました。インターネット接続を確認して、もう一度お試しください。",
+        "The download failed: the server answered with an error (HTTP {status}). Try again later.": "ダウンロードに失敗しました。サーバーがエラーを返しました（HTTP {status}）。しばらくしてからもう一度お試しください。",
+        "Couldn't put the new version in place: Vitralis's file is in use or can't be written. Try again, or update by hand.": "新しいバージョンに置き換えられませんでした：Vitralis のファイルが使用中か、書き込めません。もう一度試すか、手動で更新してください。",
     },
 }
 # fmt: on

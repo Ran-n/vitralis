@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:02.303928
-Revised: 2026/11/14 00:23:16.801021
+Revised: 2026/11/14 12:01:48.186534
 
 What Vitralis tells the user about updates, in the current UI language: the result of a check, the install
 steps and their failures, the toolbar tooltip and the tray messages. Kept apart from the widgets so every
@@ -35,6 +35,11 @@ RESTART = "Restart to update"
 NOT_WRITABLE = "Can't update {dir}: move Vitralis to a folder you can write to, or update by hand"
 DAMAGED = "The download is damaged (checksum mismatch): try again"
 DOWNLOAD_OFFLINE = "The download failed. Check your internet connection and try again."
+DOWNLOAD_REFUSED = "The download failed: the server answered with an error (HTTP {status}). Try again later."
+NOT_REPLACED = (
+    "Couldn't put the new version in place: Vitralis's file is in use or can't be written. "
+    "Try again, or update by hand."
+)
 INSTALL_FAILED = "Couldn't install the update: {reason}"
 UPDATED = "Updated to {version}"
 
@@ -59,6 +64,8 @@ ALL = (
     NOT_WRITABLE,
     DAMAGED,
     DOWNLOAD_OFFLINE,
+    DOWNLOAD_REFUSED,
+    NOT_REPLACED,
     INSTALL_FAILED,
     UPDATED,
 )
@@ -99,6 +106,10 @@ def install_line(state: InstallState) -> str:
             return t(NOT_WRITABLE).format(dir=state.detail)
         if state.failure is FailureKind.OFFLINE:
             return t(DOWNLOAD_OFFLINE)
+        if state.failure is FailureKind.REFUSED:
+            return t(DOWNLOAD_REFUSED).format(status=state.detail)
+        if state.failure is FailureKind.NOT_REPLACED:
+            return t(NOT_REPLACED)
         return t(INSTALL_FAILED).format(reason=state.detail)
     return ""
 

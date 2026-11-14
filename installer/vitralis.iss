@@ -15,6 +15,8 @@
 
 #define AppName "Vitralis"
 #define AppExe "Vitralis.exe"
+; held by Vitralis while it runs (vitralis.single_instance.RUNNING_MUTEX)
+#define AppMutex "VitralisRunning"
 
 [Setup]
 AppId={{{#AppGuid}}
@@ -103,3 +105,18 @@ Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags
 ; left by the in-app updater: the previous exe until the next start, and its write probe
 Type: files; Name: "{app}\{#AppExe}.old"
 Type: files; Name: "{app}\.vitralis-update-test"
+
+[Code]
+// Uninstalling under a running Vitralis can't delete its exe, and would leave it running from a folder that
+// is half gone: ask to quit it first, in the installer's own words and language. A silent uninstall stops.
+function InitializeUninstall(): Boolean;
+begin
+  Result := True;
+  while CheckForMutexes('{#AppMutex}') do
+    if SuppressibleMsgBox(FmtMessage(SetupMessage(msgUninstallAppRunningError), ['{#AppName}']),
+                          mbError, MB_OKCANCEL, IDCANCEL) <> IDOK then
+    begin
+      Result := False;
+      Exit;
+    end;
+end;

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:08.147005
-Revised: 2026/11/13 09:11:08.530553
+Revised: 2026/11/14 12:01:49.251945
 
 Putting a downloaded release in place (real files in ``tmp_path``, a fake ``Popen``): the swap keeps the path,
 every failure puts the old exe back, the writable check, finding a prepared update, cleaning leftovers, and
@@ -27,7 +27,7 @@ from vitralis.updates.install import (
     swap_and_start,
     wait_for_exit,
 )
-from vitralis.updates.rules import UpdateError, Version
+from vitralis.updates.rules import SwapFailed, Version
 
 windows_only = pytest.mark.skipif(sys.platform != "win32", reason="Windows processes")
 OLD, NEW = b"old exe", b"new exe"
@@ -70,7 +70,7 @@ def test_a_swap_keeps_the_path_and_starts_the_new_exe(exes):
 
 def test_popen_failing_puts_the_old_exe_back_and_keeps_the_download(exes):
     running, new = exes
-    with pytest.raises(UpdateError, match="couldn't start"):
+    with pytest.raises(SwapFailed, match="couldn't start"):
         swap_and_start(running, new, "1.3.0", 1, popen=FakePopen(fail=True))
     assert running.read_bytes() == OLD and not old_path(running).exists() and new.read_bytes() == NEW
 
@@ -82,7 +82,7 @@ def test_a_refused_move_leaves_the_original_untouched(exes, monkeypatch):
         raise PermissionError("in use")
 
     monkeypatch.setattr(install.shutil, "move", refuse)
-    with pytest.raises(UpdateError, match="in place"):
+    with pytest.raises(SwapFailed, match="in place"):
         swap_and_start(running, new, "1.3.0", 1, popen=FakePopen())
     assert running.read_bytes() == OLD and not old_path(running).exists()
 
@@ -95,7 +95,7 @@ def test_a_refused_rename_changes_nothing(exes, monkeypatch):
 
     monkeypatch.setattr(install.os, "replace", refuse)
     popen = FakePopen()
-    with pytest.raises(UpdateError, match="aside"):
+    with pytest.raises(SwapFailed, match="aside"):
         swap_and_start(running, new, "1.3.0", 1, popen=popen)
     assert running.read_bytes() == OLD and new.read_bytes() == NEW and popen.calls == []
 
