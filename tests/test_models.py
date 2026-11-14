@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:22:49.939269
-Revised: 2026/11/14 12:31:25.976612
+Revised: 2026/11/14 18:00:30.455255
 
 A stroke as it is saved: what it writes it reads back the same (for any stroke), files from before strokes had
 a time still load, and a damaged entry is refused with a reason instead of reaching the painter.
@@ -124,3 +124,74 @@ def test_a_damaged_time_reads_as_zero():
 def test_a_damaged_entry_is_refused_with_a_reason(entry, reason):
     with pytest.raises(ValueError, match=reason):
         Stroke.from_dict(entry)
+
+
+# --- what mutation testing found unchecked ------------------------------------------------------------------
+
+
+def test_a_stroke_is_made_at_no_time_unless_told():
+    assert shape("LINE", [0, 0]).created == 0.0
+
+
+def test_a_shape_of_one_point_is_its_own_outline():
+    for tool in ("LINE", "ARROW", "RECT", "ELLIPSE"):
+        assert shape(tool, [3.0, 4.0]).outline() == [[3.0, 4.0]]
+
+
+def test_a_shape_is_outlined_between_its_first_and_last_point():
+    """A shape keeps the two ends of its drag; a damaged one with more is still measured between its ends."""
+    assert shape("LINE", [0, 0], [50, 50], [10, 0]).outline() == [[0, 0], [10, 0]]
+    assert shape("PEN", [0, 0], [50, 50], [10, 0]).outline() == [[0, 0], [50, 50], [10, 0]]
+
+
+def test_a_rectangles_outline_is_its_four_sides_closed():
+    assert shape("RECT", [10, 20], [110, 80]).outline() == [[10, 20], [110, 20], [110, 80], [10, 80], [10, 20]]
+
+
+def test_an_ellipses_outline_goes_once_round_its_box():
+    outline = shape("ELLIPSE", [10, 20], [111, 81]).outline()
+    assert len(outline) == 65  # 64 sides, closed
+    assert outline[0] == pytest.approx([111, 50.5]) == outline[-1]  # starts and ends at its right end
+    assert outline[16] == pytest.approx([60.5, 81])  # a quarter of the way: its bottom (y grows downwards)
+    assert outline[32] == pytest.approx([10, 50.5])  # half way: its left end
+    assert outline[48] == pytest.approx([60.5, 20])  # its top
+    for x, y in outline:  # every point is on the ellipse
+        assert ((x - 60.5) / 50.5) ** 2 + ((y - 50.5) / 30.5) ** 2 == pytest.approx(1.0)
+
+
+def test_an_ellipse_dragged_backwards_is_the_same_ellipse():
+    forwards, backwards = shape("ELLIPSE", [10, 20], [110, 80]), shape("ELLIPSE", [110, 80], [10, 20])
+    flat = [part for point in forwards.outline() for part in point]
+    assert [part for point in backwards.outline() for part in point] == pytest.approx(flat)
+
+
+def test_the_distance_to_a_line_is_measured_to_its_nearest_point():
+    line = shape("LINE", [0, 10], [100, 10])
+    assert line.distance_to(50, 14) == pytest.approx(4)  # beside its middle
+    assert line.distance_to(-3, 14) == pytest.approx(5)  # past its start: to the start itself
+    assert line.distance_to(103, 6) == pytest.approx(5)  # past its end
+    slanted = shape("LINE", [0, 10], [10, 20])
+    assert slanted.distance_to(10, 10) == pytest.approx(math.sqrt(50))
+    assert slanted.distance_to(5, 15) == pytest.approx(0)
+
+
+def test_the_distance_to_a_very_short_line_still_counts_its_length():
+    """A line shorter than a pixel is still a line: the click is measured to it, not to its ends only."""
+    short = shape("LINE", [0, 0], [0.5, 0])
+    assert short.distance_to(0.25, 3) == pytest.approx(3)
+    assert shape("LINE", [5, 5], [5, 5]).distance_to(8, 9) == pytest.approx(5)  # no length at all: a dot
+
+
+def test_the_widest_width_is_the_last_one_read():
+    entry = shape("LINE", [0, 0], [1, 1]).to_dict()
+    assert MAX_WIDTH == 200
+    assert Stroke.from_dict({**entry, "width": 200}).width == 200
+    with pytest.raises(ValueError, match="width"):
+        Stroke.from_dict({**entry, "width": 201})
+
+
+@pytest.mark.parametrize("point", [[1.0], [], [1.0, 2.0, 3.0]])
+def test_a_point_is_exactly_two_numbers(point):
+    entry = shape("LINE", [0, 0], [1, 1]).to_dict()
+    with pytest.raises(ValueError, match="two numbers"):
+        Stroke.from_dict({**entry, "points": [[0.0, 0.0], point]})

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 09:18:58.416486
-Revised: 2026/11/14 12:01:48.775957
+Revised: 2026/11/14 18:00:30.154848
 
 The licence rules, pinned by Clavren's own test vectors (``../clavren/docs/api.md``, "Test vectors").
 """
@@ -243,3 +243,84 @@ def test_a_copy_is_independent():
 def test_only_licensed_runs():
     assert LicenceStatus(LicenceKind.LICENSED).licensed
     assert not any(LicenceStatus(kind).licensed for kind in LicenceKind if kind is not LicenceKind.LICENSED)
+
+
+# --- what mutation testing found unchecked ------------------------------------------------------------------
+
+
+def test_base64url_reads_every_whole_length_and_no_other():
+    assert b64decode("QQ") == b"A" and b64decode("QUI") == b"AB" and b64decode("QUJD") == b"ABC"
+    assert b64decode("QUJDRA") == b"ABCD"
+    assert b64decode("QUJDR") is None  # one character past a whole group: no bytes are that long
+    assert b64decode("Q") is None
+
+
+def test_a_character_that_upper_cases_to_two_is_no_key_symbol():
+    """The ligature ``ﬆ`` upper-cases to ``ST``, two symbols of the key's alphabet in a row."""
+    assert normalize_key("BRN-ST00-0000-0000-0000") is not None
+    assert normalize_key("BRN-ﬆ00-0000-0000-0000") is None
+    assert normalize_key("BRN-ﬆ000-0000-0000-0000") is None
+
+
+def test_nothing_is_a_test_licence_unless_it_says_so():
+    from vitralis.licence.rules import Claims
+
+    assert LicenceStatus(LicenceKind.LICENSED).test is False
+    claims = Claims("vitralis", "activation", "device", 1, 2)
+    assert claims.test is False and claims.lic_exp is None
+
+
+def test_a_status_and_claims_cant_be_changed():
+    from vitralis.licence.rules import Claims
+
+    for value in (LicenceStatus(LicenceKind.LICENSED), Claims("vitralis", "activation", "device", 1, 2)):
+        with pytest.raises(AttributeError):
+            value.test = True
+        assert not hasattr(value, "__dict__")  # nor given anything new
+
+
+def token_of(claims: dict, parts: int = 3) -> str:
+    payload = b64encode(json.dumps(claims).encode())
+    return ".".join(["header", payload, "signature", "more", "again"][:parts])
+
+
+def test_a_token_has_three_parts_no_fewer_and_no_more():
+    claims = {"aud": "vitralis", "act": "a", "dev": "d", "iat": 1, "exp": 2}
+    assert unverified_claims(token_of(claims)) is not None
+    assert unverified_claims(token_of(claims, parts=2)) is None
+    assert unverified_claims(token_of(claims, parts=4)) is None
+
+
+def test_a_test_claim_that_is_one_and_not_true_doesnt_count():
+    claims = {"aud": "vitralis", "act": "a", "dev": "d", "iat": 1, "exp": 2}
+    assert unverified_claims(token_of({**claims, "test": True})).test is True
+    assert unverified_claims(token_of({**claims, "test": 1})).test is False
+
+
+def test_the_clock_is_behind_only_past_the_tolerance():
+    from vitralis.licence.rules import ROLLBACK_TOLERANCE
+
+    assert not LicenceState().clock_set_back(AT - dt.timedelta(days=3650))  # nothing seen yet to be behind
+    state = LicenceState(latest_seen=AT)  # as loaded from a file that says no more
+    assert not state.clock_set_back(AT - ROLLBACK_TOLERANCE)  # exactly the tolerance: still trusted
+    assert state.clock_set_back(AT - ROLLBACK_TOLERANCE - dt.timedelta(microseconds=1))
+    assert not state.clock_set_back(AT + dt.timedelta(days=1))
+
+
+def test_steps_back_count_only_past_the_tolerance_in_all():
+    from vitralis.licence.rules import ROLLBACK_TOLERANCE
+
+    state = LicenceState()
+    state.saw(AT)
+    state.latest_seen = None  # only the steps back are left to judge by
+    assert not state.clock_set_back(AT - ROLLBACK_TOLERANCE)  # exactly the tolerance
+    assert state.clock_set_back(AT - ROLLBACK_TOLERANCE - dt.timedelta(seconds=1))
+
+
+def test_the_state_shows_that_it_holds_secrets_without_showing_them():
+    from vitralis.licence.rules import REDACTED
+
+    empty, full = repr(LicenceState()), repr(LicenceState(device_key="c2VlZA", token="a.b.c"))
+    assert "device_key=None" in empty and "token=None" in empty
+    assert f"device_key={REDACTED!r}" in full and f"token={REDACTED!r}" in full
+    assert "c2VlZA" not in full and "a.b.c" not in full
