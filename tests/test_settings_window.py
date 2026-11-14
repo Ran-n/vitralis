@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:13.645333
-Revised: 2026/11/14 00:23:22.509649
+Revised: 2026/11/14 11:44:53.859088
 
 The settings window on the offscreen ``QApplication``, with a real ``SettingsManager`` on the test's own
 ``settings.json``: capturing a shortcut from a key press, one key never serving two actions, a key the global
@@ -18,6 +18,7 @@ from PyQt6.QtGui import QKeyEvent
 from PyQt6.QtWidgets import QApplication, QComboBox
 
 import vitralis.settings as settings_module
+from vitralis.persistence import flush_writes
 from vitralis.settings import DEFAULT_SHORTCUTS, GLOBAL_ACTION, SettingsManager, SettingsWindow
 from vitralis.translations import _TRANSLATIONS, t
 
@@ -35,6 +36,7 @@ def window(qapp, icons):
 
 
 def saved_shortcuts() -> dict:
+    assert flush_writes(5)
     return json.loads(settings_module.SETTINGS_FILE.read_text(encoding="utf-8"))["shortcuts"]
 
 
@@ -69,7 +71,7 @@ def test_a_key_press_while_not_listening_captures_nothing(window):
     capture = window._captures["draw"]
     press(capture, Qt.Key.Key_K)
     assert capture.text() == "D" and window.changes == []
-    assert not settings_module.SETTINGS_FILE.exists()
+    assert flush_writes(5) and not settings_module.SETTINGS_FILE.exists()
 
 
 def test_a_key_another_action_had_moves_to_the_new_one(window):
@@ -87,7 +89,7 @@ def test_a_key_the_global_hook_cant_take_is_refused_for_the_focus_shortcut(windo
     with caplog.at_level(logging.WARNING, "vitralis.settings"):
         window._assign(GLOBAL_ACTION, key)
     assert window._captures[GLOBAL_ACTION].text() == "F8" and window.changes == []
-    assert not settings_module.SETTINGS_FILE.exists()
+    assert flush_writes(5) and not settings_module.SETTINGS_FILE.exists()
     assert any(key in r.getMessage() for r in caplog.records)
 
 

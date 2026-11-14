@@ -2,15 +2,17 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:10.961213
-Revised: 2026/11/14 00:23:22.278473
+Revised: 2026/11/14 11:44:53.726212
 
 The drawings on disk (real files in the test's own data folder): strokes per screen surviving a restart, the
-first versions' bare list, damaged entries and files, writes that are whole or not at all, failures that are
-logged and never raised into the drawing, the snapshots, and the saved format pinned by a checked-in file.
+first versions' bare list, damaged entries and files, writes that are whole or not at all and never make the
+caller wait for the disk, failures that are logged and never raised into the drawing, the snapshots, and the
+saved format pinned by a checked-in file.
 """
 
 import json
 import logging
+import threading
 from pathlib import Path
 
 import pytest
@@ -20,8 +22,10 @@ import vitralis.persistence as persistence
 from vitralis.models import Stroke
 from vitralis.persistence import (
     DAMAGED_SUFFIX,
+    BackgroundWriter,
     SnapshotError,
     delete_snapshot,
+    flush_writes,
     forget_strokes,
     list_snapshots,
     load_snapshot,
@@ -58,7 +62,8 @@ def test_no_file_means_no_strokes():
 
 
 def test_each_screens_strokes_survive_a_restart():
-    assert save_strokes_for(PRIMARY, [LINE, PEN]) and save_strokes_for(SECOND, [ERASER])
+    save_strokes_for(PRIMARY, [LINE, PEN])
+    save_strokes_for(SECOND, [ERASER])
     restart()
     assert load_strokes_for(PRIMARY) == [LINE, PEN] and load_strokes_for(SECOND) == [ERASER]
     assert load_strokes_for(QRect(-1280, 0, 1280, 1024)) == []
@@ -115,19 +120,22 @@ def test_an_unreadable_file_is_logged_kept_aside_and_started_over(content, caplo
     assert any(r.levelno == logging.ERROR for r in caplog.records)
     kept = persistence.STROKES_FILE.with_name(persistence.STROKES_FILE.name + DAMAGED_SUFFIX)
     assert kept.read_text(encoding="utf-8") == content
-    assert save_strokes_for(PRIMARY, [LINE])
+    save_strokes_for(PRIMARY, [LINE])
     restart()
     assert load_strokes_for(PRIMARY) == [LINE]
 
 
 def test_a_failed_save_is_logged_not_raised_and_leaves_the_old_file_whole(monkeypatch, caplog):
     save_strokes_for(PRIMARY, [LINE])
+    assert flush_writes(5)
     before = persistence.STROKES_FILE.read_bytes()
     monkeypatch.setattr(persistence.os, "replace", refuse)
     with caplog.at_level(logging.ERROR, "vitralis.persistence"):
-        assert save_strokes_for(PRIMARY, [LINE, PEN]) is False
-    assert any("couldn't save the drawings" in r.getMessage() for r in caplog.records)
+        save_strokes_for(PRIMARY, [LINE, PEN])
+        assert flush_writes(5)
+    assert any("couldn't save" in r.getMessage() and "strokes.json" in r.getMessage() for r in caplog.records)
     assert persistence.STROKES_FILE.read_bytes() == before
+    assert load_strokes_for(PRIMARY) == [LINE, PEN]  # still drawn, and saved by the next save that works
     assert [p.name for p in persistence.STROKES_FILE.parent.iterdir() if p.suffix == ".tmp"] == []
 
 
@@ -147,6 +155,84 @@ def test_an_atomic_write_that_fails_raises_and_leaves_nothing_behind(tmp_path, m
     assert list(tmp_path.iterdir()) == []
 
 
+# --- writing off the calling thread -------------------------------------------------------------------------
+
+
+class SlowDisk:
+    """Stands in for ``write_json_atomic``: holds every write until ``release`` is set, and records them."""
+
+    def __init__(self, monkeypatch) -> None:
+        self.started = threading.Event()
+        self.release = threading.Event()
+        self.written: list[tuple[str, object]] = []
+        self.threads: set[str] = set()
+        monkeypatch.setattr(persistence, "write_json_atomic", self.write)
+
+    def write(self, path, data, indent=2) -> None:
+        self.started.set()
+        self.threads.add(threading.current_thread().name)
+        assert self.release.wait(5)
+        self.written.append((path.name, data))
+
+
+def test_a_save_doesnt_wait_for_the_disk(monkeypatch):
+    disk = SlowDisk(monkeypatch)
+    save_strokes_for(PRIMARY, [LINE])  # returns although the disk hasn't taken a byte yet
+    assert disk.started.wait(5) and disk.written == []
+    assert not flush_writes(0.05)  # still writing
+    disk.release.set()
+    assert flush_writes(5)
+    assert [name for name, _ in disk.written] == ["strokes.json"]
+    assert disk.threads == {"vitralis-writer"}
+
+
+def test_of_several_saves_waiting_only_the_latest_is_written(tmp_path, monkeypatch):
+    disk = SlowDisk(monkeypatch)
+    writer = BackgroundWriter()
+    writer.write(tmp_path / "a.json", 1)
+    assert disk.started.wait(5)  # a.json is being written; the rest waits
+    for version in (2, 3, 4):
+        writer.write(tmp_path / "a.json", version)
+    writer.write(tmp_path / "b.json", "b")
+    disk.release.set()
+    assert writer.flush(5)
+    assert disk.written == [("a.json", 1), ("a.json", 4), ("b.json", "b")]
+
+
+def test_a_write_that_fails_is_logged_and_the_next_file_is_still_written(tmp_path, caplog):
+    writer = BackgroundWriter()
+    with caplog.at_level(logging.ERROR, "vitralis.persistence"):
+        writer.write(tmp_path / "gone" / "a.json", {"a": 1})  # no such folder
+        writer.write(tmp_path / "bad.json", {"when": object()})  # not JSON: a bug, logged with its traceback
+        writer.write(tmp_path / "b.json", {"b": 2})
+        assert writer.flush(5)
+    assert json.loads((tmp_path / "b.json").read_text(encoding="utf-8")) == {"b": 2}
+    assert [p.name for p in tmp_path.iterdir()] == ["b.json"]
+    assert sum("a.json" in r.getMessage() for r in caplog.records) == 1
+    assert any("bad.json" in r.getMessage() and r.exc_info for r in caplog.records)
+
+
+def test_the_writer_starts_again_after_it_ran_dry(tmp_path):
+    writer = BackgroundWriter()
+    assert writer.flush(0)  # nothing waiting: nothing to wait for
+    for version in (1, 2):
+        writer.write(tmp_path / "a.json", version)
+        assert writer.flush(5)
+        assert json.loads((tmp_path / "a.json").read_text(encoding="utf-8")) == version
+
+
+def test_what_was_saved_is_what_is_written_whatever_is_drawn_meanwhile(monkeypatch):
+    """The canvas goes on changing its list of strokes while the writer still holds the last save."""
+    disk = SlowDisk(monkeypatch)
+    drawn = [LINE]
+    save_strokes_for(PRIMARY, drawn)
+    assert disk.started.wait(5)
+    drawn.append(PEN)
+    disk.release.set()
+    assert flush_writes(5)
+    assert disk.written[0][1] == {"0,0": [LINE.to_dict()]}
+
+
 def test_the_screen_key_is_the_top_left_corner():
     assert screen_key(SECOND) == "1920,0" and screen_key(QRect(-1280, -24, 10, 10)) == "-1280,-24"
 
@@ -158,6 +244,7 @@ def test_the_saved_file_is_the_golden_one():
     """A silent change of the format fails here: ``strokes.json`` outlives the version that wrote it."""
     for geo, strokes in GOLDEN_SCREENS.items():
         save_strokes_for(geo, strokes)
+    assert flush_writes(5)
     saved = json.loads(persistence.STROKES_FILE.read_text(encoding="utf-8"))
     assert saved == json.loads(GOLDEN.read_text(encoding="utf-8"))
 
@@ -186,6 +273,22 @@ def test_a_snapshot_name_cant_leave_the_snapshots_folder():
     files = sorted(p.name for p in persistence.SNAPSHOTS_DIR.iterdir())
     assert files == ["_outside_name.json"]
     assert load_snapshot("..\\..\\outside/name") == {"0,0": [LINE]}
+
+
+@pytest.mark.parametrize("name", ["CON", "nul", "Com1", "LPT9", "aux"])
+def test_a_snapshot_named_like_a_windows_device_is_still_saved(name):
+    """Regression guard: Windows makes no file called ``CON.json``, so such a name could never be saved."""
+    save_snapshot(name, {"0,0": [LINE]})
+    assert list_snapshots() == [f"_{name}"]
+    assert load_snapshot(name) == {"0,0": [LINE]} == load_snapshot(f"_{name}")
+    delete_snapshot(name)
+    assert list_snapshots() == []
+
+
+def test_a_name_that_only_starts_like_a_device_is_kept_as_typed():
+    save_snapshot("console", {"0,0": []})
+    save_snapshot("COM10", {"0,0": []})
+    assert list_snapshots() == ["COM10", "console"]
 
 
 def test_a_snapshot_skips_its_damaged_strokes():

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.341523
-Revised: 2026/11/14 00:23:16.234716
+Revised: 2026/11/14 11:44:53.415753
 
 The floating toolbar that drives the overlay (modes, tools, colours, size, undo, clear, hide), with its About
 and Snapshots windows. The tool, colour, size and position it is left at are remembered for the next start.
@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from vitralis.background import BackgroundTasks
 from vitralis.canvas import Canvas, DrawCapture
 from vitralis.hotkeys import GlobalHotkeyThread, GlobalMouseWheelThread
 from vitralis.icons import media_base, svg_icon
@@ -298,7 +299,10 @@ class SnapshotWindow(QWidget):
         self._drag_pos = QPoint()
         self._all_names: list[str] = []
         self._error_key = ""
+        self._tasks = BackgroundTasks(self)
+        """The snapshots are listed, saved, read and deleted off the UI thread; the buttons wait meanwhile."""
         self._build_ui()
+        self._tasks.busy_changed.connect(self._update_buttons)
         self._refresh_list()
         QShortcut(QKeySequence("Escape"), self, activated=self.close)
 
@@ -374,17 +378,27 @@ class SnapshotWindow(QWidget):
         self._name_edit.textChanged.connect(self._update_buttons)
         self._update_buttons()
 
-    def _update_buttons(self) -> None:
+    @property
+    def busy(self) -> bool:
+        """Whether the disk is still being read or written for this window."""
+        return self._tasks.busy
+
+    def _update_buttons(self, *_) -> None:
         n = len(self._list.selectedItems())
         has_name = bool(self._name_edit.text().strip())
-        self._save_btn.setEnabled((has_name or n == 1) and n <= 1)
-        self._load_btn.setEnabled(n == 1)
-        self._del_btn.setEnabled(n >= 1)
+        idle = not self.busy
+        self._save_btn.setEnabled(idle and (has_name or n == 1) and n <= 1)
+        self._load_btn.setEnabled(idle and n == 1)
+        self._del_btn.setEnabled(idle and n >= 1)
 
     def _refresh_list(self, keep_filter: bool = False) -> None:
-        self._all_names = list_snapshots()
-        query = self._name_edit.text().strip().lower() if keep_filter else ""
-        self._apply_filter(query)
+        def listed(names: list[str] | None, error: Exception | None) -> None:
+            if error is not None:  # list_snapshots logs and returns nothing when the folder can't be read
+                logger.error("couldn't list the snapshots: %s", error)
+            self._all_names = names or []
+            self._apply_filter(self._name_edit.text().strip().lower() if keep_filter else "")
+
+        self._tasks.run("snapshots-list", lambda: list_snapshots(), listed)
 
     def _on_filter(self, text: str) -> None:
         self._apply_filter(text.strip().lower())
@@ -412,47 +426,71 @@ class SnapshotWindow(QWidget):
             items = self._list.selectedItems()
             if len(items) == 1:
                 name = items[0].text()
-        if not name:
+        if not name or self.busy:
             return
-        screens = {screen_key(c.screen_geometry): c.strokes for c in self.canvases}
-        try:
-            save_snapshot(name, screens)
-        except SnapshotError:
-            self._show_error(SNAPSHOT_SAVE_FAILED)
-            return
-        self._show_error("")
-        self._name_edit.clear()
-        self._refresh_list()
+        # each list copied: the canvases go on drawing into theirs while the snapshot is written
+        screens = {screen_key(c.screen_geometry): list(c.strokes) for c in self.canvases}
+
+        def saved(_result: None, error: Exception | None) -> None:
+            if error is not None:
+                self._fail(SNAPSHOT_SAVE_FAILED, error)
+                return
+            self._show_error("")
+            self._name_edit.clear()
+            self._refresh_list()
+
+        self._tasks.run("snapshot-save", lambda: save_snapshot(name, screens), saved)
 
     def _load(self) -> None:
         items = self._list.selectedItems()
-        if len(items) != 1:
+        if len(items) != 1 or self.busy:
             return
-        try:
-            data = load_snapshot(items[0].text())
-        except SnapshotError:
-            self._show_error(SNAPSHOT_LOAD_FAILED)
-            self._refresh_list(keep_filter=True)
-            return
-        self._show_error("")
-        for canvas in self.canvases:
-            key = screen_key(canvas.screen_geometry)
-            if key in data:
-                canvas.load(data[key])
-                save_strokes_for(canvas.screen_geometry, canvas.strokes)
+        name = items[0].text()
+
+        def loaded(data: dict[str, list] | None, error: Exception | None) -> None:
+            if error is not None:
+                self._fail(SNAPSHOT_LOAD_FAILED, error)
+                self._refresh_list(keep_filter=True)
+                return
+            self._show_error("")
+            for canvas in self.canvases:
+                key = screen_key(canvas.screen_geometry)
+                if key in data:
+                    canvas.load(data[key])
+                    save_strokes_for(canvas.screen_geometry, canvas.strokes)
+
+        self._tasks.run("snapshot-load", lambda: load_snapshot(name), loaded)
 
     def _delete(self) -> None:
-        items = self._list.selectedItems()
-        if not items:
+        names = [item.text() for item in self._list.selectedItems()]
+        if not names or self.busy:
             return
-        failed = False
-        for item in items:
-            try:
-                delete_snapshot(item.text())
-            except SnapshotError:
-                failed = True
-        self._show_error(SNAPSHOT_DELETE_FAILED if failed else "")
-        self._refresh_list(keep_filter=True)
+
+        def delete_all() -> int:
+            """How many couldn't be deleted (each is logged where it fails); one failing doesn't stop the rest."""
+            failed = 0
+            for name in names:
+                try:
+                    delete_snapshot(name)
+                except SnapshotError:
+                    failed += 1
+            return failed
+
+        def deleted(failed: int | None, error: Exception | None) -> None:
+            if error is not None:
+                self._fail(SNAPSHOT_DELETE_FAILED, error)
+            else:
+                self._show_error(SNAPSHOT_DELETE_FAILED if failed else "")
+            self._refresh_list(keep_filter=True)
+
+        self._tasks.run("snapshot-delete", delete_all, deleted)
+
+    def _fail(self, key: str, error: Exception) -> None:
+        """Say ``key`` in the window; an error the snapshots' own code didn't expect (and so didn't log) is
+        logged here."""
+        if not isinstance(error, SnapshotError):
+            logger.error("snapshot work failed unexpectedly", exc_info=error)
+        self._show_error(key)
 
     def retranslate(self) -> None:
         self._title_lbl.setText(t("Snapshots"))
@@ -516,6 +554,7 @@ class Toolbar(QWidget):
         size = saved.get("size", DEFAULT_SIZE)
         self._size_index = SIZES.index(size if size in SIZES else DEFAULT_SIZE)
         self._saved_position: list[int] | None = saved.get("position")
+        self._start_hidden: bool = saved.get("hidden", False)
         self._restoring = True
         """While the saved state is applied, nothing is written back."""
         self._settings_win: SettingsWindow | None = None
@@ -532,6 +571,8 @@ class Toolbar(QWidget):
         self.setWindowTitle("Vitralis")
 
         self._build_ui()
+        if self._start_hidden:
+            self._toggle_visibility(True)  # the button shows it, so drawings left hidden don't look lost
         self._restoring = False
         self.sync_canvases()
         self.resize(self.sizeHint())
@@ -1147,6 +1188,7 @@ class Toolbar(QWidget):
             else:
                 canvas.show()
                 canvas.raise_()
+        self._remember(hidden=checked)
 
     # ------------------------------------------------------------------
     # Lifecycle

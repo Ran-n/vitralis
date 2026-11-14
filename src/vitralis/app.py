@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:03.794151
-Revised: 2026/11/14 00:23:15.605847
+Revised: 2026/11/14 11:44:53.075091
 
 Starts Vitralis behind its licence: the licence window first when no key is active on this computer, the
 overlay (``Session``) once the licence holds, and back to the licence window if it stops holding.
@@ -27,7 +27,7 @@ from vitralis.installed import sync_installed_version
 from vitralis.licence import build_licence
 from vitralis.licence.gate import LicenceGate
 from vitralis.licence.window import LicenceWindow
-from vitralis.persistence import DATA_DIR, load_strokes_for
+from vitralis.persistence import DATA_DIR, FLUSH_SECONDS, flush_writes, load_strokes_for
 from vitralis.settings import SettingsManager
 from vitralis.single_instance import SingleInstance
 from vitralis.toolbar import Toolbar
@@ -325,6 +325,8 @@ def main() -> None:
         gate.shutdown()
         parts.close()
         updates.close()
+        if not flush_writes(FLUSH_SECONDS):  # Python still waits for the writer's thread before it exits
+            logger.warning("the drawings and settings are still being written after %.0f s", FLUSH_SECONDS)
         logger.info("Vitralis quit")
 
     app.aboutToQuit.connect(_shutdown)

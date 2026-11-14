@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.127720
-Revised: 2026/11/14 00:23:16.023234
+Revised: 2026/11/14 11:44:53.234395
 
 The data folder (``%APPDATA%\\Vitralis``) and the drawings kept in it: ``strokes.json``, the strokes of every
 screen under the screen's top-left corner (``"x,y"``), and one file per named snapshot in ``snapshots``.
@@ -10,6 +10,10 @@ screen under the screen's top-left corner (``"x,y"``), and one file per named sn
 Every file is written whole to a temporary file and then put in place (``os.replace``), so a crash never leaves
 half a file. ``strokes.json`` is read once and kept in memory: each stroke drawn saves it, and reading it back
 every time would cost more the more is drawn. A damaged entry is skipped and logged, never drawn.
+
+Nothing here makes the UI wait for the disk while it draws: ``strokes.json`` (and ``settings.json``, through
+``write_in_background``) is written by ``BackgroundWriter`` on a thread of its own, and the snapshots are saved,
+read and deleted by whoever calls, which the Snapshots window does off the UI thread.
 """
 
 import json
@@ -18,6 +22,7 @@ import os
 import re
 import secrets
 import shutil
+import threading
 from pathlib import Path
 
 from PyQt6.QtCore import QRect
@@ -38,6 +43,10 @@ DAMAGED_SUFFIX = ".damaged"
 """A ``strokes.json`` that can't be read is kept under this name before a new one replaces it."""
 
 _SAFE_NAME = re.compile(r"[^\w\- ]+")
+_RESERVED_NAME = re.compile(r"(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])", re.IGNORECASE)
+"""File names Windows keeps for its devices, whatever their extension: no file can be made under them."""
+FLUSH_SECONDS = 10.0
+"""How long quitting waits for the writes still on their way to the disk."""
 
 _strokes: dict[str, list] | None = None
 """``strokes.json`` as last read or written; ``None`` until first needed."""
@@ -59,6 +68,66 @@ def write_json_atomic(path: Path, data: object, indent: int | None = 2) -> None:
         except OSError as ex:
             logger.warning("couldn't delete %s: %s", temporary, ex)
         raise
+
+
+class BackgroundWriter:
+    """Writes JSON files off the calling thread, one at a time. Of several versions of a file waiting, only the
+    latest is written: each one is the whole file. A failure is logged; the caller already moved on.
+
+    The thread lives only while something waits and isn't a daemon, so Python doesn't exit before the last
+    write is on the disk, whichever way the app quits.
+
+    What is handed over must not change afterwards: it is turned into text on the writer's thread.
+    """
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._waiting: dict[Path, tuple[object, int | None]] = {}
+        self._thread: threading.Thread | None = None
+
+    def write(self, path: Path, data: object, indent: int | None = 2) -> None:
+        with self._lock:
+            self._waiting[path] = (data, indent)
+            if self._thread is None:
+                self._thread = threading.Thread(target=self._drain, name="vitralis-writer")
+                self._thread.start()
+
+    def _drain(self) -> None:
+        while True:
+            with self._lock:
+                if not self._waiting:
+                    self._thread = None
+                    return
+                path = next(iter(self._waiting))
+                data, indent = self._waiting.pop(path)
+            try:
+                write_json_atomic(path, data, indent)
+            except OSError as ex:
+                logger.error("couldn't save %s: %s", path, ex)
+            except Exception:  # data that can't be JSON: a bug, which must not end the writes after it
+                logger.exception("couldn't save %s", path)
+
+    def flush(self, timeout: float | None = None) -> bool:
+        """Wait until nothing is left to write; whether that happened within ``timeout`` seconds."""
+        with self._lock:
+            thread = self._thread
+        if thread is None or thread is threading.current_thread():
+            return True
+        thread.join(timeout)
+        return not thread.is_alive()
+
+
+_writer = BackgroundWriter()
+
+
+def write_in_background(path: Path, data: object, indent: int | None = 2) -> None:
+    """Write ``data`` to ``path`` without waiting for the disk; ``data`` must not change afterwards."""
+    _writer.write(path, data, indent)
+
+
+def flush_writes(timeout: float | None = None) -> bool:
+    """Wait for every background write; whether they all ended within ``timeout`` seconds."""
+    return _writer.flush(timeout)
 
 
 def screen_key(geo: QRect) -> str:
@@ -122,8 +191,10 @@ def _all_strokes() -> dict[str, list]:
 
 
 def forget_strokes() -> None:
-    """Read ``strokes.json`` again at the next use (for tests, which change the file behind the app's back)."""
+    """Read ``strokes.json`` again at the next use, once what was saved is in it (for tests, which look at the
+    file and change it behind the app's back)."""
     global _strokes
+    flush_writes()
     _strokes = None
 
 
@@ -132,16 +203,13 @@ def load_strokes_for(geo: QRect) -> list[Stroke]:
     return _parse_strokes(_all_strokes().get(key, []), f"{STROKES_FILE.name} [{key}]")
 
 
-def save_strokes_for(geo: QRect, strokes: list[Stroke]) -> bool:
-    """Save one screen's strokes; whether it worked (a failure is logged and the drawing stays on screen)."""
+def save_strokes_for(geo: QRect, strokes: list[Stroke]) -> None:
+    """Save one screen's strokes, without waiting for the disk (a failure is logged and the drawing stays on
+    screen). Every save hands the writer a table of its own with this screen's list made anew, and the lists
+    of the other screens are only ever replaced, never changed: the writer reads them from its thread."""
     data = _all_strokes()
     data[screen_key(geo)] = [s.to_dict() for s in strokes]
-    try:
-        write_json_atomic(STROKES_FILE, data, indent=None)
-    except OSError as ex:
-        logger.error("couldn't save the drawings to %s: %s", STROKES_FILE, ex)
-        return False
-    return True
+    write_in_background(STROKES_FILE, dict(data), indent=None)
 
 
 # --- snapshots ----------------------------------------------------------------------------------------------
@@ -149,6 +217,8 @@ def save_strokes_for(geo: QRect, strokes: list[Stroke]) -> bool:
 
 def _snapshot_path(name: str) -> Path:
     safe = _SAFE_NAME.sub("_", name).strip()
+    if _RESERVED_NAME.fullmatch(safe):
+        safe = f"_{safe}"
     return SNAPSHOTS_DIR / f"{safe}.json"
 
 

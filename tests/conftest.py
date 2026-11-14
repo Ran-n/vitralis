@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.370504
-Revised: 2026/11/14 00:23:19.524389
+Revised: 2026/11/14 11:44:53.593760
 
 Shared fixtures for the licence's Qt tests: one offscreen ``QApplication``, a clock, an in-memory Clavren and
 store, a gate wired to them with a fake daily checker, and a way to wait for a worker thread's answer.
@@ -50,7 +50,7 @@ def own_data_folder(monkeypatch, tmp_path_factory):
     monkeypatch.setattr(settings, "SETTINGS_FILE", data / "settings.json")
     persistence.forget_strokes()
     yield data
-    persistence.forget_strokes()
+    persistence.forget_strokes()  # waits for what the test left on its way to the disk, too
 
 
 @pytest.fixture(autouse=True)
