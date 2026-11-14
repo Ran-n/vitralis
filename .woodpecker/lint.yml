@@ -1,0 +1,18 @@
+# .woodpecker/lint.yml
+#
+# Lint and format check on every push and pull request. The tests need Windows
+# (see .github/workflows/ci.yml), which Codeberg's CI doesn't have; the linter
+# runs anywhere.
+
+when:
+  - event: push
+    branch: main
+  - event: pull_request
+
+steps:
+  lint:
+    image: ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+    commands:
+      # the version uv.lock pins: a newer ruff may format differently
+      - uvx ruff@0.15.12 format --check .
+      - uvx ruff@0.15.12 check .

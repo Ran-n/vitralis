@@ -1,4 +1,4 @@
-# .woodpecker.yml
+# .woodpecker/pages.yml
 #
 # On every push to main that touches docs/, mirrors docs/ into the
 # "pages" branch so Codeberg Pages serves the latest landing page.
