@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/14 16:56:40.607385 )
+[//]: # (+ Revised: 	2026/11/14 17:10:53.527107 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -56,6 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Linting, formatting and the tests with a coverage gate run in CI (the
   linter on GitHub, GitLab and Codeberg; the tests on GitHub, on Windows).
 - `.python-version` pins Python 3.13, the version Vitralis is built with.
+- The live test that the real license server refuses an unknown key runs
+  without a test key (`uv run pytest -m live`).
 - Rendered tests of the real windows (`uv run pytest -m desktop`,
   Windows): the toolbar, its windows and an overlay run in a process of
   their own on a scratch data folder, clicked with posted window messages
