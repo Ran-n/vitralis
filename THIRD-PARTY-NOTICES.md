@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/11/15 14:27:08.965600 )
-[//]: # (+ Revised: 	2026/11/15 14:27:08.965600 )
+[//]: # (+ Revised: 	2026/11/15 22:00:34.154435 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Third-party notices
@@ -31,4 +31,30 @@ licence text is in its repository and in the package it ships.
 | typing_extensions | PSF-2.0 | <https://github.com/python/typing_extensions> |
 | PyInstaller bootloader | GPL-2.0-or-later with the bootloader exception | <https://pyinstaller.org/> |
 
-The Breren logo in the About window belongs to Breren, which publishes Vitralis.
+## Icons
+
+Several toolbar icons (`src/vitralis/media/icons`) are taken from, or drawn after, these icon sets, whose terms
+ask that their notices go with them:
+
+| Icons | Licence | Where |
+|---|---|---|
+| Feather | MIT | <https://github.com/feathericons/feather> |
+| Lucide | ISC | <https://github.com/lucide-icons/lucide> |
+
+Feather: Copyright (c) 2013-2023 Cole Bemis. Permission is hereby granted, free of charge, to any person
+obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software
+without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute,
+sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do
+so, subject to the following conditions: The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT
+WARRANTY OF ANY KIND, EXPRESS OR IMPLIED.
+
+Lucide: Copyright (c) for portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT). All
+other copyright (c) for Lucide are held by Lucide Contributors 2022. Permission to use, copy, modify, and/or
+distribute this software for any purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies. THE SOFTWARE IS PROVIDED "AS IS" AND THE
+AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE.
+
+## Logo
+
+The Breren logo in the About window and at the foot of the README belongs to Breren, which publishes Vitralis.

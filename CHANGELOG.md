@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/15 21:45:32.544771 )
+[//]: # (+ Revised: 	2026/11/15 22:00:32.843631 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -87,15 +87,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- About and the README show Breren's original logo (the castro with its
+  three ramparts) instead of the simplified square mark; About draws it in
+  the logo's own dark-background colours, so it reads on the dark window
+- The user guide ends with a Troubleshooting table built from Vitralis's
+  real messages, and Help; every guide starts with links to the others, and
+  the development guide lists each forge's HTTPS and SSH clone addresses
+- The toolbar icons taken from or drawn after Feather (MIT) and Lucide (ISC)
+  are credited, with their notices, in `THIRD-PARTY-NOTICES.md`
 - The rendered tests run with their windows cloaked, so nothing shows on
   the screen (`VITRALIS_SHOW_TEST_WINDOW=1` shows them), on a scratch folder
   under `%PUBLIC%` instead of the user's Temp folder, and fail before taking
   a picture when anything the test copy shows names the user
-- The README is a landing page for people who want to use Vitralis
-  (download, screenshots from the reviewed test pictures, getting started,
-  your data, questions); the full manual moved to `docs/user-guide.md`, the
+- The README is a landing page for people who want to use Vitralis: a
+  first picture of Vitralis at work (notes drawn by its own overlay over a
+  made-up slide, recorded and reviewed with the other test pictures), a
+  walk-through, a download table naming each file and what it is, how to
+  check a download is genuine, privacy in plain claims, answered questions
+  and the Breren footer. The full manual moved to `docs/user-guide.md`, the
   build, test and release guide to `docs/development.md`, and the design
-  record to `docs/design-decisions.md`.
+  record to `docs/design-decisions.md`
 - The linter no longer runs on Codeberg: CI runs on GitHub and GitLab, and
   Codeberg is a mirror with the releases.
 - `uv run build` no longer leaves an unversioned `dist\vitralis.exe` beside

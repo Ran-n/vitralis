@@ -1,10 +1,12 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/11/15 14:27:08.591673 )
-[//]: # (+ Revised: 	2026/11/15 21:45:34.286359 )
+[//]: # (+ Revised: 	2026/11/15 22:00:34.726782 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Design decisions
+
+[README](../README.md) · [User guide](user-guide.md) · [Development guide](development.md) · **Design decisions**
 
 Why Vitralis does some things the way it does. Each record says what the problem was, what was decided, how it
 compares with common practice, and what follows from it.

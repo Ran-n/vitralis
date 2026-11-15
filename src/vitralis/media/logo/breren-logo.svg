@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Castro — a hillfort in plan (brigā: fortified, elevated settlement).
+       Ramparts follow the hill's contour rather than a true circle, the
+       way castro walls trace the terrain. Dry-stone ramparts, timber-and-
+       thatch huts (pallozas) — materials real castros were actually built from.
+       Colors swap for light/dark backgrounds so contrast holds either way.
+       Scaled outward and thickened so the mark carries enough ink to hold
+       its own with no background box behind it. -->
+  <style>
+    .outer  { stroke: #33302e; }
+    .middle { stroke: #4a4542; }
+    .inner  { stroke: #635d59; }
+    .hut    { fill: #6b4423; }
+    @media (prefers-color-scheme: dark) {
+      .outer  { stroke: #b0a696; }
+      .middle { stroke: #a39d95; }
+      .inner  { stroke: #928878; }
+      .hut    { fill: #c9944f; }
+    }
+  </style>
+
+  <!-- Outer rampart, irregular contour, broken by a gate -->
+  <path class="outer" fill="none" stroke-width="32" stroke-linecap="round"
+        d="M 191.0 68.5 Q 256.0 59.9 321.7 67.6 Q 387.3 75.2 412.8 136.1
+           Q 438.2 196.8 449.0 259.5 Q 459.8 322.2 417.5 371.3
+           Q 375.2 420.2 315.6 452.1 Q 256.0 484.0 200.4 446.5
+           Q 144.7 409.1 97.4 366.0 Q 50.0 322.9 55.5 257.7
+           Q 60.8 192.6 93.4 134.8"/>
+
+  <!-- Middle rampart, irregular contour, closed -->
+  <path class="middle" fill="none" stroke-width="26"
+        d="M 212.5 128.8 Q 256.0 121.5 300.2 127.9 Q 344.5 134.2 361.0 175.4
+           Q 377.4 216.6 386.1 258.9 Q 394.7 301.1 365.6 333.9
+           Q 336.4 366.7 296.2 387.7 Q 256.0 408.8 219.2 383.1
+           Q 182.2 357.5 150.9 329.0 Q 119.4 300.3 124.8 257.7
+           Q 130.3 215.2 149.5 175.6 Q 168.9 136.1 212.5 128.8 Z"/>
+
+  <!-- Inner rampart, irregular contour, closed -->
+  <path class="inner" fill="none" stroke-width="19"
+        d="M 225.3 185.4 Q 256.0 176.2 288.3 183.8 Q 320.5 191.5 325.9 223.7
+           Q 331.2 256.0 325.1 287.5 Q 318.9 318.9 287.5 328.5
+           Q 256.0 338.1 222.9 330.1 Q 189.9 322.1 186.5 289.1
+           Q 183.0 256.0 188.9 225.3 Q 194.8 194.8 225.3 185.4 Z"/>
+
+  <!-- Hut foundations, timber-and-thatch (bher— what the fort carries and protects) -->
+  <circle class="hut" cx="256.0" cy="216.7" r="15.6"/>
+  <circle class="hut" cx="291.5" cy="244.4" r="12.0"/>
+  <circle class="hut" cx="280.2" cy="289.3" r="13.2"/>
+  <circle class="hut" cx="235.2" cy="284.7" r="10.8"/>
+  <circle class="hut" cx="215.2" cy="242.7" r="14.4"/>
+  <circle class="hut" cx="256.0" cy="256.0" r="18.0"/>
+</svg>

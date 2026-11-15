@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:03.995834
-Revised: 2026/11/15 21:40:08.870342
+Revised: 2026/11/15 22:00:36.474782
 """
 
 import sys
@@ -17,7 +17,8 @@ BUNDLED_FOLDERS = (LOGO_FOLDER, ICONS_FOLDER)
 """Every folder of pictures the app reads, relative to ``media_base()``: the build packs each into the exe."""
 APP_LOGO = "icon.png"
 """Vitralis's stained-glass logo: on the toolbar, in About, in the tray and as the exe's icon."""
-COMPANY_LOGO = "breren.svg"
+COMPANY_LOGO = "breren-logo-dark.svg"
+"""Breren's original logo, in its own dark-background colours: Vitralis's windows are dark."""
 
 _ICONS_DIR: Path | None = None
 _FLAGS_DIR: Path | None = None

@@ -1,13 +1,16 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/11/15 16:41:04.658676 )
-[//]: # (+ Revised: 	2026/11/15 21:45:35.244620 )
+[//]: # (+ Revised: 	2026/11/15 22:00:35.292224 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Developing Vitralis
 
-How to run Vitralis from source, test it, build it and release it. [CONTRIBUTING.md](../CONTRIBUTING.md) says
-how to propose a change; [design-decisions.md](design-decisions.md) says why some things are the way they are.
+[README](../README.md) · [User guide](user-guide.md) · **Development guide** · [Design decisions](design-decisions.md)
+
+How to run Vitralis from source, test it, build it and release it. New here? Start with
+[Run from source](#run-from-source), then [Tests](#tests). [CONTRIBUTING.md](../CONTRIBUTING.md) says how to
+propose a change; [design-decisions.md](design-decisions.md) says why some things are the way they are.
 
 ## Contents
 
@@ -20,9 +23,17 @@ how to propose a change; [design-decisions.md](design-decisions.md) says why som
 
 ## Run from source
 
-Python 3.13 and [uv](https://docs.astral.sh/uv/), on Windows:
+Python 3.13 and [uv](https://docs.astral.sh/uv/), on Windows. Clone from any forge:
+
+| Forge | HTTPS | SSH |
+|---|---|---|
+| GitHub | `https://github.com/Ran-n/vitralis.git` | `git@github.com:Ran-n/vitralis.git` |
+| GitLab | `https://gitlab.com/Ran-n/vitralis.git` | `git@gitlab.com:Ran-n/vitralis.git` |
+| Codeberg | `https://codeberg.org/ran-n/vitralis.git` | `git@codeberg.org:ran-n/vitralis.git` |
 
 ```
+git clone https://github.com/Ran-n/vitralis.git
+cd vitralis
 uv sync
 uv run vitralis
 ```
@@ -35,11 +46,14 @@ Windows account. Run from source, Vitralis is a build from source: it never chec
 | Folder | What it holds |
 |---|---|
 | `src/vitralis` | the app: overlay (`canvas`, `renderer`), toolbar and its windows, settings, persistence |
+| `src/vitralis/media/logo` | the logos: `icon.png` (toolbar, windows, exe), `icon_title.png` (the README's header), `breren-logo.svg` (Breren's original logo, the README's footer; it follows the reader's light or dark theme) and `breren-logo-dark.svg` (the same logo in its dark-background colours, for About: Qt ignores the theme switch) |
+| `src/vitralis/media/icons` | the toolbar's icons and the language flags |
 | `src/vitralis/licence` | the license gate and its Clavren client |
 | `src/vitralis/updates` | the updater: rules, release target and file names, signatures, forges, download, install, its Settings section |
 | `src/vitralis/sign.py` | `vitralis-sign`, the release signing tool |
 | `packaging/windows` | the Inno Setup installer, `build-installer.ps1` and `test-installer.ps1` |
 | `tests` | the tests; `tests/rendered` drives the real windows, `tests/updates/golden` holds the forges' answers |
+| `tests/rendered/baselines` | the reviewed pictures of the real windows, which are also the README's pictures (`hero.png`, drawn by `tests/rendered/hero.py`, is its first) |
 | `docs` | the landing page (served by GitHub, GitLab and Codeberg Pages) and these guides |
 
 ## Tests

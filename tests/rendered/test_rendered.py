@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 16:56:38.576341
-Revised: 2026/11/15 21:40:13.444704
+Revised: 2026/11/15 22:00:37.739376
 
 Vitralis as Windows draws it: the real toolbar, its windows and an overlay canvas run in a process of their own
 (``driver.py``) on a scratch data folder, clicked and dragged with posted window messages and looked at with
@@ -196,6 +196,25 @@ def test_the_dot_on_settings_says_a_new_version_is_offered(running):
     assert is_color(shot.pixelColor(shot.width() + x, y), BTN_CHECKED)
     running.click("toolbar._settings_btn")
     baseline(running, "settings", "panel-settings-update")  # and Settings says which, with what to do about it
+
+
+def test_the_readme_hero_shows_notes_over_a_slide_beside_the_toolbar(app):
+    """The README's first picture: Vitralis doing its job. Its notes are the overlay's own drawing code, its
+    toolbar the real one, so the picture follows the app's look and is reviewed like the others."""
+    from PyQt6.QtGui import QImage
+
+    from tests.rendered import hero
+
+    if app.ratio() != 1.0:
+        pytest.skip(f"the baselines were taken at 100 % scaling; this screen is at {app.ratio():.0%}")
+    picture = QImage(app.ask("hero")["path"])
+    assert (picture.width(), picture.height()) == hero.SIZE
+    colours = {QColor(colour).name() for colour in (hero.ORANGE, hero.RED, hero.GREEN, hero.BLUE)}
+    seen = {
+        picture.pixelColor(x, y).name() for x in range(0, picture.width(), 2) for y in range(0, picture.height(), 2)
+    }
+    assert colours <= seen  # every note is on it, in its colour
+    pictures.check(picture.convertToFormat(QImage.Format.Format_RGB32), "hero")
 
 
 def test_the_windows_stay_off_the_screen(app):

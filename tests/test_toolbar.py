@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:11.688678
-Revised: 2026/11/15 21:40:14.743931
+Revised: 2026/11/15 22:00:38.309154
 
 The real toolbar on the offscreen ``QApplication``, with its system-wide keyboard and mouse hooks replaced by
 inert stand-ins: the accent dot on the Settings button shows only while an update is offered, painted inside
@@ -175,6 +175,39 @@ def test_a_missing_about_logo_is_logged_and_the_window_is_still_whole(qapp, icon
     assert caplog.text.count("can't be loaded") == 2  # Vitralis's logo and Breren's
     assert window.build_label.text() == "v1.4.0 · built from source"
     window.deleteLater()
+
+
+def test_about_shows_breren_s_original_logo_in_its_dark_colours(qapp, icons):
+    """Regression guard: About showed the simplified square mark, and Qt drew the original's light-background
+    colours, which barely show on the dark window."""
+    from collections import Counter
+
+    from vitralis import icons as icon_module
+
+    window = InfoWindow("1.4.0")
+    mark = [label for label in window.findChildren(QLabel) if label.pixmap() and not label.pixmap().isNull()][-1]
+    assert mark.pixmap().width() == 18
+    image = icon_module.logo_path(icon_module.COMPANY_LOGO)
+    from PyQt6.QtGui import QPixmap
+
+    drawn = QPixmap(str(image)).toImage()
+    colours = Counter(drawn.pixelColor(x, y).name() for x in range(0, 512, 4) for y in range(0, 512, 4))
+    assert {"#b0a696", "#a39d95", "#928878", "#c9944f"} <= set(colours)  # the dark-background palette
+    assert not {"#33302e", "#4a4542", "#635d59", "#6b4423"} & set(colours)  # never the light one
+    window.deleteLater()
+
+
+def test_the_app_s_breren_logo_is_the_original_drawing():
+    """The app's copy is the README's original logo with only its colours fixed: same ramparts, same huts."""
+    import re
+
+    from vitralis import icons as icon_module
+
+    original = icon_module.logo_path("breren-logo.svg").read_text(encoding="utf-8")
+    dark = icon_module.logo_path(icon_module.COMPANY_LOGO).read_text(encoding="utf-8")
+    shapes = re.compile(r"<(?:path|circle)\b[^>]*>", re.DOTALL)
+    assert shapes.findall(dark) == shapes.findall(original) and len(shapes.findall(original)) == 9
+    assert "Outer rampart" in original and "prefers-color-scheme: dark" in original
 
 
 def test_the_about_links_point_at_files_the_repository_has():

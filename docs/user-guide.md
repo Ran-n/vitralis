@@ -1,12 +1,15 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/11/15 16:41:04.380156 )
-[//]: # (+ Revised: 	2026/11/15 21:45:36.156622 )
+[//]: # (+ Revised: 	2026/11/15 22:00:35.895705 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Vitralis user guide
 
-Everything Vitralis does and how to use it. The [README](../README.md) is the short tour.
+[README](../README.md) · **User guide** · [Development guide](development.md) · [Design decisions](design-decisions.md)
+
+Everything Vitralis does and how to use it. New to it? The [README](../README.md) is the short tour; start
+here at [Installing](#installing), or jump to [Troubleshooting](#troubleshooting) when something goes wrong.
 
 ## Contents
 
@@ -16,6 +19,8 @@ Everything Vitralis does and how to use it. The [README](../README.md) is the sh
 - [The license key](#the-license-key)
 - [Updates](#updates)
 - [Where your data lives](#where-your-data-lives)
+- [Troubleshooting](#troubleshooting)
+- [Help](#help)
 
 ## Installing
 
@@ -96,3 +101,28 @@ A minute after start, and then a day after the last check that worked (an hour a
 
 A file Vitralis can't read is kept aside as `<name>.damaged` (numbered when there are several) and Vitralis
 starts with the defaults, so nothing you had is ever overwritten.
+
+## Troubleshooting
+
+| What you see | What to do |
+|---|---|
+| No toolbar on the screen | Press `F8`, or **Show toolbar** in the Vitralis icon's menu in the notification area. Only one Vitralis runs per Windows account: starting it again brings the running one forward. |
+| Clicks don't reach the windows under the drawings | You're still drawing (or in Pan or Delete mode). Right-click or press `Esc`. |
+| "Windows protected your PC" on the first start | Vitralis isn't code-signed for Windows. Click **More info**, then **Run anyway**. |
+| "This key is already in use on another computer." | A key works on one computer. Ask ran.hash@proton.me to reset it, then enter it again here. |
+| "Vitralis needs to check its license online." | It has been offline for 30 days. Connect to the internet and press **Check again**. |
+| "The license server can't be reached." | Check your internet connection; Vitralis keeps working offline until the date in **Settings › License**. |
+| "Couldn't check for updates: …" | Each forge's reason follows. It tries again in an hour; **Check now** tries at once. |
+| "Vitralis couldn't replace itself at …: the folder can't be written to." | The portable exe sits in a folder you can't write to. Move it to one of your own folders, or use the installer. |
+| "The download … didn't match its checksum" or "isn't signed with Vitralis's release key" | Nothing was installed and the file was deleted. Try again later; if it happens again, report it. |
+| Drawings or settings gone after a start | A file Vitralis couldn't read was kept as `<name>.damaged` in `%APPDATA%\Vitralis`, and Vitralis started with the defaults. Report it with that file. |
+
+**Collecting a log for a report.** Vitralis writes `%APPDATA%\Vitralis\vitralis.log`. Quit Vitralis, then
+attach that file (and any `.damaged` file) to your report.
+
+## Help
+
+Report a problem or ask a question on [GitHub](https://github.com/Ran-n/vitralis/issues),
+[GitLab](https://gitlab.com/Ran-n/vitralis/-/issues) or [Codeberg](https://codeberg.org/ran-n/vitralis/issues);
+[CONTRIBUTING.md](../CONTRIBUTING.md#reporting-bugs) says what a good report has in it. For a license key, a reset
+or an extension, write to ran.hash@proton.me.

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 16:56:37.129213
-Revised: 2026/11/15 21:40:12.815569
+Revised: 2026/11/15 22:00:37.088140
 
 The real toolbar, its windows and one overlay canvas, running as a process of its own for the rendered tests:
 ``python -m tests.rendered.driver <data folder>``. It reads one JSON command per line on stdin and answers each
@@ -37,6 +37,7 @@ from PyQt6.QtCore import QPoint, QRect, QThread, pyqtSignal
 from PyQt6.QtWidgets import QAbstractButton, QApplication, QLabel, QLineEdit, QPushButton, QWidget
 
 from tests.licence.fakes import START, FakeClock, licensed
+from tests.rendered import hero
 from tests.rendered.hidden import Cloaker, is_cloaked, shown
 from tests.rendered.personal import refuse_personal
 from tests.updates.fakes import NOON, TARGET, FakeFeed, MemorySettings
@@ -187,6 +188,13 @@ class Driver:
         corner = widget.mapTo(window, QPoint(0, 0))
         box = [corner.x(), corner.y(), widget.width(), widget.height()]
         return {"hwnd": int(window.winId()), "rect": [round(value * ratio) for value in box], "ratio": ratio}
+
+    def do_hero(self, **_) -> dict:
+        """Draw the README's hero picture (``hero.py``) into the scratch folder; where it is."""
+        path = Path(sys.argv[1], "hero.png")
+        if not hero.render(self.bar).save(str(path)):
+            raise OSError(f"couldn't write {path}")
+        return {"path": str(path)}
 
     def do_cloaked(self, **_) -> dict:
         """Whether DWM keeps each window that is up off the screen."""
