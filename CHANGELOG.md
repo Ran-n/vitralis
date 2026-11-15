@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/15 02:48:34.773263 )
+[//]: # (+ Revised: 	2026/11/15 02:54:56.643728 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -143,6 +143,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   by hand in an editor that adds one) are read instead of counting as
   damaged, and a file Windows refuses to even look at counts as unreadable
   instead of stopping the start.
+- A snapshot saved with a byte-order mark loads, and a settings or
+  drawings file that isn't UTF-8 text (saved as "Unicode" from Notepad)
+  counts as damaged and is kept aside.
 - A tray message also says when settings start being held back while
   Vitralis runs, and a save the disk refused is never replayed over a
   file that can't be read.

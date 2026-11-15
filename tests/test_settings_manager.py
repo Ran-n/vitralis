@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:11.023352
-Revised: 2026/11/15 02:48:37.027017
+Revised: 2026/11/15 02:54:58.091096
 
 ``settings.json`` through ``SettingsManager`` (a real file in ``tmp_path``): the update defaults, an old file
 without ``"updates"``, values surviving a restart, two managers not undoing each other's changes, and a broken
@@ -294,6 +294,17 @@ def test_a_file_saved_with_a_byte_order_mark_is_read(settings_file):
     settings_file.write_bytes(b"\xef\xbb\xbf" + json.dumps({"language": "Deutsch"}).encode())
     assert SettingsManager().language() == "Deutsch"
     assert not settings_file.with_name(settings_file.name + DAMAGED_SUFFIX).exists()
+
+
+@pytest.mark.parametrize("content", ['{"language": "Deutsch"}'.encode("utf-16"), b'{"language": "caf\xe9"}'])
+def test_a_file_that_isnt_utf8_text_is_damaged_not_a_crash(settings_file, content):
+    """Regression guard: the decoding error escaped, and Vitralis stopped while starting."""
+    settings_file.write_bytes(content)
+    manager = SettingsManager()
+    assert manager.shortcuts() == DEFAULT_SHORTCUTS and not settings_module.settings_unreadable()
+    assert settings_file.with_name(settings_file.name + DAMAGED_SUFFIX).read_bytes() == content
+    manager.set_skipped_version("1.4.0")
+    assert SettingsManager().skipped_version() == "1.4.0"
 
 
 def test_a_file_windows_wont_even_say_exists_counts_as_unreadable(settings_file, monkeypatch, caplog):

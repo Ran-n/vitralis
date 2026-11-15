@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 07:52:06.389478
-Revised: 2026/11/15 02:48:35.919458
+Revised: 2026/11/15 02:54:57.366759
 
 ``settings.json`` (``SettingsManager``) and the settings window: the keyboard shortcuts, the language, the
 updates and the licence.
@@ -232,15 +232,14 @@ class SettingsManager:
         _unreadable = _damaged = False
         try:
             raw = read_json_text(SETTINGS_FILE)
+            if raw is None:
+                return {}
+            data = json.loads(raw)
         except OSError as ex:
             logger.error("couldn't read %s, using the defaults and leaving the file as it is: %s", SETTINGS_FILE, ex)
             _unreadable = True
             return {}
-        if raw is None:
-            return {}
-        try:
-            data = json.loads(raw)
-        except ValueError as ex:
+        except ValueError as ex:  # not JSON, or not text at all (saved as UTF-16, say)
             logger.warning("%s is damaged, using the defaults: %s", SETTINGS_FILE, ex)
             keep_damaged(SETTINGS_FILE)
             _damaged = True

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.127720
-Revised: 2026/11/15 02:48:35.537478
+Revised: 2026/11/15 02:54:56.994506
 
 The data folder (``%APPDATA%\\Vitralis``) and the drawings kept in it: ``strokes.json``, the strokes of every
 screen under the screen's top-left corner (``"x,y"``), and one file per named snapshot in ``snapshots``.
@@ -231,15 +231,14 @@ def _read_strokes_file() -> dict[str, list]:
     _strokes_unreadable = False
     try:
         raw = read_json_text(STROKES_FILE)
+        if raw is None:
+            return {}
+        data = json.loads(raw)
     except OSError as ex:
         logger.error("couldn't read %s, starting without drawings and leaving the file as it is: %s", STROKES_FILE, ex)
         _strokes_unreadable = True
         return {}
-    if raw is None:
-        return {}
-    try:
-        data = json.loads(raw)
-    except ValueError as ex:
+    except ValueError as ex:  # not JSON, or not text at all (saved as UTF-16, say)
         logger.error("%s is damaged, starting without drawings: %s", STROKES_FILE, ex)
         keep_damaged(STROKES_FILE)
         return {}
@@ -358,7 +357,10 @@ def load_snapshot(name: str) -> dict[str, list[Stroke]]:
     """A named snapshot as screen key → strokes; ``SnapshotError`` when it is missing or can't be read."""
     path = _snapshot_path(name)
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
+        raw = read_json_text(path)
+        if raw is None:
+            raise FileNotFoundError(f"there is no snapshot {name}")
+        data = json.loads(raw)
     except (OSError, ValueError) as ex:
         logger.error("couldn't read the snapshot %s: %s", path, ex)
         raise SnapshotError(f"{path}: {ex}") from ex

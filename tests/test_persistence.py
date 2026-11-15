@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:10.961213
-Revised: 2026/11/15 02:48:36.652146
+Revised: 2026/11/15 02:54:57.737780
 
 The drawings on disk (real files in the test's own data folder): strokes per screen surviving a restart, the
 first versions' bare list, damaged entries and files, writes that are whole or not at all and never make the
@@ -216,6 +216,34 @@ def test_drawings_saved_with_a_byte_order_mark_are_read():
     restart()
     assert load_strokes_for(PRIMARY) == [LINE]
     assert not persistence.STROKES_FILE.with_name(persistence.STROKES_FILE.name + DAMAGED_SUFFIX).exists()
+
+
+NOT_UTF8 = ['{"0,0": []}'.encode("utf-16"), b'{"caf\xe9": []}']
+"""As Notepad's "Unicode" writes a file, and a Latin-1 letter: bytes that aren't UTF-8 text."""
+
+
+@pytest.mark.parametrize("content", NOT_UTF8)
+def test_drawings_that_arent_utf8_text_are_damaged_not_a_crash(content):
+    """Regression guard: the decoding error escaped, and Vitralis stopped while starting."""
+    persistence.STROKES_FILE.write_bytes(content)
+    assert load_strokes_for(PRIMARY) == [] and not persistence.strokes_unreadable()
+    kept = persistence.STROKES_FILE.with_name(persistence.STROKES_FILE.name + DAMAGED_SUFFIX)
+    assert kept.read_bytes() == content
+    save_strokes_for(PRIMARY, [LINE])
+    restart()
+    assert load_strokes_for(PRIMARY) == [LINE]
+
+
+def test_a_snapshot_saved_with_a_byte_order_mark_is_loaded_and_one_that_isnt_text_says_so():
+    save_snapshot("review", {"0,0": [LINE]})
+    path = persistence.SNAPSHOTS_DIR / "review.json"
+    path.write_bytes(b"\xef\xbb\xbf" + path.read_bytes())
+    assert load_snapshot("review") == {"0,0": [LINE]}
+    path.write_bytes(NOT_UTF8[0])
+    with pytest.raises(SnapshotError):
+        load_snapshot("review")
+    with pytest.raises(SnapshotError, match="no snapshot"):
+        load_snapshot("never saved")
 
 
 def test_a_refused_write_can_be_given_up_and_a_flush_can_leave_it_alone(monkeypatch):
