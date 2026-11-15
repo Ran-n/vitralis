@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/11/15 16:41:04.658676 )
-[//]: # (+ Revised: 	2026/11/15 21:40:06.852046 )
+[//]: # (+ Revised: 	2026/11/15 21:45:35.244620 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Developing Vitralis
@@ -83,7 +83,7 @@ VITRALIS_UPDATE_BASELINES=1 uv run pytest -m desktop --no-cov
 uv run build
 ```
 
-It builds the one-file exe `dist/vitralis-<version>-windows-x86_64.exe` (PyInstaller) and then the installer `dist/vitralis-<version>-windows-x86_64-setup.exe` with [packaging/windows/build-installer.ps1](../packaging/windows/build-installer.ps1), which needs [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`; it looks on PATH and in Inno Setup's usual folders, or takes `-Compiler` or `ISCC`). `uv run build --no-installer` builds only the exe. Without `VITRALIS_RELEASE_TARGET=windows-x86_64` the exe is a build from source, which never updates itself; releases are built by the [release workflow](../.github/workflows/release.yml) with it set (see [Releases](#releases)).
+It builds the one-file exe `dist/vitralis-<version>-windows-x86_64-portable.exe` (PyInstaller) and then the installer `dist/vitralis-<version>-windows-x86_64-setup.exe` with [packaging/windows/build-installer.ps1](../packaging/windows/build-installer.ps1), which needs [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`; it looks on PATH and in Inno Setup's usual folders, or takes `-Compiler` or `ISCC`). `uv run build --no-installer` builds only the exe. Without `VITRALIS_RELEASE_TARGET=windows-x86_64` the exe is a build from source, which never updates itself; releases are built by the [release workflow](../.github/workflows/release.yml) with it set (see [Releases](#releases)).
 
 Test an installer for real, in a scratch folder it cleans up after itself (it refuses to run over an installed Vitralis; see the script for how to test beside one):
 
@@ -131,7 +131,7 @@ nothing without a valid `.sig` (see [design-decisions.md](design-decisions.md)).
 
 | Built on | File |
 |----------|------|
-| `windows-latest` | `vitralis-<version>-windows-x86_64.exe` (portable; what the updater downloads) |
+| `windows-latest` | `vitralis-<version>-windows-x86_64-portable.exe` (portable; what the updater downloads) |
 | `windows-latest` | `vitralis-<version>-windows-x86_64-setup.exe` (installer) |
 | `windows-latest` | `vitralis-<version>-py3-none-any.whl` |
 | `windows-latest` | `vitralis-<version>.tar.gz` |

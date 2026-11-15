@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/11/15 14:27:08.591673 )
-[//]: # (+ Revised: 	2026/11/15 16:41:05.775016 )
+[//]: # (+ Revised: 	2026/11/15 21:45:34.286359 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Design decisions
@@ -18,7 +18,7 @@ next to the file proves nothing about who made it.
 
 **Decision.** The updater (`src/vitralis/updates`) asks GitHub and GitLab at the same time for the latest
 release and takes the newest answer, so one forge being down can't hide a release. A release offers the
-portable exe `vitralis-<version>-windows-x86_64.exe` with a `.b3` (BLAKE3) and a `.sig`: an Ed25519 signature
+portable exe `vitralis-<version>-windows-x86_64-portable.exe` with a `.b3` (BLAKE3) and a `.sig`: an Ed25519 signature
 by the release key over `vitralis-release-v1`, the version, the file name and the hash. Before one byte of
 the exe is asked for, the `.sig` must check out against one of the two public keys built into Vitralis (the
 signing key and a backup kept apart). The exe is then streamed, capped at 200 MiB, 60 s without data and 30

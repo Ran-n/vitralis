@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 19:56:04.526845
-Revised: 2026/11/15 21:40:14.131007
+Revised: 2026/11/15 21:45:41.496074
 
 ``uv run build`` and the installer: the release target the exe is built with (a value that isn't a target
 stops the build), the files the packaged exe reads, the installer script's command line, a real compile of
@@ -56,7 +56,7 @@ def test_the_build_writes_the_version_and_the_target_the_packaged_exe_reads(tmp_
 
 
 def test_the_exe_and_the_installer_never_share_a_name():
-    assert asset_name("1.4.0", build.TARGET) == "vitralis-1.4.0-windows-x86_64.exe"
+    assert asset_name("1.4.0", build.TARGET) == "vitralis-1.4.0-windows-x86_64-portable.exe"
     assert installer_name("1.4.0", build.TARGET) == "vitralis-1.4.0-windows-x86_64-setup.exe"
 
 

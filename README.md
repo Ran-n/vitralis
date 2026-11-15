@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/04/27 10:48:03.565778 )
-[//]: # (+ Revised: 	2026/11/15 16:41:04.941911 )
+[//]: # (+ Revised: 	2026/11/15 21:45:33.216142 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 <div align="center">
@@ -68,7 +68,7 @@ Get it from the [latest release](https://github.com/Ran-n/vitralis/releases/late
 | You want | Download |
 |---|---|
 | Vitralis installed, in the Start menu (recommended) | `vitralis-<version>-windows-x86_64-setup.exe` |
-| One file to run from a folder of your own, nothing installed | `vitralis-<version>-windows-x86_64.exe` |
+| One file to run from a folder of your own, nothing installed | `vitralis-<version>-windows-x86_64-portable.exe` |
 
 The installer needs no administrator rights and installs for your account only. Both copies update themselves.
 

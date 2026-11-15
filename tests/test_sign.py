@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/15 14:24:49.867204
-Revised: 2026/11/15 14:24:49.867204
+Revised: 2026/11/15 21:45:42.111787
 
 ``vitralis-sign``: a generated key signs something the updater accepts; the key can be piped in; keygen never
 overwrites a file; files that aren't this version's are refused; wrong inputs give a reason and exit 1.
@@ -19,7 +19,7 @@ from vitralis.updates.rules import parse_version
 from vitralis.updates.signature import public_key, statement, verify
 
 VERSION = "1.4.0"
-ASSET = f"vitralis-{VERSION}-windows-x86_64.exe"
+ASSET = f"vitralis-{VERSION}-windows-x86_64-portable.exe"
 
 
 @pytest.fixture(autouse=True)
@@ -96,7 +96,7 @@ def test_verify_says_a_missing_signature(asset, capsys):
 
 
 def test_a_file_of_another_version_is_refused_unsigned(tmp_path, capsys):
-    other = tmp_path / "vitralis-1.3.0-windows-x86_64.exe"
+    other = tmp_path / "vitralis-1.3.0-windows-x86_64-portable.exe"
     other.write_bytes(b"MZ")
     key = tmp_path / "key.txt"
     key.write_text(SECRET, encoding="utf-8")

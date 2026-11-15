@@ -110,7 +110,7 @@ jobs:
             echo "::error::CHANGELOG.md has no section for $version"
             exit 1
           fi
-          printf '\nDownload `vitralis-%s-windows-x86_64-setup.exe` to install Vitralis, or `vitralis-%s-windows-x86_64.exe` to run it without installing.\n' "$version" "$version" >> notes.md
+          printf '\nDownload `vitralis-%s-windows-x86_64-setup.exe` to install Vitralis, or `vitralis-%s-windows-x86_64-portable.exe` to run it without installing.\n' "$version" "$version" >> notes.md
       - name: Create the draft release
         env:
           GH_TOKEN: ${{ github.token }}

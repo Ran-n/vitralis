@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/15 14:24:51.497372
-Revised: 2026/11/15 14:24:51.497372
+Revised: 2026/11/15 21:45:44.237661
 
 Which build this is and what its files are called: the packaged exe takes its target from ``_release.py`` and
 ignores every override; a copy run from source is a build from source unless a test gives it a target; an
@@ -66,7 +66,7 @@ def test_a_packaged_exe_built_before_release_targets_is_a_build_from_source(monk
 
 def test_asset_names_carry_the_version_and_the_target():
     v = parse_version("1.4.0-rc.1")
-    assert target.asset_name(v, "windows-x86_64") == "vitralis-1.4.0-rc.1-windows-x86_64.exe"
+    assert target.asset_name(v, "windows-x86_64") == "vitralis-1.4.0-rc.1-windows-x86_64-portable.exe"
     assert target.installer_name(v, "windows-x86_64") == "vitralis-1.4.0-rc.1-windows-x86_64-setup.exe"
     assert target.checksum_name("a.exe") == "a.exe.b3" and target.signature_name("a.exe") == "a.exe.sig"
 
@@ -74,13 +74,13 @@ def test_asset_names_carry_the_version_and_the_target():
 @pytest.mark.parametrize(
     ("name", "mine"),
     [
-        ("vitralis-1.4.0-windows-x86_64.exe", True),
+        ("vitralis-1.4.0-windows-x86_64-portable.exe", True),
         ("vitralis-1.4.0-windows-x86_64-setup.exe", True),
         ("vitralis-1.4.0-py3-none-any.whl", True),
         ("vitralis-1.4.0.tar.gz", True),
-        ("vitralis-1.4.1-windows-x86_64.exe", False),
+        ("vitralis-1.4.1-windows-x86_64-portable.exe", False),
         ("vitralis-1.4.0.exe", False),
-        ("other-1.4.0-windows-x86_64.exe", False),
+        ("other-1.4.0-windows-x86_64-portable.exe", False),
     ],
 )
 def test_a_file_is_one_of_a_versions_only_by_its_name(name, mine):
@@ -90,7 +90,7 @@ def test_a_file_is_one_of_a_versions_only_by_its_name(name, mine):
 def test_the_asset_name_helper_prints_the_exe_this_checkout_builds(capsys, monkeypatch):
     monkeypatch.setattr(target, "app_version", lambda: "1.4.0")
     assert target.asset_name_main(["windows-x86_64"]) == 0
-    assert capsys.readouterr().out == "vitralis-1.4.0-windows-x86_64.exe\n"
+    assert capsys.readouterr().out == "vitralis-1.4.0-windows-x86_64-portable.exe\n"
 
 
 @pytest.mark.parametrize("arguments", [[], ["linux-x86_64"], ["windows-x86_64", "more"]])

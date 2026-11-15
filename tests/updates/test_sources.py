@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/15 14:24:51.217424
-Revised: 2026/11/15 14:24:51.217424
+Revised: 2026/11/15 21:45:43.619556
 
 GitHub's and GitLab's answers, from checked-in golden copies of what each forge sends: version, page and files
 are read; bad tags, missing fields, files off HTTPS, oversize answers and error statuses are refused with a
@@ -52,7 +52,7 @@ def test_githubs_answer_is_read(server, http):
     release = GitHubReleases(http, url, allow_http=True).latest()
     assert release.version == parse_version("1.4.0") and release.source == "GitHub"
     assert release.page_url == "https://github.com/Ran-n/vitralis/releases/tag/v1.4.0"
-    name = "vitralis-1.4.0-windows-x86_64.exe"
+    name = "vitralis-1.4.0-windows-x86_64-portable.exe"
     assert release.assets[name] == f"https://github.com/Ran-n/vitralis/releases/download/v1.4.0/{name}"
     assert {name + ".b3", name + ".sig", "vitralis-1.4.0-windows-x86_64-setup.exe"} <= set(release.assets)
 
@@ -62,8 +62,12 @@ def test_gitlabs_answer_is_read_preferring_the_direct_url(server, http):
     release = GitLabReleases(http, url, allow_http=True).latest()
     assert release.version == parse_version("1.4.0") and release.source == "GitLab"
     assert release.page_url == "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0"
-    assert release.assets["vitralis-1.4.0-windows-x86_64.exe"].endswith("/downloads/vitralis-1.4.0-windows-x86_64.exe")
-    assert release.assets["vitralis-1.4.0-windows-x86_64.exe.b3"] == "https://gitlab.com/files/exe.b3"  # no direct URL
+    assert release.assets["vitralis-1.4.0-windows-x86_64-portable.exe"].endswith(
+        "/downloads/vitralis-1.4.0-windows-x86_64-portable.exe"
+    )
+    assert (
+        release.assets["vitralis-1.4.0-windows-x86_64-portable.exe.b3"] == "https://gitlab.com/files/exe.b3"
+    )  # no direct URL
 
 
 def test_requests_carry_nothing_identifying(server, http):

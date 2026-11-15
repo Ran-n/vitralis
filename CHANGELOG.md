@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/15 21:40:06.196890 )
+[//]: # (+ Revised: 	2026/11/15 21:45:32.544771 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -43,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   uninstalls from Settings → Apps keeping the settings, drawings and
   license. `packaging/windows/test-installer.ps1` installs, reinstalls and
   uninstalls it for real and fails on anything left behind. The portable
-  exe, `vitralis-<version>-windows-x86_64.exe`, is still released.
+  exe, `vitralis-<version>-windows-x86_64-portable.exe`, is still released.
 - `vitralis.exe --version` prints the version.
 - The About window says which build this is, names Breren, which publishes
   Vitralis, with its logo and site, links to the license, the third-party

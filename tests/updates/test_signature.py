@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/15 14:24:50.920423
-Revised: 2026/11/15 14:24:50.920423
+Revised: 2026/11/15 21:45:42.806133
 
 Release signatures: a signature checks out only over its own statement (version, file name, hash) and with its
 own key; either built-in key is enough; malformed keys and signatures are named; the built-in keys are real
@@ -30,7 +30,7 @@ from vitralis.updates.signature import (
 )
 
 HASH = "AF1349B9F5F9A1A6A0404DEA36DCC9499BCB25C9ADC112B7CC9A93CAE41F3262"
-ASSET = "vitralis-1.4.0-windows-x86_64.exe"
+ASSET = "vitralis-1.4.0-windows-x86_64-portable.exe"
 
 
 def test_the_statement_is_four_lines_with_the_hash_lower_case():

@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/11/15 16:41:04.380156 )
-[//]: # (+ Revised: 	2026/11/15 16:41:04.380156 )
+[//]: # (+ Revised: 	2026/11/15 21:45:36.156622 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Vitralis user guide
@@ -22,7 +22,7 @@ Everything Vitralis does and how to use it. The [README](../README.md) is the sh
 From the [latest release](https://github.com/Ran-n/vitralis/releases/latest), on Windows 10 (1809) or later, 64-bit:
 
 - **`vitralis-<version>-windows-x86_64-setup.exe`**, the installer. It installs for your account only, with no admin prompt, in `%LOCALAPPDATA%\Programs\Vitralis`, adds Vitralis to the Start menu, and can add a desktop shortcut and start Vitralis when you sign in. Uninstall it from Windows's Settings → Apps. Your settings, drawings and license (`%APPDATA%\Vitralis`) stay, so installing again needs no new key. Running a newer version's installer updates it in place. It speaks every language Vitralis does, and Vitralis starts in the one you install in until you pick another in Settings.
-- **`vitralis-<version>-windows-x86_64.exe`**, the portable version: one file, nothing installed. Put it in a folder of your own and run it.
+- **`vitralis-<version>-windows-x86_64-portable.exe`**, the portable version: one file, nothing installed. Put it in a folder of your own and run it.
 
 Both update themselves from inside the app (see [Updates](#updates)). Every file has a `.b3` BLAKE3 checksum next to it (`b3sum -c vitralis-<version>-windows-x86_64-setup.exe.b3`) and a `.sig`, its signature by Vitralis's release key, which the in-app updater checks. The wheel and the source archive are attached too, for running from Python. `vitralis.exe --version` prints the version.
 

@@ -21,7 +21,7 @@ $manifest = Get-Content -LiteralPath (Join-Path $projectRoot 'pyproject.toml') -
 if ($manifest -notmatch '(?m)^version\s*=\s*"([^"]+)"') { throw 'pyproject.toml has no version.' }
 $version = $Matches[1]
 
-if (!$Binary) { $Binary = Join-Path $projectRoot "dist/vitralis-$version-windows-x86_64.exe" }
+if (!$Binary) { $Binary = Join-Path $projectRoot "dist/vitralis-$version-windows-x86_64-portable.exe" }
 if (!$OutputDirectory) { $OutputDirectory = Join-Path $projectRoot 'dist' }
 if (!$Icon) { $Icon = Join-Path $projectRoot 'build/vitralis.ico' }
 foreach ($needed in @($Binary, $Icon)) {

@@ -59,22 +59,22 @@
     "links": [
       {
         "id": 14184262,
-        "name": "vitralis-1.4.0-windows-x86_64.exe",
-        "url": "https://gitlab.com/-/project/85099758/uploads/00000000000000000000000000000000/vitralis-1.4.0-windows-x86_64.exe",
-        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0-windows-x86_64.exe",
+        "name": "vitralis-1.4.0-windows-x86_64-portable.exe",
+        "url": "https://gitlab.com/-/project/85099758/uploads/00000000000000000000000000000000/vitralis-1.4.0-windows-x86_64-portable.exe",
+        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0-windows-x86_64-portable.exe",
         "link_type": "other"
       },
       {
         "id": 14184263,
-        "name": "vitralis-1.4.0-windows-x86_64.exe.b3",
+        "name": "vitralis-1.4.0-windows-x86_64-portable.exe.b3",
         "url": "https://gitlab.com/files/exe.b3",
         "link_type": "other"
       },
       {
         "id": 14184264,
-        "name": "vitralis-1.4.0-windows-x86_64.exe.sig",
-        "url": "https://gitlab.com/-/project/85099758/uploads/00000000000000000000000000000002/vitralis-1.4.0-windows-x86_64.exe.sig",
-        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0-windows-x86_64.exe.sig",
+        "name": "vitralis-1.4.0-windows-x86_64-portable.exe.sig",
+        "url": "https://gitlab.com/-/project/85099758/uploads/00000000000000000000000000000002/vitralis-1.4.0-windows-x86_64-portable.exe.sig",
+        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0-windows-x86_64-portable.exe.sig",
         "link_type": "other"
       },
       {

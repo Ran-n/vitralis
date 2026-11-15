@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/15 14:24:49.546756
-Revised: 2026/11/15 14:24:49.546756
+Revised: 2026/11/15 21:45:36.791991
 
 Which build this is, and what its release files are called.
 
@@ -79,8 +79,9 @@ def current_version() -> Version | None:
 
 
 def asset_name(version: Version | str, target: str) -> str:
-    """The portable exe: ``vitralis-1.4.0-windows-x86_64.exe``."""
-    return f"{APP}-{version}-{target}.exe"
+    """The portable exe: ``vitralis-1.4.0-windows-x86_64-portable.exe``. Both forms carry their marker, so the
+    file says what it is."""
+    return f"{APP}-{version}-{target}-portable.exe"
 
 
 def installer_name(version: Version | str, target: str) -> str:
