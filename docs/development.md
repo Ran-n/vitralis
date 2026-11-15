@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/11/15 16:41:04.658676 )
-[//]: # (+ Revised: 	2026/11/15 16:41:04.658676 )
+[//]: # (+ Revised: 	2026/11/15 16:50:25.352608 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Developing Vitralis
@@ -159,6 +159,18 @@ keepassxc-cli show -s -a Password <database.kdbx> "Vitralis release key" \
 ```
 
 Assets are signed as the checkout's version, so sign from the tag.
+
+`keygen` writes a file, so it is only for test keys. A release key is made
+inside KeePassXC, so it never exists outside it, and its public half is
+read back through `public -`:
+
+```sh
+keepassxc-cli add -g -L 64 -c 0123456789abcdef <database.kdbx> "Vitralis release key"
+keepassxc-cli show -s -a Password <database.kdbx> "Vitralis release key" \
+  | uv run vitralis-sign public -
+```
+
+The backup key is made the same way, in a separate database.
 
 1. Promote **Unreleased** in the changelog to `## [X.Y.Z]` and set the
    version (`uv version X.Y.Z`); run `uv run pytest --cov`, `-m live` (with
