@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.495642
-Revised: 2026/11/15 17:01:41.365659
+Revised: 2026/11/15 22:45:13.509841
 
 The licence gate: the app runs only while the licence holds, locks again when it stops holding (a refusal from
 the daily check, 30 days offline, a clock set back), and every activation or check runs off the UI thread.
@@ -12,8 +12,8 @@ import datetime as dt
 
 import pytest
 
-from tests.conftest import wait_until
 from tests.licence.fakes import CANONICAL, KEY, OTHER_KEY, FakeLicenceRecord, licence_config
+from tests.qt_support import wait_until
 from vitralis.licence.client import Licence
 from vitralis.licence.gate import WATCH_INTERVAL_MS, LicenceGate
 from vitralis.licence.messages import save_failed_message, status_message

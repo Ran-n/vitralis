@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:08.909997
-Revised: 2026/11/15 17:01:42.508350
+Revised: 2026/11/15 22:45:18.331560
 
 The update checker on the offscreen ``QApplication``: checks run on their own thread and come back as one
 ``UpdateStatus``; the six outcomes; skip and Stop skipping; a failed check never loses a known offer; the
@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.conftest import wait_until
+from tests.qt_support import wait_until
 from tests.updates.fakes import FAILED, NOON, TARGET, FakeFeed, MemorySettings, release
 from vitralis.updates.check import CheckResult
 from vitralis.updates.checker import (
@@ -228,10 +228,11 @@ def test_after_a_success_the_next_check_is_a_day_away_and_after_a_failure_an_hou
     feed = FakeFeed()
     checker, _ = make(feed)
     check(qapp, checker)
-    assert DAY_MS - 1000 < checker.next_check_ms <= DAY_MS
+    # Qt rounds what is left of a long timer to whole seconds, so a day read at once can say a second less
+    assert DAY_MS - 2000 < checker.next_check_ms <= DAY_MS
     feed.answer = FAILED
     check(qapp, checker)
-    assert HOUR_MS - 1000 < checker.next_check_ms <= HOUR_MS
+    assert HOUR_MS - 2000 < checker.next_check_ms <= HOUR_MS
 
 
 def test_the_timer_checks_only_while_the_switch_is_on(qapp, make):

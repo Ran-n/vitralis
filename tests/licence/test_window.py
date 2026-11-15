@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.558622
-Revised: 2026/11/15 21:40:11.527279
+Revised: 2026/11/15 22:45:14.075262
 
 The licence window and the settings' License section, as real Qt widgets rendered offscreen: what they say for
 each outcome, which buttons work when, and what they look like (pixels of the rendered window).
@@ -16,8 +16,8 @@ from PyQt6.QtGui import QColor
 from PyQt6.QtTest import QTest
 from PyQt6.QtWidgets import QApplication
 
-from tests.conftest import wait_until
 from tests.licence.fakes import CANONICAL, KEY, FakeLicenceRecord
+from tests.qt_support import wait_until
 from vitralis.licence.messages import PRIVACY, status_message
 from vitralis.licence.rules import LicenceKind, LicenceStatus
 from vitralis.licence.section import LicenceSection

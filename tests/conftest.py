@@ -2,39 +2,17 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.370504
-Revised: 2026/11/15 17:01:40.559208
+Revised: 2026/11/15 22:45:12.754796
 
-Shared fixtures for the licence's Qt tests: one offscreen ``QApplication``, a clock, an in-memory Clavren and
-store, a gate wired to them with a fake daily checker, and a way to wait for a worker thread's answer.
+What every test shares: each runs on data and download folders of its own, with no updater override from the
+shell, in English. Qt's fixtures are in ``qt_support.py`` and the licence's in ``licence_support.py``.
 """
 
-import os
-import time
-
-os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-
 import pytest
-from PyQt6.QtWidgets import QApplication
 
-from tests.licence.fakes import KEY, START, FakeClavren, FakeClock, MemoryLicenceStore, licence_config
-from vitralis.icons import init_icons_dir
-from vitralis.licence.client import Licence
-from vitralis.licence.gate import LicenceGate
-from vitralis.licence.rules import LicenceStatus
 from vitralis.translations import set_language
 
-
-@pytest.fixture(scope="session")
-def qapp():
-    app = QApplication.instance() or QApplication([])
-    app.setQuitOnLastWindowClosed(False)
-    return app
-
-
-@pytest.fixture(scope="session")
-def icons():
-    """The icon folders, which ``main()`` sets up before building any window."""
-    init_icons_dir()
+pytest_plugins = ["tests.qt_support", "tests.licence_support"]
 
 
 @pytest.fixture(autouse=True)
@@ -74,156 +52,3 @@ def english(monkeypatch):
     set_language("English")
     yield
     set_language("English")
-
-
-@pytest.fixture
-def clock():
-    return FakeClock(START)
-
-
-@pytest.fixture
-def server(clock):
-    return FakeClavren(clock)
-
-
-@pytest.fixture
-def store():
-    return MemoryLicenceStore()
-
-
-@pytest.fixture
-def licence(clock, server, store):
-    return Licence(licence_config(), store, server, server.crypto(), clock)
-
-
-class FakeChecks:
-    """Stands in for ``LicenceChecks``: no thread; ``report`` plays the checker telling of a change."""
-
-    def __init__(self) -> None:
-        self.listeners = []
-        self.started = 0
-        self.stopped = 0
-        self.running = False
-
-    def subscribe(self, listener) -> None:
-        self.listeners.append(listener)
-
-    def start(self) -> None:
-        self.started += 1
-
-    def stop(self, timeout: float = 20.0) -> None:
-        self.stopped += 1
-
-    def report(self, status: LicenceStatus) -> None:
-        for listener in self.listeners:
-            listener(status)
-
-
-class FakePrompt:
-    """Stands in for ``LicenceWindow``: records what the gate asked it to show."""
-
-    def __init__(self, gate) -> None:
-        self.gate = gate
-        self.statuses: list[LicenceStatus] = []
-        self.errors: list[str] = []
-        self.busy: list[bool] = []
-        self.dismissed = False
-        self.fronted = 0
-
-    def show_status(self, status: LicenceStatus) -> None:
-        self.statuses.append(status)
-
-    def show_error(self, text: str) -> None:
-        self.errors.append(text)
-
-    def set_busy(self, busy: bool) -> None:
-        self.busy.append(busy)
-
-    def bring_to_front(self) -> None:
-        self.fronted += 1
-
-    def dismiss(self) -> None:
-        self.dismissed = True
-
-
-class Events:
-    """What the gate did: unlocks, locks and the prompts it made."""
-
-    def __init__(self) -> None:
-        self.unlocks = 0
-        self.locks = 0
-        self.prompts: list[FakePrompt] = []
-
-    def unlock(self) -> None:
-        self.unlocks += 1
-
-    def lock(self) -> None:
-        self.locks += 1
-
-    def prompt(self, gate) -> FakePrompt:
-        self.prompts.append(FakePrompt(gate))
-        return self.prompts[-1]
-
-    @property
-    def last_prompt(self) -> FakePrompt:
-        return self.prompts[-1]
-
-
-@pytest.fixture
-def checks():
-    return FakeChecks()
-
-
-@pytest.fixture
-def events():
-    return Events()
-
-
-@pytest.fixture
-def make_gate(qapp, licence, checks, events):
-    made: list[LicenceGate] = []
-
-    def make(prompt=None) -> LicenceGate:
-        gate = LicenceGate(licence, checks, events.unlock, events.lock, prompt or events.prompt)
-        made.append(gate)
-        return gate
-
-    yield make
-    for gate in made:
-        gate.shutdown()
-
-
-def wait_until(qapp, condition, timeout: float = 5.0) -> None:
-    """Process Qt events until ``condition()`` holds (a worker thread's answer arrives as a queued signal)."""
-    deadline = time.monotonic() + timeout
-    while not condition():
-        if time.monotonic() > deadline:
-            raise AssertionError("timed out waiting for the licence worker")
-        qapp.processEvents()
-        time.sleep(0.005)
-
-
-LINGER_SECONDS = 0.2
-
-
-@pytest.fixture
-def lingering_workers(monkeypatch):
-    """Every thread started in the test stays alive ``LINGER_SECONDS`` after its work, as a worker that is
-    slow to wind down after handing back its last result: what let a test drop the last reference to a Qt
-    object while the worker still held one."""
-    import threading
-
-    run = threading.Thread.run
-
-    def lingering(self) -> None:
-        run(self)
-        time.sleep(LINGER_SECONDS)
-
-    monkeypatch.setattr(threading.Thread, "run", lingering)
-
-
-@pytest.fixture
-def activated(licence):
-    """The licence already activated on this computer, as on every start after the first."""
-    assert licence.activate(KEY).licensed
-    return licence

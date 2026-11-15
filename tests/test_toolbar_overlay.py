@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:14.471868
-Revised: 2026/11/14 17:53:33.764140
+Revised: 2026/11/15 22:45:17.760485
 
 The real toolbar driving real canvases and captures on the offscreen ``QApplication`` (its system-wide hooks
 replaced by inert stand-ins, as in ``test_toolbar``): modes, Esc, quitting once, undo across screens, the tool,
@@ -22,7 +22,7 @@ from PyQt6.QtWidgets import QApplication, QComboBox, QLabel
 
 import vitralis.persistence as persistence
 import vitralis.settings as settings_module
-from tests.conftest import wait_until
+from tests.qt_support import wait_until
 from tests.test_toolbar import InertThread
 from vitralis import snapshots as snapshots_module
 from vitralis import toolbar as toolbar_module

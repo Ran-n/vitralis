@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:14.047917
-Revised: 2026/11/14 18:18:40.009840
+Revised: 2026/11/15 22:45:16.617093
 
 One Vitralis per account, over a real local socket with a name of the test's own: the first start listens, a
 second finds it and asks it to show itself, and once the first is gone the next start is the first again. And
@@ -16,7 +16,7 @@ import threading
 
 import pytest
 
-from tests.conftest import wait_until
+from tests.qt_support import wait_until
 from vitralis import single_instance
 from vitralis.single_instance import (
     SingleInstance,

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:10.680882
-Revised: 2026/11/14 00:23:22.175971
+Revised: 2026/11/15 22:45:16.001784
 
 The two system-wide hook threads. The focus hotkey runs against a stand-in for the ``keyboard`` library (no
 real key is hooked): it registers, fires, and is removed on stop, a key the library doesn't know is logged
@@ -15,7 +15,7 @@ import sys
 
 import pytest
 
-from tests.conftest import wait_until
+from tests.qt_support import wait_until
 from vitralis import hotkeys
 from vitralis.hotkeys import GlobalHotkeyThread, GlobalMouseWheelThread, is_valid_hotkey
 

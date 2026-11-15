@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 11:44:52.875213
-Revised: 2026/11/15 17:01:59.286426
+Revised: 2026/11/15 22:45:15.323765
 
 Disk work off the UI thread (``BackgroundTasks``): the work runs on a thread of its own, its result or its error
 comes back on the UI thread, ``busy`` holds from the first work started to the last one ended, one failing
@@ -16,7 +16,7 @@ import threading
 import pytest
 
 import vitralis.background as background
-from tests.conftest import wait_until
+from tests.qt_support import wait_until
 from vitralis.background import BackgroundTasks, finish
 
 

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:11.688678
-Revised: 2026/11/15 22:00:38.309154
+Revised: 2026/11/15 22:45:17.188487
 
 The real toolbar on the offscreen ``QApplication``, with its system-wide keyboard and mouse hooks replaced by
 inert stand-ins: the accent dot on the Settings button shows only while an update is offered, painted inside
@@ -16,7 +16,7 @@ import pytest
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QLabel
 
-from tests.conftest import wait_until
+from tests.qt_support import wait_until
 from tests.updates.fakes import TARGET, FakeFeed, MemorySettings, release
 from vitralis import toolbar as toolbar_module
 from vitralis.styles import BTN_CHECKED

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:09.620591
-Revised: 2026/11/15 14:27:08.305948
+Revised: 2026/11/15 22:45:18.882657
 
 Settings → Updates on the offscreen ``QApplication``, driven by a real ``UpdateChecker`` with a fake check:
 each state shows the right texts and enabled buttons (up to date, available, skipped, no build, failed,
@@ -15,7 +15,7 @@ import datetime as dt
 import pytest
 from PyQt6.QtCore import QUrl
 
-from tests.conftest import wait_until
+from tests.qt_support import wait_until
 from tests.updates.fakes import FAILED, TARGET, FakeFeed, MemorySettings, release
 from tests.updates.test_checker import FakeInstall
 from vitralis.settings import SettingsManager, SettingsWindow

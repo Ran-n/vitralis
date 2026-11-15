@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.433417
-Revised: 2026/11/15 14:27:04.558023
+Revised: 2026/11/15 22:45:14.682112
 
 The overlay session behind the licence: nothing of the overlay exists while locked, it starts once the licence
 holds, and locking tears it all down (toolbar with its global hooks, canvases, captures, tray). The real toolbar
@@ -19,8 +19,8 @@ import time
 
 import pytest
 
-from tests.conftest import wait_until
 from tests.licence.fakes import KEY
+from tests.qt_support import wait_until
 from tests.updates.fakes import TARGET, FakeFeed, MemorySettings
 from vitralis import app as app_module
 from vitralis.app import Session
