@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/15 16:45:48.628069 )
+[//]: # (+ Revised: 	2026/11/15 16:48:31.707659 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -92,9 +92,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   your data, questions); the full manual moved to `docs/user-guide.md`, the
   build, test and release guide to `docs/development.md`, and the design
   record to `docs/design-decisions.md`.
-- Updates are signed with the same release keys as Orin; the signed
-  statement names the app, so one app's signature never passes for
-  another's.
 - The linter no longer runs on Codeberg: CI runs on GitHub and GitLab, and
   Codeberg is a mirror with the releases.
 - `uv run build` no longer leaves an unversioned `dist\vitralis.exe` beside

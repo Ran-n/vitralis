@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/15 14:24:48.964752
-Revised: 2026/11/15 16:41:06.063000
+Revised: 2026/11/15 16:48:30.951759
 
 Release signatures: every release file has ``<file>.sig``, an Ed25519 signature by Vitralis's release key over
 a four-line statement of the version, the file's name and its BLAKE3 hash. Signing the version and the name
@@ -25,12 +25,11 @@ from vitralis.updates.target import APP, KEY_VARIABLE, override
 
 STATEMENT_TAG = f"{APP}-release-v1"
 RELEASE_KEYS: tuple[str, str] = (
-    "43bc53fac2b823845a381106efe8ecf8ef37746d48b4ef648111e29e3950fbd8",
-    "e8c96b1eb91d7f466bebbafa8c3e7eece4dd2d786a9c9445ab8a9e5fceae447a",
+    "91a53e4c73984752cf512f5714b9a87a38625a1c1eb3035bdec9ba1121d8d8a0",
+    "98aa67221c8896fa8ae95daf0f9dede5fd88e89935a124696ce3e4fd91698b54",
 )
-"""The trusted public keys (hex): the signing key, then the backup. They are Orin's (the user's choice,
-2026-11-15): one pair signs the family's apps, and the statement's first line names the app, so a signature
-for one app's file never passes for another's."""
+"""The trusted public keys (hex): the signing key, then the backup. They are Vitralis's own; no other app
+trusts them, and the statement's first line names the app as well."""
 
 
 class Unreadable(ValueError):
