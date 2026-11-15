@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/15 16:48:31.707659 )
+[//]: # (+ Revised: 	2026/11/15 17:01:43.214613 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -139,6 +139,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A background job (a snapshot save, a licence check, an update check or
+  download) could end just as the last reference to its window or owner
+  went, destroying it on the job's thread and crashing Vitralis. Each
+  job's last result now waits on the UI thread for the job to end.
 - Two starts of Vitralis at the same moment no longer both run (each with
   its own overlay, writing the same files): only the first goes on. A
   start while the previous Vitralis is still quitting waits for it and

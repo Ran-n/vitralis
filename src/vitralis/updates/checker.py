@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:01.548894
-Revised: 2026/11/15 14:27:01.972462
+Revised: 2026/11/15 17:01:40.002729
 
 The updater's state and timing, for the UI. The first automatic check comes ``FIRST_CHECK_DELAY_MS`` after
 start (so it doesn't compete with start-up), then ``SUCCESS_INTERVAL`` after the last successful one (saved
@@ -25,6 +25,7 @@ from typing import Protocol
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
+from vitralis.background import finish
 from vitralis.updates.check import CheckResult
 from vitralis.updates.install import can_write, swap_and_start
 from vitralis.updates.rules import (
@@ -144,11 +145,15 @@ class UpdateChecker(QObject):
     """The ``UpdateStatus``, on the UI thread, after every check, skip and install step."""
     busy_changed = pyqtSignal(bool)
     """Whether a check is under way."""
-    _checked = pyqtSignal(object)
-    _install_step = pyqtSignal(object)
-    _downloaded = pyqtSignal(object, object)
-    """(the offer, the proven exe's path) from the download thread."""
-    _replaced = pyqtSignal()
+    # Each worker's last result carries the worker, so its slot can wait for it to end (see ``finish``).
+    _checked = pyqtSignal(object, object)
+    """(the ``CheckResult``, the worker)."""
+    _install_step = pyqtSignal(object, object)
+    """(the ``InstallState``, the worker when this is its last result, else ``None``)."""
+    _downloaded = pyqtSignal(object, object, object)
+    """(the offer, the proven exe's path, the download thread)."""
+    _replaced = pyqtSignal(object)
+    """(the swap thread)."""
 
     def __init__(
         self,
@@ -183,7 +188,7 @@ class UpdateChecker(QObject):
         self._quit_app: Callable[[], None] | None = None
         self._status = self._compute()
         self._checked.connect(self._on_checked)
-        self._install_step.connect(self._set_install)
+        self._install_step.connect(self._on_install_step)
         self._downloaded.connect(self._on_downloaded)
         self._replaced.connect(self._on_replaced)
         self._timer = QTimer(self)
@@ -276,11 +281,12 @@ class UpdateChecker(QObject):
             except Exception:  # a bug must not leave Check now dimmed for ever
                 logger.exception("the update check failed unexpectedly")
                 result = CheckResult(None, (SourceFailure("Vitralis", Failure(Reason.UNREADABLE)),))
-            self._checked.emit(result)
+            self._checked.emit(result, threading.current_thread())
 
         self._work(worker, "vitralis-update")
 
-    def _on_checked(self, result: CheckResult) -> None:
+    def _on_checked(self, result: CheckResult, worker: threading.Thread) -> None:
+        finish(worker, "the update check")
         self._set_busy(False)
         if result.release is not None:
             self._latest, self._failures, self._checked_at = result.release, (), self._clock()
@@ -344,7 +350,8 @@ class UpdateChecker(QObject):
             if step != last_step:
                 last_step = step
                 page = offer.release.page_url
-                self._install_step.emit(InstallState(InstallKind.DOWNLOADING, version, received, total, page_url=page))
+                state = InstallState(InstallKind.DOWNLOADING, version, received, total, page_url=page)
+                self._install_step.emit(state, None)
 
         def worker() -> None:
             logger.info("downloading %s", offer.asset)
@@ -352,24 +359,27 @@ class UpdateChecker(QObject):
                 path = installer.download(offer, progress, cancel)
             except UpdateCancelled:
                 logger.info("the download of %s was cancelled", offer.asset)
-                self._install_step.emit(InstallState())
+                self._install_step.emit(InstallState(), threading.current_thread())
             except ChecksumMismatch as ex:
                 logger.error("refused %s: %s", offer.asset, ex)
-                self._install_step.emit(self._failed(offer, FailureKind.DAMAGED))
+                self._install_step.emit(self._failed(offer, FailureKind.DAMAGED), threading.current_thread())
             except NotSigned as ex:
                 logger.error("refused %s: %s", offer.asset, ex)
-                self._install_step.emit(self._failed(offer, FailureKind.NOT_SIGNED))
+                self._install_step.emit(self._failed(offer, FailureKind.NOT_SIGNED), threading.current_thread())
             except DownloadFailed as ex:
                 logger.warning("couldn't download %s: %s", offer.asset, ex)
-                self._install_step.emit(replace(self._failed(offer, FailureKind.NOT_DOWNLOADED), reason=ex.failure))
+                state = replace(self._failed(offer, FailureKind.NOT_DOWNLOADED), reason=ex.failure)
+                self._install_step.emit(state, threading.current_thread())
             except UpdateError as ex:
                 logger.warning("couldn't download %s: %s", offer.asset, ex)
-                self._install_step.emit(self._failed(offer, FailureKind.NOT_DOWNLOADED, str(ex)))
+                state = self._failed(offer, FailureKind.NOT_DOWNLOADED, str(ex))
+                self._install_step.emit(state, threading.current_thread())
             except Exception as ex:  # a bug must not leave the download line up for ever
                 logger.exception("the update download failed unexpectedly")
-                self._install_step.emit(self._failed(offer, FailureKind.NOT_DOWNLOADED, f"{type(ex).__name__}: {ex}"))
+                state = self._failed(offer, FailureKind.NOT_DOWNLOADED, f"{type(ex).__name__}: {ex}")
+                self._install_step.emit(state, threading.current_thread())
             else:
-                self._downloaded.emit(offer, path)
+                self._downloaded.emit(offer, path, threading.current_thread())
 
         self._download = threading.Thread(target=worker, name="vitralis-update-download", daemon=True)
         self._download.start()
@@ -385,9 +395,10 @@ class UpdateChecker(QObject):
         page = offer.release.page_url
         return InstallState(InstallKind.FAILED, version, failure=failure, detail=detail, path=path, page_url=page)
 
-    def _on_downloaded(self, offer: Offer, path: Path) -> None:
+    def _on_downloaded(self, offer: Offer, path: Path, worker: threading.Thread | None = None) -> None:
         """Put the proven exe in place on a thread of its own (across drives it is copied, which takes a
         while), then quit. Not a daemon: a quit that comes meanwhile waits for the exe to be whole."""
+        finish(worker, "the update download")
         if self._quitting or self._cancel.is_set() or self._installer is None:
             try:
                 path.unlink(missing_ok=True)
@@ -403,20 +414,27 @@ class UpdateChecker(QObject):
                 installer.swap(installer.exe, path, self._current_text, os.getpid())
             except SwapFailed as ex:
                 logger.error("couldn't install %s: %s", offer.release.version, ex)
-                self._install_step.emit(self._failed(offer, FailureKind.NOT_REPLACED, str(ex)))
+                state = self._failed(offer, FailureKind.NOT_REPLACED, str(ex))
+                self._install_step.emit(state, threading.current_thread())
             except Exception as ex:  # a bug must not leave the install line up for ever
                 logger.exception("putting the update in place failed unexpectedly")
-                self._install_step.emit(self._failed(offer, FailureKind.NOT_REPLACED, f"{type(ex).__name__}: {ex}"))
+                state = self._failed(offer, FailureKind.NOT_REPLACED, f"{type(ex).__name__}: {ex}")
+                self._install_step.emit(state, threading.current_thread())
             else:
                 logger.info("installed %s; restarting into it", offer.release.version)
-                self._replaced.emit()
+                self._replaced.emit(threading.current_thread())
 
         self._work(worker, "vitralis-update-swap", daemon=False)
 
-    def _on_replaced(self) -> None:
+    def _on_replaced(self, worker: threading.Thread) -> None:
+        finish(worker, "the update swap")
         quit_app, self._quit_app = self._quit_app, None
         if quit_app is not None:
             quit_app()
+
+    def _on_install_step(self, state: InstallState, worker: threading.Thread | None) -> None:
+        finish(worker, "the update install")
+        self._set_install(state)
 
     def _set_install(self, state: InstallState) -> None:
         if state.kind is not self._install.kind:

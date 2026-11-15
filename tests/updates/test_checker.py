@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:08.909997
-Revised: 2026/11/15 14:27:06.840241
+Revised: 2026/11/15 17:01:42.508350
 
 The update checker on the offscreen ``QApplication``: checks run on their own thread and come back as one
 ``UpdateStatus``; the six outcomes; skip and Stop skipping; a failed check never loses a known offer; the
@@ -81,6 +81,14 @@ def make(qapp):
 def check(qapp, checker):
     checker.check_now()
     wait_until(qapp, lambda: not checker.busy)
+
+
+def test_when_a_check_ends_its_worker_has_ended_too(qapp, make, lingering_workers):
+    """Regression guard: the check's worker outlived its answer, so a test that dropped the checker then could
+    leave the worker to destroy it, timer and all, on the worker's thread: an access violation in CI."""
+    checker, _ = make()
+    check(qapp, checker)
+    assert not checker.working
 
 
 def test_check_now_says_busy_then_offers_the_newer_release(qapp, make):

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.187945
-Revised: 2026/11/14 12:31:23.644759
+Revised: 2026/11/15 17:01:39.270035
 
 Keeps Vitralis behind its licence. The overlay, the toolbar, the tray and the global hotkeys only exist while
 the licence holds (``on_unlock`` builds them, ``on_lock`` tears them down); otherwise the licence window asks
@@ -22,6 +22,7 @@ from typing import Protocol
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 
+from vitralis.background import finish
 from vitralis.licence.client import Licence, LicenceCheckFailed, LicenceChecks
 from vitralis.licence.messages import save_failed_message, status_message
 from vitralis.licence.ports import LicenceStoreError
@@ -206,6 +207,7 @@ class LicenceGate(QObject):
         self._worker.start()
 
     def _on_finished(self, status: LicenceStatus | None, error: str | None) -> None:
+        finish(self._worker, "the licence check")
         self._set_busy(False)
         self._watched = self._licence.status()
         self.apply(status if status is not None else self._watched)

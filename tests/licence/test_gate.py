@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.495642
-Revised: 2026/11/14 12:31:25.347038
+Revised: 2026/11/15 17:01:41.365659
 
 The licence gate: the app runs only while the licence holds, locks again when it stops holding (a refusal from
 the daily check, 30 days offline, a clock set back), and every activation or check runs off the UI thread.
@@ -46,6 +46,15 @@ def test_a_good_key_unlocks_and_closes_the_window(qapp, make_gate, events):
     assert gate.busy and prompt.busy == [True]
     wait_until(qapp, lambda: not gate.busy)
     assert events.unlocks == 1 and prompt.dismissed and prompt.busy == [True, False]
+
+
+def test_when_the_gate_stops_being_busy_its_worker_has_ended(qapp, make_gate, lingering_workers):
+    """Regression guard: a licence worker alive after its answer could destroy the gate on its own thread."""
+    gate = make_gate()
+    gate.begin()
+    gate.activate(KEY)
+    wait_until(qapp, lambda: not gate.busy)
+    assert not gate._worker.is_alive()
 
 
 def test_an_unknown_key_keeps_the_window_and_says_why(qapp, make_gate, events):

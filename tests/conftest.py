@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.370504
-Revised: 2026/11/15 14:27:03.722155
+Revised: 2026/11/15 17:01:40.559208
 
 Shared fixtures for the licence's Qt tests: one offscreen ``QApplication``, a clock, an in-memory Clavren and
 store, a gate wired to them with a fake daily checker, and a way to wait for a worker thread's answer.
@@ -201,6 +201,25 @@ def wait_until(qapp, condition, timeout: float = 5.0) -> None:
             raise AssertionError("timed out waiting for the licence worker")
         qapp.processEvents()
         time.sleep(0.005)
+
+
+LINGER_SECONDS = 0.2
+
+
+@pytest.fixture
+def lingering_workers(monkeypatch):
+    """Every thread started in the test stays alive ``LINGER_SECONDS`` after its work, as a worker that is
+    slow to wind down after handing back its last result: what let a test drop the last reference to a Qt
+    object while the worker still held one."""
+    import threading
+
+    run = threading.Thread.run
+
+    def lingering(self) -> None:
+        run(self)
+        time.sleep(LINGER_SECONDS)
+
+    monkeypatch.setattr(threading.Thread, "run", lingering)
 
 
 @pytest.fixture

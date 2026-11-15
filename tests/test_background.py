@@ -2,11 +2,12 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 11:44:52.875213
-Revised: 2026/11/14 11:44:54.074260
+Revised: 2026/11/15 17:01:59.286426
 
 Disk work off the UI thread (``BackgroundTasks``): the work runs on a thread of its own, its result or its error
 comes back on the UI thread, ``busy`` holds from the first work started to the last one ended, one failing
-doesn't touch the others, and work that outlives its window is finished and told to nobody.
+doesn't touch the others, work that outlives its window is finished and told to nobody, and ``finish``
+waits for a worker to end once its last result is in, so busy ending means the worker ended too.
 """
 
 import logging
@@ -14,8 +15,9 @@ import threading
 
 import pytest
 
+import vitralis.background as background
 from tests.conftest import wait_until
-from vitralis.background import BackgroundTasks
+from vitralis.background import BackgroundTasks, finish
 
 
 @pytest.fixture
@@ -110,3 +112,36 @@ def test_work_that_outlives_its_window_is_finished_and_told_to_nobody(qapp, capl
         assert done.wait(5)
         wait_until(qapp, lambda: any("late" in r.getMessage() for r in caplog.records))
     assert told == []
+
+
+def test_when_busy_ends_the_worker_has_ended_too(qapp, tasks, lingering_workers):
+    """Regression guard: a worker still alive after its result could drop the last reference to its window,
+    which destroyed the window on the worker's thread and crashed Qt (an access violation in CI)."""
+    seen = {}
+    tasks.run("work", lambda: seen.setdefault("worker", threading.current_thread()), lambda result, error: None)
+    wait_until(qapp, lambda: not tasks.busy)
+    assert not seen["worker"].is_alive()
+
+
+def test_finish_waits_for_the_worker_to_end(lingering_workers):
+    worker = threading.Thread(target=lambda: None)
+    worker.start()
+    finish(worker, "a test worker")
+    assert not worker.is_alive()
+
+
+def test_finish_leaves_no_worker_and_the_current_thread_alone():
+    finish(None, "nothing")
+    finish(threading.current_thread(), "this thread")  # joining itself would raise
+
+
+def test_finish_says_when_a_worker_outlives_its_last_result(monkeypatch, caplog):
+    monkeypatch.setattr(background, "FINISH_SECONDS", 0.01)
+    release = threading.Event()
+    worker = threading.Thread(target=release.wait)
+    worker.start()
+    with caplog.at_level(logging.WARNING, logger="vitralis.background"):
+        finish(worker, "a stuck worker")
+    release.set()
+    worker.join()
+    assert "a stuck worker still runs" in caplog.text
