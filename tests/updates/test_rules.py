@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:05.981441
-Revised: 2026/11/15 14:27:08.020736
+Revised: 2026/11/15 16:45:48.362047
 
 The updater's rules with no I/O: versions as semantic versioning orders them, the pre-release rule, what a
 check comes to, the newest of several answers, and the checksum format.
@@ -42,7 +42,9 @@ def test_versions_read(text, expected):
     assert parse_version(text) == expected
 
 
-@pytest.mark.parametrize("text", ["1.2", "1.2.3.4000", "01.2.3", "1.2.3-", "1.2.3-01", "?", "", "v", "1.2.3 ", "x" * 70])
+@pytest.mark.parametrize(
+    "text", ["1.2", "1.2.3.4000", "01.2.3", "1.2.3-", "1.2.3-01", "?", "", "v", "1.2.3 ", "x" * 70]
+)
 def test_what_isnt_a_version_is_refused(text):
     with pytest.raises(ValueError):
         parse_version(text)
