@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:14.623282
-Revised: 2026/11/14 00:23:23.163701
+Revised: 2026/11/15 02:34:48.788809
 
 Every sentence the app can show is translated: the source is scanned for what is passed to ``t(...)`` (a
 literal, or a module constant holding one) and for the tables of keys, and each must exist in every language
@@ -17,6 +17,7 @@ from pathlib import Path
 import pytest
 
 import vitralis
+from vitralis import app as app_module
 from vitralis.licence import messages as licence_messages
 from vitralis.licence.section import _ROWS
 from vitralis.settings import _ACTION_KEYS, LANGUAGES
@@ -82,6 +83,7 @@ def every_key() -> set[str]:
     keys |= set(_ACTION_KEYS.values()) | {tip for _, tip in TOOL_ICONS.values()} | set(MENU) | set(_ROWS)
     keys |= set(update_messages.ALL) | set(licence_messages._MESSAGES.values())
     keys |= {licence_messages.EXPIRED_ON, licence_messages.SAVE_FAILED, licence_messages.PRIVACY}
+    keys |= {app_module.NOT_SAVED, app_module.NOT_SAVING}  # reach ``t`` through a variable
     return keys
 
 

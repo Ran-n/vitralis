@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:11.023352
-Revised: 2026/11/14 18:33:19.601346
+Revised: 2026/11/15 02:34:48.463865
 
 ``settings.json`` through ``SettingsManager`` (a real file in ``tmp_path``): the update defaults, an old file
 without ``"updates"``, values surviving a restart, two managers not undoing each other's changes, and a broken
@@ -189,6 +189,29 @@ def test_a_change_refused_while_the_file_was_held_is_saved_once_it_can_be(settin
     assert flush_writes(5)
     settings_module._saved.clear()
     assert SettingsManager().skipped_version() == "1.4.0"  # and it reached the file
+
+
+def test_a_change_the_disk_refused_survives_the_next_manager_and_reaches_the_file(settings_file, monkeypatch):
+    """Regression guard: the next manager made (the toolbar's, after the licence unlocks again) read the older
+    file over the change, and the next change of anything else wrote it away for good."""
+    first = SettingsManager()
+    first.set_skipped_version("1.3.5")
+    assert flush_writes(5)
+    replace = persistence.os.replace
+
+    def refuse(*args, **kwargs):
+        raise PermissionError("held by another program")
+
+    monkeypatch.setattr(persistence.os, "replace", refuse)
+    first.set_language("Deutsch")
+    later = SettingsManager()  # reads the file, which still says nothing of the language
+    assert later.language() == "Deutsch" == first.language() and later.skipped_version() == "1.3.5"
+    monkeypatch.setattr(persistence.os, "replace", replace)
+    later.set_toolbar_state(size=7)
+    assert flush_writes(5) and persistence.unsaved_files() == []
+    settings_module._saved.clear()
+    fresh = SettingsManager()
+    assert (fresh.language(), fresh.skipped_version(), fresh.toolbar_state()["size"]) == ("Deutsch", "1.3.5", 7)
 
 
 def test_once_the_file_can_be_read_again_a_change_keeps_the_rest(settings_file, monkeypatch):

@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/15 00:37:56.019228 )
+[//]: # (+ Revised: 	2026/11/15 02:34:47.806849 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -124,7 +124,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   log says so, instead of reading "itralis".
 - A save the disk refused (the file held by another program) is tried
   again while Vitralis runs and when it quits, and a tray message says
-  so, instead of being logged and lost.
+  so, instead of being logged and lost; a setting changed meanwhile is
+  kept when the settings are read again.
 - Skipping a version that was already downloaded takes **Restart to
   update** away, and its download is no longer offered at the next start;
   taking the skip back offers it again.

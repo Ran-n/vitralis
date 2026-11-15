@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 07:52:06.389478
-Revised: 2026/11/14 18:33:17.632994
+Revised: 2026/11/15 02:34:48.146018
 
 ``settings.json`` (``SettingsManager``) and the settings window: the keyboard shortcuts, the language, the
 updates and the licence.
@@ -32,7 +32,7 @@ from vitralis.installed import installer_language
 from vitralis.licence.gate import LicenceGate
 from vitralis.licence.section import LicenceSection
 from vitralis.models import MAX_WIDTH, TOOL_NAMES
-from vitralis.persistence import DATA_DIR, flush_writes, keep_damaged, write_in_background
+from vitralis.persistence import DATA_DIR, flush_writes, keep_damaged, unsaved_files, write_in_background
 from vitralis.styles import base_btn, danger_btn, muted_btn
 from vitralis.translations import set_language, t
 from vitralis.updates.checker import UpdateChecker
@@ -163,7 +163,8 @@ class SettingsManager:
 
     def _load(self) -> None:
         flush_writes()  # a change still on its way to the file must not be read over
-        unsaved = _unreadable and bool(self._data)
+        # what this run changed and the file doesn't hold yet: refused while it couldn't be read, or by the disk
+        unsaved = bool(self._data) and (_unreadable or SETTINGS_FILE in unsaved_files())
         found = self._read()
         if _unreadable and self._data:
             return  # held for a moment while Vitralis runs: what this run already knows stays
