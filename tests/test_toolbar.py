@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:11.688678
-Revised: 2026/11/15 14:27:05.933234
+Revised: 2026/11/15 21:40:14.743931
 
 The real toolbar on the offscreen ``QApplication``, with its system-wide keyboard and mouse hooks replaced by
 inert stand-ins: the accent dot on the Settings button shows only while an update is offered, painted inside
@@ -166,6 +166,17 @@ def test_the_about_window_says_the_build_the_company_and_the_links(qapp, icons):
     window.deleteLater()
 
 
+def test_a_missing_about_logo_is_logged_and_the_window_is_still_whole(qapp, icons, monkeypatch, tmp_path, caplog):
+    """Regression guard: a missing logo used to leave About without it and nothing in the log."""
+    monkeypatch.setattr("vitralis.icons.media_base", lambda: tmp_path)
+    with caplog.at_level(logging.ERROR, "vitralis.about"):
+        window = InfoWindow("1.4.0")
+    assert not [label for label in window.findChildren(QLabel) if label.pixmap() and not label.pixmap().isNull()]
+    assert caplog.text.count("can't be loaded") == 2  # Vitralis's logo and Breren's
+    assert window.build_label.text() == "v1.4.0 · built from source"
+    window.deleteLater()
+
+
 def test_the_about_links_point_at_files_the_repository_has():
     from pathlib import Path
 
@@ -223,7 +234,7 @@ def test_the_toolbars_header_shows_the_vitralis_icon_as_the_v_of_its_name(make_t
 
 def test_a_missing_icon_is_logged_and_the_name_is_shown_whole(make_toolbar, monkeypatch, tmp_path, caplog):
     """Regression guard: without the file the header read "itralis", and nothing said why."""
-    monkeypatch.setattr(toolbar_module, "media_base", lambda: tmp_path)
+    monkeypatch.setattr("vitralis.icons.media_base", lambda: tmp_path)
     with caplog.at_level(logging.ERROR, "vitralis.toolbar"):
         bar = make_toolbar()
     assert [part.text() for part in bar._header.name_parts] == ["Vitralis"]

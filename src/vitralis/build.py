@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 16:06:25.762869
-Revised: 2026/11/15 14:26:59.902779
+Revised: 2026/11/15 21:40:08.151470
 """
 
 import argparse
@@ -13,6 +13,7 @@ import sys
 import tomllib
 from pathlib import Path
 
+from vitralis.icons import APP_LOGO, BUNDLED_FOLDERS, LOGO_FOLDER
 from vitralis.updates.target import RELEASE_TARGET_VARIABLE, TARGETS, asset_name
 
 
@@ -82,6 +83,12 @@ def write_build_info(package: Path, version: str, target: str | None) -> None:
     (package / "_release.py").write_text(f"TARGET = {target!r}\n", encoding="utf-8")
 
 
+def bundled_data(package: Path) -> list[str]:
+    """PyInstaller's ``--add-data`` for every picture folder the app reads, at the same place in the exe."""
+    sep = ";" if sys.platform == "win32" else ":"
+    return [f"--add-data={package / folder}{sep}{folder.as_posix()}" for folder in BUNDLED_FOLDERS]
+
+
 def installer_command(root: Path, exe: Path, ico: Path, dist: Path) -> list[str]:
     script = root / INSTALLER_SCRIPT
     return [
@@ -134,16 +141,13 @@ def main() -> None:
     build = os.path.join(root, "build")
     dist = os.path.join(root, "dist")
     ico = os.path.join(build, "vitralis.ico")
-    png = os.path.join(here, "media", "logo", "icon.png")
+    png = str(Path(here) / LOGO_FOLDER / APP_LOGO)
 
     os.makedirs(build, exist_ok=True)
     os.makedirs(dist, exist_ok=True)
 
     png_to_ico(png, ico)
 
-    sep = ";" if sys.platform == "win32" else ":"
-    logo_dir = os.path.join(here, "media", "logo")
-    icons_dir = os.path.join(here, "media", "icons")
     src_dir = os.path.join(root, "src")
     cmd = [
         sys.executable,
@@ -157,8 +161,7 @@ def main() -> None:
         f"--workpath={build}",
         f"--specpath={build}",
         f"--paths={src_dir}",
-        f"--add-data={logo_dir}{sep}media/logo",
-        f"--add-data={icons_dir}{sep}media/icons",
+        *bundled_data(Path(here)),
         script,
     ]
 

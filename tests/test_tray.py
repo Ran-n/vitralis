@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:14.728410
-Revised: 2026/11/14 12:31:26.583851
+Revised: 2026/11/15 21:40:15.731498
 
 The tray icon on the offscreen ``QApplication``: its menu in every UI language (and again after the language
 changes), each entry wired to the toolbar or to quitting, a double click showing the toolbar, and closing it.
@@ -113,5 +113,5 @@ def test_the_app_icon_has_every_size(qapp, icons):
 
 
 def test_without_the_logo_the_icon_is_a_plain_square(qapp, monkeypatch, tmp_path):
-    monkeypatch.setattr("vitralis.tray.media_base", lambda: tmp_path)
+    monkeypatch.setattr("vitralis.icons.media_base", lambda: tmp_path)
     assert [size.width() for size in make_app_icon().availableSizes()] == [256]

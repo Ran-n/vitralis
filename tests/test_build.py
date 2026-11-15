@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 19:56:04.526845
-Revised: 2026/11/15 14:27:04.955552
+Revised: 2026/11/15 21:40:14.131007
 
 ``uv run build`` and the installer: the release target the exe is built with (a value that isn't a target
 stops the build), the files the packaged exe reads, the installer script's command line, a real compile of
@@ -224,3 +224,28 @@ def test_a_test_build_can_change_every_identity_the_script_has():
         assert f"#ifndef {name}" in text, name
     test_script = (ROOT / "packaging" / "windows" / "test-installer.ps1").read_text(encoding="utf-8")
     assert f"[string]$AppId = '{INSTALLER_GUID}'" in test_script
+
+
+def test_the_exe_carries_every_picture_folder_at_the_place_the_app_reads_it():
+    """Regression guard: a logo the build doesn't pack is missing from the toolbar of the packaged exe only."""
+    from vitralis.icons import BUNDLED_FOLDERS
+
+    package = Path(build.__file__).parent
+    separator = ";" if sys.platform == "win32" else ":"
+    packed = {}
+    for argument in build.bundled_data(package):
+        source, _, inside = argument.removeprefix("--add-data=").rpartition(separator)
+        packed[inside] = Path(source)
+    assert set(packed) == {folder.as_posix() for folder in BUNDLED_FOLDERS}
+    for inside, source in packed.items():
+        assert source == package / inside and source.is_dir()
+
+
+def test_the_logo_on_the_toolbar_is_in_a_folder_the_exe_carries(monkeypatch, tmp_path):
+    from vitralis import icons
+
+    assert icons.logo_path().is_file() and icons.logo_path(icons.COMPANY_LOGO).is_file()
+    assert icons.LOGO_FOLDER in icons.BUNDLED_FOLDERS
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
+    assert icons.logo_path() == tmp_path / "media" / "logo" / "icon.png"  # where PyInstaller unpacks it

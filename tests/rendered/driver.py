@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 16:56:37.129213
-Revised: 2026/11/15 14:27:04.006189
+Revised: 2026/11/15 21:40:12.815569
 
 The real toolbar, its windows and one overlay canvas, running as a process of its own for the rendered tests:
 ``python -m tests.rendered.driver <data folder>``. It reads one JSON command per line on stdin and answers each
@@ -12,8 +12,10 @@ Everything is drawn by Windows as in the app, but nothing of the user's is touch
 scratch one given, the licence is an in-memory Clavren's that already holds, updates come from a feed in memory
 (nothing goes over the network), the system-wide key and wheel hooks are replaced by inert ones, and the
 overlay covers a small rectangle instead of every screen. The clocks and the version shown are fixed, so what
-is drawn is the same on every run. The tests click by
-posting window messages and look with PrintWindow; the driver never takes clicks as commands.
+is drawn is the same on every run. The tests click by posting window messages and look with PrintWindow; the
+driver never takes clicks as commands. Its windows are cloaked (``hidden.py``), so they never show on the user's
+screen unless ``VITRALIS_SHOW_TEST_WINDOW=1``, and every state it answers is searched for the user's name
+(``personal.py``).
 """
 
 import json
@@ -32,9 +34,11 @@ for name in ("VITRALIS_UPDATE_SOURCES", "VITRALIS_UPDATE_KEY", "VITRALIS_UPDATE_
     os.environ.pop(name, None)
 
 from PyQt6.QtCore import QPoint, QRect, QThread, pyqtSignal
-from PyQt6.QtWidgets import QApplication, QPushButton, QWidget
+from PyQt6.QtWidgets import QAbstractButton, QApplication, QLabel, QLineEdit, QPushButton, QWidget
 
 from tests.licence.fakes import START, FakeClock, licensed
+from tests.rendered.hidden import Cloaker, is_cloaked, shown
+from tests.rendered.personal import refuse_personal
 from tests.updates.fakes import NOON, TARGET, FakeFeed, MemorySettings
 from vitralis import toolbar as toolbar_module
 from vitralis.canvas import Canvas, DrawCapture
@@ -184,7 +188,31 @@ class Driver:
         box = [corner.x(), corner.y(), widget.width(), widget.height()]
         return {"hwnd": int(window.winId()), "rect": [round(value * ratio) for value in box], "ratio": ratio}
 
+    def do_cloaked(self, **_) -> dict:
+        """Whether DWM keeps each window that is up off the screen."""
+        up = [widget for widget in self.app.topLevelWidgets() if widget.isVisible()]
+        return {"cloaked": {type(widget).__name__: is_cloaked(int(widget.winId())) for widget in up}}
+
     def do_state(self, **_) -> dict:
+        """What the app holds and what it saved. It fails when that, or any text on a window that is up, names
+        the user: every test asks for it, so none can capture a screen that does."""
+        state = self._state()
+        refuse_personal({"state": state, "on screen": self._texts_on_screen()})
+        return state
+
+    def _texts_on_screen(self) -> list[str]:
+        texts = []
+        for window in self.app.topLevelWidgets():
+            if not window.isVisible():
+                continue
+            texts += [window.windowTitle(), window.toolTip()]
+            for widget in window.findChildren(QWidget):
+                if isinstance(widget, QLabel | QAbstractButton | QLineEdit):
+                    texts.append(widget.text())
+                texts.append(widget.toolTip())
+        return [text for text in texts if text]
+
+    def _state(self) -> dict:
         forget_strokes()  # what the file holds, not what the app remembers having saved
         bar = self.bar
         saved = load_strokes_for(CANVAS)
@@ -233,6 +261,9 @@ def main() -> None:
     init_icons_dir()
     app = QApplication(sys.argv[:1])
     app.setQuitOnLastWindowClosed(False)
+    if not shown():  # off the user's screen unless the run asked to watch
+        cloaker = Cloaker(app)
+        app.installEventFilter(cloaker)
     driver = Driver(app)
     lines = _Lines()
     lines.line.connect(driver.handle)

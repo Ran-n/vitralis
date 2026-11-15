@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/15 17:01:43.214613 )
+[//]: # (+ Revised: 	2026/11/15 21:40:06.196890 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -87,6 +87,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The rendered tests run with their windows cloaked, so nothing shows on
+  the screen (`VITRALIS_SHOW_TEST_WINDOW=1` shows them), on a scratch folder
+  under `%PUBLIC%` instead of the user's Temp folder, and fail before taking
+  a picture when anything the test copy shows names the user
 - The README is a landing page for people who want to use Vitralis
   (download, screenshots from the reviewed test pictures, getting started,
   your data, questions); the full manual moved to `docs/user-guide.md`, the
@@ -139,6 +143,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The licence window and About no longer leave out a missing logo without a
+  word: the log says which file couldn't be loaded. Every place that shows
+  the logo reads it from one path, the one the build packs into the exe
 - A background job (a snapshot save, a licence check, an update check or
   download) could end just as the last reference to its window or owner
   went, destroying it on the job's thread and crashing Vitralis. Each

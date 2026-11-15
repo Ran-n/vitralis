@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.410036
-Revised: 2026/11/14 12:31:24.875016
+Revised: 2026/11/15 21:40:10.899415
 
 The app icon and the tray icon with its menu (show or hide the toolbar, quit), in the current UI language.
 """
@@ -13,7 +13,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QIcon, QPixmap
 from PyQt6.QtWidgets import QApplication, QMenu, QSystemTrayIcon, QWidget
 
-from vitralis.icons import media_base
+from vitralis.icons import logo_path
 from vitralis.translations import t
 
 SHOW_TOOLBAR = "Show toolbar"
@@ -24,7 +24,7 @@ MENU = (SHOW_TOOLBAR, HIDE_TOOLBAR, QUIT)
 
 
 def make_app_icon() -> QIcon:
-    icon_path = media_base() / "media" / "logo" / "icon.png"
+    icon_path = logo_path()
     source = QPixmap(str(icon_path))
     icon = QIcon()
     if not source.isNull():

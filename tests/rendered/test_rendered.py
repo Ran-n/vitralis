@@ -2,13 +2,13 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 16:56:38.576341
-Revised: 2026/11/15 00:38:19.310379
+Revised: 2026/11/15 21:40:13.444704
 
 Vitralis as Windows draws it: the real toolbar, its windows and an overlay canvas run in a process of their own
 (``driver.py``) on a scratch data folder, clicked and dragged with posted window messages and looked at with
-PrintWindow. The real mouse and keyboard are never touched and the user's own Vitralis and its data are left
-alone, but the windows do show on the screen while the tests run, so they are kept out of the default run:
-``uv run pytest -m desktop``.
+PrintWindow. The real mouse and keyboard are never touched, the user's own Vitralis and its data are left
+alone, and the windows are cloaked, so nothing shows on the screen (``VITRALIS_SHOW_TEST_WINDOW=1`` shows them).
+They need a real Windows desktop, so they are kept out of the default run: ``uv run pytest -m desktop``.
 
 Each test checks what a person would see (the pixels of the window) and what the click left behind (the app's
 state and what it saved); the whole windows are also compared with the reviewed pictures in ``baselines/``.
@@ -196,6 +196,18 @@ def test_the_dot_on_settings_says_a_new_version_is_offered(running):
     assert is_color(shot.pixelColor(shot.width() + x, y), BTN_CHECKED)
     running.click("toolbar._settings_btn")
     baseline(running, "settings", "panel-settings-update")  # and Settings says which, with what to do about it
+
+
+def test_the_windows_stay_off_the_screen(app):
+    """The toolbar, the overlay and an open window are all cloaked, while the tests still see and click them."""
+    from tests.rendered.hidden import shown
+
+    if shown():
+        pytest.skip("VITRALIS_SHOW_TEST_WINDOW=1: the windows are shown on purpose")
+    app.click("toolbar._info_btn")
+    cloaked = app.cloaked()
+    assert {"Toolbar", "Canvas", "InfoWindow"} <= set(cloaked) and all(cloaked.values()), cloaked
+    app.click("info.close")
 
 
 def test_the_toolbar_shows_the_vitralis_icon(app):

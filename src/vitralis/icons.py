@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:03.995834
-Revised: 2026/04/29 13:04:58.715678
+Revised: 2026/11/15 21:40:08.870342
 """
 
 import sys
@@ -11,14 +11,21 @@ from pathlib import Path
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon, QPainter, QPixmap
 
+LOGO_FOLDER = Path("media", "logo")
+ICONS_FOLDER = Path("media", "icons")
+BUNDLED_FOLDERS = (LOGO_FOLDER, ICONS_FOLDER)
+"""Every folder of pictures the app reads, relative to ``media_base()``: the build packs each into the exe."""
+APP_LOGO = "icon.png"
+"""Vitralis's stained-glass logo: on the toolbar, in About, in the tray and as the exe's icon."""
+COMPANY_LOGO = "breren.svg"
+
 _ICONS_DIR: Path | None = None
 _FLAGS_DIR: Path | None = None
 
 
 def init_icons_dir() -> None:
     global _ICONS_DIR, _FLAGS_DIR
-    base = Path(sys._MEIPASS) if getattr(sys, "frozen", False) else Path(__file__).parent
-    _ICONS_DIR = base / "media" / "icons"
+    _ICONS_DIR = media_base() / ICONS_FOLDER
     _FLAGS_DIR = _ICONS_DIR / "flags"
 
 
@@ -52,3 +59,8 @@ def flag_icon(code: str, width: int = 20, height: int = 14) -> QIcon:
 
 def media_base() -> Path:
     return Path(sys._MEIPASS) if getattr(sys, "frozen", False) else Path(__file__).parent
+
+
+def logo_path(name: str = APP_LOGO) -> Path:
+    """Where a logo is, from source or inside the packaged exe."""
+    return media_base() / LOGO_FOLDER / name

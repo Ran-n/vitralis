@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 16:56:38.227152
-Revised: 2026/11/14 18:33:18.470323
+Revised: 2026/11/15 21:40:12.159430
 
 The rendered tests' app: the driver process (``driver.py``) started once on a scratch data folder, and what a
 test does with it: ask it where a widget is, click and drag there with posted window messages, read what the
@@ -141,6 +141,10 @@ class App:
     def pixel(self, part: str, x: int, y: int) -> QColor:
         return self.shot(part).pixelColor(x, y)
 
+    def cloaked(self) -> dict[str, bool]:
+        """Each window that is up: whether DWM keeps it off the screen."""
+        return self.ask("cloaked")["cloaked"]
+
     def ratio(self) -> float:
         return self.ask("where", part="toolbar")["ratio"]
 
@@ -155,11 +159,18 @@ class App:
 
 
 @pytest.fixture(scope="session")
-def running(tmp_path_factory):
-    """The driver, for the whole run; it must end by itself when told to quit."""
-    app = App(tmp_path_factory.mktemp("rendered"))
-    yield app
-    assert app.quit() == 0
+def running():
+    """The driver, for the whole run, on a scratch folder outside the user's profile (a path under it would name
+    them on screen); it must end by itself when told to quit, and the folder is deleted afterwards."""
+    from tests.rendered.personal import remove_scratch, scratch_folder
+
+    data = scratch_folder()
+    try:
+        app = App(data)
+        yield app
+        assert app.quit() == 0
+    finally:
+        remove_scratch(data)
 
 
 @pytest.fixture

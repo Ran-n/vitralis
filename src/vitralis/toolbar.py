@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.341523
-Revised: 2026/11/15 14:27:01.091988
+Revised: 2026/11/15 21:40:10.184721
 
 The floating toolbar that drives the overlay (modes, tools, colours, size, undo, clear, hide) and opens its
 windows (Settings, Snapshots, About, the colour picker). What it is left at is remembered for the next start:
@@ -22,7 +22,7 @@ from vitralis.about import InfoWindow
 from vitralis.canvas import Canvas, DrawCapture
 from vitralis.color_picker import ColorWindow
 from vitralis.hotkeys import GlobalHotkeyThread, GlobalMouseWheelThread
-from vitralis.icons import media_base, svg_icon
+from vitralis.icons import logo_path, svg_icon
 from vitralis.licence.gate import LicenceGate
 from vitralis.models import Tool
 from vitralis.settings import GLOBAL_ACTION, SettingsManager, SettingsWindow, display_key, key_hint
@@ -349,7 +349,6 @@ class Toolbar(QWidget):
         self._setup_shortcuts()
 
     def _add_title_row(self, root: QVBoxLayout) -> None:
-        base = media_base()
 
         self._focus_dot = QLabel()
         self._focus_dot.setFixedSize(10, 10)
@@ -377,7 +376,7 @@ class Toolbar(QWidget):
         self._quit_btn.clicked.connect(self.quit)
 
         header = self._header = _TitleHeader(
-            icon_path=base / "media" / "logo" / "icon.png",
+            icon_path=logo_path(),
             dot=self._focus_dot,
             buttons=[self._settings_btn, self._info_btn, _spacer, self._quit_btn],
             parent=self,

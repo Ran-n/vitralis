@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 12:31:22.249417
-Revised: 2026/11/15 14:26:59.290192
+Revised: 2026/11/15 21:40:07.511069
 
 The About window: the logo, the app with a one-line description, its version and which build it is, the
 author, the company that publishes it (Breren, with its logo and site), the licence with a way to read it and
@@ -11,15 +11,19 @@ a problem. Its own panel beside the toolbar rather than a section of Settings, w
 of a 1080p screen.
 """
 
+import logging
+
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
 from PyQt6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout
 
-from vitralis.icons import media_base
+from vitralis.icons import APP_LOGO, COMPANY_LOGO, logo_path
 from vitralis.styles import danger_btn
 from vitralis.translations import t
 from vitralis.version import LICENCE_NAME
 from vitralis.widgets import Divider, Panel
+
+logger = logging.getLogger("vitralis.about")
 
 REPOSITORY = "https://github.com/Ran-n/vitralis"
 COMPANY = "Breren"
@@ -60,9 +64,10 @@ class InfoWindow(Panel):
         self.retranslate()
 
     def _logo(self, name: str, size: int) -> QLabel | None:
-        path = media_base() / "media" / "logo" / name
+        path = logo_path(name)
         pixmap = QPixmap(str(path))
-        if pixmap.isNull():
+        if pixmap.isNull():  # the window is whole without it, and the log says what is missing
+            logger.error("the logo %s can't be loaded: About shows no picture there", path)
             return None
         label = QLabel()
         label.setPixmap(
@@ -117,7 +122,7 @@ class InfoWindow(Panel):
         root.addLayout(close_row)
         root.addSpacing(6)
 
-        logo = self._logo("icon.png", 96)
+        logo = self._logo(APP_LOGO, 96)
         if logo is not None:
             logo_row = QHBoxLayout()
             logo_row.addStretch()
@@ -146,7 +151,7 @@ class InfoWindow(Panel):
 
         company = QHBoxLayout()
         company.setSpacing(6)
-        mark = self._logo("breren.svg", 18)
+        mark = self._logo(COMPANY_LOGO, 18)
         if mark is not None:
             company.addWidget(mark)
         self.company_link = self._link()

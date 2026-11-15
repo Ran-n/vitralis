@@ -2,38 +2,28 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.249623
-Revised: 2026/11/14 12:31:23.753148
+Revised: 2026/11/15 21:40:09.524443
 
 The licence window: what Vitralis shows instead of its overlay until a key is activated on this computer, and
 again whenever the licence stops holding. It says why (one message per outcome), takes a key, and offers an
 online check when one can unlock it by itself. Closing it quits Vitralis, since nothing else runs while locked.
 """
 
+import logging
 from collections.abc import Callable
 
 from PyQt6.QtCore import QPoint, Qt
-from PyQt6.QtGui import QColor, QKeySequence, QPainter, QPen, QPixmap, QShortcut
-from PyQt6.QtWidgets import QApplication, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtGui import QKeySequence, QShortcut
+from PyQt6.QtWidgets import QApplication, QPushButton, QVBoxLayout, QWidget
 
-from vitralis.icons import media_base
+from vitralis.licence import look
 from vitralis.licence.gate import LicenceGate
 from vitralis.licence.messages import CHECKABLE, PRIVACY, status_message
 from vitralis.licence.rules import LicenceStatus, normalize_key
-from vitralis.styles import accent_btn, danger_btn, muted_btn
+from vitralis.styles import accent_btn, muted_btn
 from vitralis.translations import t
-from vitralis.widgets import LineEdit
 
-KEY_PLACEHOLDER = "BRN-XXXX-XXXX-XXXX-XXXX"
-WIDTH = 380
-_MESSAGE = "color: rgba(255,255,255,210); font-size: 12px; background: transparent;"
-_ERROR = "color: #ff8a65; font-size: 11px; background: transparent;"
-_NOTE = "color: rgba(255,255,255,90); font-size: 10px; background: transparent;"
-_FIELD = (
-    "QLineEdit { background: rgba(255,255,255,10); color: #f0f0f0; border: 1px solid rgba(255,255,255,30);"
-    "border-radius: 6px; padding: 6px 8px; font-size: 14px; font-family: Consolas, monospace; }"
-    "QLineEdit:focus { border: 1px solid #2272c3; }"
-    "QLineEdit:disabled { color: rgba(255,255,255,80); }"
-)
+logger = logging.getLogger("vitralis.licence.window")
 
 
 class LicenceWindow(QWidget):
@@ -48,7 +38,7 @@ class LicenceWindow(QWidget):
         self._drag_pos = QPoint()
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setWindowTitle("Vitralis — " + t("License"))
-        self.setFixedWidth(WIDTH)
+        self.setFixedWidth(look.WIDTH)
         self._build_ui()
         QShortcut(QKeySequence("Escape"), self, activated=self.close)
 
@@ -56,75 +46,41 @@ class LicenceWindow(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(20, 14, 20, 18)
         root.setSpacing(10)
-
-        close_row = QHBoxLayout()
-        close_row.addStretch()
-        self.close_button = QPushButton("✕")
-        self.close_button.setFixedSize(22, 22)
-        self.close_button.setStyleSheet(danger_btn())
+        self.close_button = QPushButton()
         self.close_button.setToolTip(t("Quit"))
         self.close_button.clicked.connect(self.close)
-        close_row.addWidget(self.close_button)
-        root.addLayout(close_row)
-
-        icon_path = media_base() / "media" / "logo" / "icon.png"
-        if icon_path.exists():
-            logo = QLabel()
-            logo.setPixmap(
-                QPixmap(str(icon_path)).scaled(
-                    72, 72, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
-                )
-            )
-            logo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            logo.setStyleSheet("background: transparent;")
-            root.addWidget(logo)
-
-        title = QLabel("Vitralis")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        title.setStyleSheet("color: white; font-size: 16px; font-weight: 700; background: transparent;")
-        root.addWidget(title)
-
-        self.message = QLabel()
-        self.message.setWordWrap(True)
-        self.message.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        root.addLayout(look.close_row(self.close_button))
+        picture = look.logo()
+        if picture is not None:
+            root.addWidget(picture)
+        root.addWidget(look.text_label(look.TITLE, "Vitralis"))
+        self.message = look.text_label(look.MESSAGE)
         self.message.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.message.setStyleSheet(_MESSAGE)
         root.addWidget(self.message)
+        self._build_key_part(root)
+        self.privacy = look.text_label(look.NOTE, t(PRIVACY))
+        root.addWidget(self.privacy)
+        self._update_buttons()
 
-        self.key_field = LineEdit()
-        self.key_field.setPlaceholderText(KEY_PLACEHOLDER)
-        self.key_field.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.key_field.setStyleSheet(_FIELD)
+    def _build_key_part(self, root: QVBoxLayout) -> None:
+        """The key field, **Activate**, **Check again** and the line that says what went wrong."""
+        self.key_field = look.key_field()
         self.key_field.textChanged.connect(self._update_buttons)
         self.key_field.returnPressed.connect(self._activate)
         root.addWidget(self.key_field)
-
         self.activate_button = QPushButton()
         self.activate_button.setFixedHeight(34)
         self.activate_button.setStyleSheet(accent_btn())
         self.activate_button.clicked.connect(self._activate)
         root.addWidget(self.activate_button)
-
         self.check_button = QPushButton()
         self.check_button.setFixedHeight(26)
         self.check_button.setStyleSheet(muted_btn())
         self.check_button.clicked.connect(self._check)
         root.addWidget(self.check_button)
-
-        self.error_label = QLabel()
-        self.error_label.setWordWrap(True)
-        self.error_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.error_label.setStyleSheet(_ERROR)
+        self.error_label = look.text_label(look.ERROR)
         self.error_label.hide()
         root.addWidget(self.error_label)
-
-        self.privacy = QLabel(t(PRIVACY))
-        self.privacy.setWordWrap(True)
-        self.privacy.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.privacy.setStyleSheet(_NOTE)
-        root.addWidget(self.privacy)
-
-        self._update_buttons()
 
     # --- LicencePrompt ----------------------------------------------------------------------------------------
 
@@ -209,9 +165,4 @@ class LicenceWindow(QWidget):
         self._dragging = False
 
     def paintEvent(self, event) -> None:
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        painter.setPen(QPen(QColor(255, 255, 255, 18), 1))
-        painter.setBrush(QColor(18, 18, 22, 230))
-        painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), 9, 9)
-        painter.end()
+        look.paint_panel(self)

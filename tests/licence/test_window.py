@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.558622
-Revised: 2026/11/14 12:31:25.483078
+Revised: 2026/11/15 21:40:11.527279
 
 The licence window and the settings' License section, as real Qt widgets rendered offscreen: what they say for
 each outcome, which buttons work when, and what they look like (pixels of the rendered window).
@@ -270,3 +270,24 @@ def test_the_key_fields_menu_speaks_the_ui_language(qapp, window_gate):
         "Seleccionar todo",
     ]
     menu.deleteLater()
+
+
+def test_the_window_shows_the_vitralis_logo_above_the_name(qapp, window_gate):
+    from PyQt6.QtWidgets import QLabel
+
+    window = opened(window_gate)
+    pictures = [label for label in window.findChildren(QLabel) if label.pixmap() and not label.pixmap().isNull()]
+    assert len(pictures) == 1 and pictures[0].pixmap().width() == 72
+
+
+def test_a_missing_logo_is_logged_and_the_window_is_still_whole(qapp, window_gate, monkeypatch, tmp_path, caplog):
+    """Regression guard: a missing logo used to leave a gap with nothing in the log."""
+    import logging
+
+    from PyQt6.QtWidgets import QLabel
+
+    monkeypatch.setattr("vitralis.icons.media_base", lambda: tmp_path)
+    with caplog.at_level(logging.ERROR, "vitralis.licence.look"):
+        window = opened(window_gate)
+    assert not [label for label in window.findChildren(QLabel) if label.pixmap() and not label.pixmap().isNull()]
+    assert window.key_field.isVisible() and "can't be loaded" in caplog.text

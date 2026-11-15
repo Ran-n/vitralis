@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/11/15 16:41:04.658676 )
-[//]: # (+ Revised: 	2026/11/15 16:50:25.352608 )
+[//]: # (+ Revised: 	2026/11/15 21:40:06.852046 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Developing Vitralis
@@ -63,10 +63,12 @@ The contract tests against the real license server are left out of the default r
 VITRALIS_LICENCE_TEST_KEY=BRN-... uv run pytest -m live
 ```
 
-The rendered tests (`tests/rendered`, Windows only) are left out of the default run too, because they put real windows on your screen for about a minute: the real toolbar, its windows and a small overlay run in a process of their own on a scratch data folder, with a license and an update feed held in memory. They click and drag by posting window messages and look at the windows with `PrintWindow`, so your mouse, keyboard, running Vitralis and its data are left alone. Each test checks the pixels a click leaves and what it saved, and the windows are compared with the reviewed pictures in `tests/rendered/baselines` (the test copy draws one pixel per pixel whatever the monitors' scaling, so the pictures don't follow your screens):
+The rendered tests (`tests/rendered`, Windows only) are left out of the default run too, because they need a real Windows desktop and take about a minute: the real toolbar, its windows and a small overlay run in a process of their own, with a license and an update feed held in memory. Their windows are cloaked, so nothing shows on your screen, in the taskbar or in Alt+Tab, and they never take the focus; `VITRALIS_SHOW_TEST_WINDOW=1` shows them, to watch a run. Their scratch data folder is under `%PUBLIC%
+itralis-tests` (deleted afterwards), not your Temp folder, because a path under your profile would put your user name in the pictures, and every state the test copy reports, with every text on its windows, is searched for your user name: a hit fails the test before a picture is taken. Look at every picture before approving it all the same. They click and drag by posting window messages and look at the windows with `PrintWindow`, so your mouse, keyboard, running Vitralis and its data are left alone. Each test checks the pixels a click leaves and what it saved, and the windows are compared with the reviewed pictures in `tests/rendered/baselines` (the test copy draws one pixel per pixel whatever the monitors' scaling, so the pictures don't follow your screens):
 
 ```
 uv run pytest -m desktop --no-cov
+VITRALIS_SHOW_TEST_WINDOW=1 uv run pytest -m desktop --no-cov   # with the windows on the screen
 ```
 
 After a deliberate change of look, write the pictures again, look at each one, and commit them with the change (what differs on a failure is written to `tests/rendered/failures`):
