@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/15 02:34:47.806849 )
+[//]: # (+ Revised: 	2026/11/15 02:40:00.117458 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -135,6 +135,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   longer drops the file's other settings of the same group (the toolbar's
   tool, colour and size; the update checks' switch) once the file can be
   read again.
+- A setting changed while `settings.json` couldn't be read is written as
+  soon as it can be, quitting included; the places of the toolbar's other
+  windows are kept; and a file damaged while Vitralis runs no longer
+  resets the settings in use.
 - Typing in the Snapshots list jumps to the snapshot with that name instead
   of running the toolbar's shortcuts (a Z undid a stroke).
 - Switching from pan to another mode with the mouse button still held

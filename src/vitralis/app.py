@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:03.794151
-Revised: 2026/11/15 00:37:58.963872
+Revised: 2026/11/15 02:40:00.540363
 
 Starts Vitralis behind its licence: the licence window first when no key is active on this computer, the
 overlay (``Session``) once the licence holds, and back to the licence window if it stops holding.
@@ -36,7 +36,7 @@ from vitralis.persistence import (
     strokes_unreadable,
     unsaved_files,
 )
-from vitralis.settings import SettingsManager, settings_unreadable
+from vitralis.settings import SettingsManager, save_held_settings, settings_unreadable
 from vitralis.single_instance import SingleInstance, mark_running, wait_for_turn
 from vitralis.toolbar import Toolbar
 from vitralis.translations import set_language, t
@@ -175,6 +175,7 @@ class Session:
 
     def _watch_saves(self) -> None:
         """Say once, when it first happens, that the disk refused a save, and go on trying it."""
+        save_held_settings()  # settings changed while their file couldn't be read: written once it can be
         unsaved = unsaved_files()
         if not unsaved:
             self._told_unsaved = False
@@ -378,6 +379,8 @@ def main() -> None:
         gate.shutdown()
         parts.close(working=gate.working)
         updates.close()
+        if not save_held_settings():
+            logger.error("quitting without the settings changed in this run saved: their file can't be read")
         if not flush_writes(FLUSH_SECONDS):  # Python still waits for the writer's thread before it exits
             logger.warning("the drawings and settings are still being written after %.0f s", FLUSH_SECONDS)
         for path in unsaved_files():

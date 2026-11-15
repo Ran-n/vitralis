@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 07:52:06.389478
-Revised: 2026/11/15 02:34:48.146018
+Revised: 2026/11/15 02:40:00.969342
 
 ``settings.json`` (``SettingsManager``) and the settings window: the keyboard shortcuts, the language, the
 updates and the licence.
@@ -13,6 +13,7 @@ import json
 import logging
 import re
 from collections.abc import Callable
+from pathlib import Path
 
 from PyQt6.QtCore import QEvent, QPoint, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QKeySequence, QShortcut
@@ -134,16 +135,43 @@ def _is_point(value: object) -> bool:
     )
 
 
+_damaged = False
+"""Whether ``settings.json`` was read but couldn't be understood (a copy of it is kept aside)."""
+_held_changes = False
+"""Whether this run changed settings that were refused because the file couldn't be read: they are in memory
+only, until ``save_held_settings`` gets them written."""
+_source: Path | None = None
+"""The file the table in memory was read from: the table says nothing of any other."""
+
+
 def _over(saved: dict, changed: dict) -> dict:
-    """``saved`` with ``changed`` laid over it. A table inside (the toolbar's state, the updates') is laid over
-    entry by entry: a change to one of its entries keeps the others the file holds."""
+    """``saved`` with ``changed`` laid over it. A table inside (the toolbar's state, the places of its windows
+    inside that, the updates') is laid over entry by entry, however deep: a change to one of its entries keeps
+    the others the file holds."""
     merged = dict(saved)
     for name, value in changed.items():
         if isinstance(value, dict) and isinstance(saved.get(name), dict):
-            merged[name] = {**saved[name], **value}
+            merged[name] = _over(saved[name], value)
         else:
             merged[name] = value
     return merged
+
+
+def save_held_settings() -> bool:
+    """Write the changes that were refused while ``settings.json`` couldn't be read, over what the file holds
+    now; whether nothing is left held (``False``: the file still can't be read)."""
+    global _held_changes
+    if not _held_changes:
+        return True
+    found = SettingsManager._read()
+    if _unreadable:
+        return False
+    merged = _over(found, _saved)  # what was changed since wins; the rest is kept
+    _saved.clear()
+    _saved.update(merged)
+    _held_changes = False
+    write_in_background(SETTINGS_FILE, copy.deepcopy(_saved))
+    return True
 
 
 def settings_unreadable() -> bool:
@@ -162,14 +190,23 @@ class SettingsManager:
         self._load()
 
     def _load(self) -> None:
+        global _source, _held_changes
         flush_writes()  # a change still on its way to the file must not be read over
+        if _source != SETTINGS_FILE:  # another file: what is in memory says nothing of it
+            self._data.clear()
+            _held_changes = False
+            _source = SETTINGS_FILE
         # what this run changed and the file doesn't hold yet: refused while it couldn't be read, or by the disk
-        unsaved = bool(self._data) and (_unreadable or SETTINGS_FILE in unsaved_files())
+        unsaved = bool(self._data) and (_held_changes or SETTINGS_FILE in unsaved_files())
         found = self._read()
         if _unreadable and self._data:
             return  # held for a moment while Vitralis runs: what this run already knows stays
+        if _damaged and self._data:  # damaged while Vitralis runs: what this run knows is written back
+            write_in_background(SETTINGS_FILE, copy.deepcopy(self._data))
+            return
         if unsaved:  # readable again: what was changed while it was held is kept, and saved at last
             found = _over(found, self._data)
+            _held_changes = False
             write_in_background(SETTINGS_FILE, copy.deepcopy(found))
         self._data.clear()
         self._data.update(found)
@@ -178,8 +215,8 @@ class SettingsManager:
     def _read() -> dict:
         """What ``settings.json`` holds. Damaged content is copied aside and counts as none; a file that can't
         be read at all counts as none too, but is marked unreadable, so no change is written over it."""
-        global _unreadable
-        _unreadable = False
+        global _unreadable, _damaged
+        _unreadable = _damaged = False
         if not SETTINGS_FILE.exists():
             return {}
         try:
@@ -193,25 +230,26 @@ class SettingsManager:
         except ValueError as ex:
             logger.warning("%s is damaged, using the defaults: %s", SETTINGS_FILE, ex)
             keep_damaged(SETTINGS_FILE)
+            _damaged = True
             return {}
         if isinstance(data, dict):
             return data
         logger.warning("%s isn't a JSON object, using the defaults", SETTINGS_FILE)
         keep_damaged(SETTINGS_FILE)
+        _damaged = True
         return {}
 
     def _put(self, key: str, value) -> None:
+        global _held_changes
         self._data[key] = value
-        if _unreadable:
-            found = self._read()  # once more: it may have been held by another program for a moment
-            if _unreadable:
+        if _unreadable or _held_changes:
+            _held_changes = True
+            # once more: it may have been held by another program for a moment
+            if not save_held_settings():
                 logger.error(
                     "not saving the settings: %s still can't be read, and may hold earlier ones", SETTINGS_FILE
                 )
-                return
-            merged = _over(found, self._data)  # what was changed since wins; the rest is kept
-            self._data.clear()
-            self._data.update(merged)
+            return
         write_in_background(SETTINGS_FILE, copy.deepcopy(self._data))  # a copy: the table goes on changing
 
     def shortcuts(self) -> dict[str, str]:

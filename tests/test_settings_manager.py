@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:11.023352
-Revised: 2026/11/15 02:34:48.463865
+Revised: 2026/11/15 02:40:01.700926
 
 ``settings.json`` through ``SettingsManager`` (a real file in ``tmp_path``): the update defaults, an old file
 without ``"updates"``, values surviving a restart, two managers not undoing each other's changes, and a broken
@@ -212,6 +212,53 @@ def test_a_change_the_disk_refused_survives_the_next_manager_and_reaches_the_fil
     settings_module._saved.clear()
     fresh = SettingsManager()
     assert (fresh.language(), fresh.skipped_version(), fresh.toolbar_state()["size"]) == ("Deutsch", "1.3.5", 7)
+
+
+def test_a_change_held_back_is_written_once_the_file_can_be_read_with_no_further_change(settings_file, monkeypatch):
+    """Regression guard: it stayed in memory until another change or another manager came; quitting first lost
+    it without a word."""
+    SettingsManager().set_skipped_version("1.3.5")
+    assert flush_writes(5)
+    settings_module._saved.clear()
+    state = hold(monkeypatch, settings_file)
+    manager = SettingsManager()
+    manager.set_language("Deutsch")
+    assert settings_module.save_held_settings() is False  # still held: as the watch and quitting find it
+    state["held"] = False
+    assert settings_module.save_held_settings() is True and flush_writes(5)
+    assert settings_module.save_held_settings() is True  # nothing left: nothing written again
+    saved = json.loads(settings_file.read_text(encoding="utf-8"))
+    assert saved["language"] == "Deutsch" and saved["updates"]["skipped"] == "1.3.5"
+
+
+def test_a_window_moved_after_a_held_start_keeps_the_other_windows_places(settings_file, monkeypatch):
+    """Regression guard: the places are a table inside the toolbar's table, and it was replaced whole."""
+    places = {"settings": [10, 20], "snapshots": [30, 40], "info": [50, 60]}
+    SettingsManager().set_toolbar_state(tool="RECT", panels=places)
+    assert flush_writes(5)
+    settings_module._saved.clear()
+    state = hold(monkeypatch, settings_file)
+    manager = SettingsManager()
+    state["held"] = False
+    manager.set_toolbar_state(panels={"settings": [1, 2]})
+    settings_module._saved.clear()
+    saved = SettingsManager().toolbar_state()
+    assert saved["panels"] == {**places, "settings": [1, 2]} and saved["tool"] == "RECT"
+
+
+@pytest.mark.parametrize("garbage", ["{not json", "[1, 2]"])
+def test_a_file_damaged_while_vitralis_runs_doesnt_reset_what_it_knows(settings_file, garbage):
+    """Regression guard: the next manager made took the defaults from the damaged file, over this run's
+    shortcuts and language."""
+    first = SettingsManager()
+    first.set_shortcuts({**DEFAULT_SHORTCUTS, "draw": "q"})
+    assert flush_writes(5)
+    settings_file.write_text(garbage, encoding="utf-8")
+    later = SettingsManager()
+    assert later.shortcuts()["draw"] == "q" == first.shortcuts()["draw"]
+    assert flush_writes(5)
+    assert settings_file.with_name(settings_file.name + DAMAGED_SUFFIX).read_text(encoding="utf-8") == garbage
+    assert json.loads(settings_file.read_text(encoding="utf-8"))["shortcuts"]["draw"] == "q"  # mended
 
 
 def test_once_the_file_can_be_read_again_a_change_keeps_the_rest(settings_file, monkeypatch):

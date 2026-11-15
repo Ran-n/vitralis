@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.433417
-Revised: 2026/11/15 00:38:21.785386
+Revised: 2026/11/15 02:40:01.339585
 
 The overlay session behind the licence: nothing of the overlay exists while locked, it starts once the licence
 holds, and locking tears it all down (toolbar with its global hooks, canvases, captures, tray). The real toolbar
@@ -333,8 +333,9 @@ def test_the_tray_says_when_changes_arent_being_saved(qapp, session, monkeypatch
 
 def test_the_tray_says_once_when_the_disk_refuses_a_save_and_the_save_is_tried_again(qapp, session, monkeypatch):
     """Regression guard: only the log said so; what was drawn was gone at the next start."""
-    unsaved, retried = [], []
+    unsaved, retried, held = [], [], []
     monkeypatch.setattr(app_module, "unsaved_files", lambda: list(unsaved))
+    monkeypatch.setattr(app_module, "save_held_settings", lambda: held.append(1) or True)
     monkeypatch.setattr(app_module, "retry_failed_writes", lambda: retried.append(1))
     session = session()
     session.start()
@@ -350,6 +351,7 @@ def test_the_tray_says_once_when_the_disk_refuses_a_save_and_the_save_is_tried_a
     unsaved.append("strokes.json")
     session._save_watch.timeout.emit()
     assert session.trays[0].messages == [app_module.NOT_SAVED] * 2  # saved meanwhile: a new refusal is said
+    assert len(held) == 5  # each time: settings held back are written as soon as their file can be read
     session.stop()
     assert not session._save_watch.isActive()
 
