@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/15 02:54:56.643728 )
+[//]: # (+ Revised: 	2026/11/15 03:02:12.997053 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -146,6 +146,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A snapshot saved with a byte-order mark loads, and a settings or
   drawings file that isn't UTF-8 text (saved as "Unicode" from Notepad)
   counts as damaged and is kept aside.
+- A saved stroke or toolbar state whose tool isn't text (a file mended by
+  hand) is skipped like any other damaged entry, instead of stopping
+  Vitralis at every start.
 - A tray message also says when settings start being held back while
   Vitralis runs, and a save the disk refused is never replayed over a
   file that can't be read.

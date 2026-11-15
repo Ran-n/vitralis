@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:10.961213
-Revised: 2026/11/15 02:54:57.737780
+Revised: 2026/11/15 03:02:14.792998
 
 The drawings on disk (real files in the test's own data folder): strokes per screen surviving a restart, the
 first versions' bare list, damaged entries and files, writes that are whole or not at all and never make the
@@ -604,3 +604,18 @@ def test_a_damaged_file_that_cant_be_copied_aside_is_logged_and_started_over(mon
         assert load_strokes_for(PRIMARY) == []
     assert any("couldn't keep" in r.getMessage() for r in caplog.records)
     assert not persistence.STROKES_FILE.with_name(persistence.STROKES_FILE.name + DAMAGED_SUFFIX).exists()
+
+
+def test_a_stroke_whose_tool_isnt_text_is_skipped_and_the_rest_is_read(caplog):
+    """Regression guard: it raised out of the load, so Vitralis stopped at every start until the file was
+    mended by hand."""
+    good = LINE.to_dict()
+    persistence.STROKES_FILE.write_text(json.dumps({"0,0": [good, {**good, "tool": ["PEN"]}]}), encoding="utf-8")
+    with caplog.at_level(logging.WARNING, "vitralis.persistence"):
+        assert load_strokes_for(PRIMARY) == [LINE]
+    assert any("skipped 1 damaged" in r.getMessage() for r in caplog.records)
+    (persistence.SNAPSHOTS_DIR).mkdir(parents=True, exist_ok=True)
+    (persistence.SNAPSHOTS_DIR / "review.json").write_text(
+        json.dumps({"0,0": [{**good, "tool": {}}, good]}), encoding="utf-8"
+    )
+    assert load_snapshot("review") == {"0,0": [LINE]}

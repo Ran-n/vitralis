@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.064124
-Revised: 2026/11/14 12:31:23.913180
+Revised: 2026/11/15 03:02:13.367273
 
 What a drawing is made of: the tools and the strokes they leave, as they are kept in ``strokes.json`` and in
 the snapshots.
@@ -90,7 +90,7 @@ class Stroke:
         if not isinstance(d, dict):
             raise ValueError("a stroke must be an object")
         tool, color, width, points = d.get("tool"), d.get("color"), d.get("width"), d.get("points")
-        if tool not in TOOL_NAMES:
+        if not isinstance(tool, str) or tool not in TOOL_NAMES:  # a list or a table can't even be looked up
             raise ValueError(f"unknown tool {tool!r}")
         if not isinstance(color, str):
             raise ValueError(f"the colour must be text, not {color!r}")

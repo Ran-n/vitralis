@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:11.023352
-Revised: 2026/11/15 02:54:58.091096
+Revised: 2026/11/15 03:02:15.134940
 
 ``settings.json`` through ``SettingsManager`` (a real file in ``tmp_path``): the update defaults, an old file
 without ``"updates"``, values surviving a restart, two managers not undoing each other's changes, and a broken
@@ -14,6 +14,8 @@ import logging
 import threading
 
 import pytest
+from hypothesis import given
+from hypothesis import strategies as st
 
 import vitralis.persistence as persistence
 import vitralis.settings as settings_module
@@ -496,3 +498,44 @@ def test_a_shortcut_is_shown_in_capitals_and_none_as_a_dash():
 
     assert display_key("ctrl+q") == "CTRL+Q" and display_key("") == "—"
     assert key_hint("Undo", "z") == "Undo  [Z]" and key_hint("Undo", "") == "Undo"
+
+
+@pytest.mark.parametrize("tool", [["PEN"], {"name": "PEN"}, 7, None])
+def test_a_saved_tool_that_isnt_text_is_left_out_not_a_crash(settings_file, tool):
+    """Regression guard: a list or a table for the tool raised, and the toolbar couldn't be built."""
+    settings_file.write_text(json.dumps({"toolbar": {"tool": tool, "size": 8}}), encoding="utf-8")
+    assert SettingsManager().toolbar_state() == {"size": 8}
+
+
+@pytest.mark.property
+@given(
+    st.dictionaries(
+        st.sampled_from(["toolbar", "updates", "shortcuts", "language", "tool", "color", "size", "panels", "check"]),
+        st.recursive(
+            st.none() | st.booleans() | st.integers() | st.text(max_size=6),
+            lambda inner: (
+                st.lists(inner, max_size=3)
+                | st.dictionaries(
+                    st.sampled_from(["tool", "color", "size", "position", "hidden", "panels", "skipped", "draw"]),
+                    inner,
+                    max_size=4,
+                )
+            ),
+            max_leaves=8,
+        ),
+    )
+)
+def test_whatever_the_file_holds_every_setting_reads_without_raising(tmp_path_factory, content):
+    """A file mended by hand may hold anything JSON can: each getter then gives a value of its kind."""
+    path = tmp_path_factory.mktemp("settings") / "settings.json"
+    path.write_text(json.dumps(content), encoding="utf-8")
+    saved_file = settings_module.SETTINGS_FILE
+    settings_module.SETTINGS_FILE = path
+    try:
+        manager = SettingsManager(lambda: None)
+        assert set(manager.shortcuts()) == set(DEFAULT_SHORTCUTS)
+        assert isinstance(manager.language(), str) and isinstance(manager.skipped_version(), str)
+        assert isinstance(manager.update_check(), bool) and isinstance(manager.toolbar_state(), dict)
+    finally:
+        assert flush_writes(5)
+        settings_module.SETTINGS_FILE = saved_file

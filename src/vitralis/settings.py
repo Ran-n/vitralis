@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 07:52:06.389478
-Revised: 2026/11/15 02:54:57.366759
+Revised: 2026/11/15 03:02:13.705917
 
 ``settings.json`` (``SettingsManager``) and the settings window: the keyboard shortcuts, the language, the
 updates and the licence.
@@ -323,8 +323,9 @@ class SettingsManager:
         if not isinstance(saved, dict):
             return {}
         state: dict = {}
-        if saved.get("tool") in TOOL_NAMES:
-            state["tool"] = saved["tool"]
+        tool = saved.get("tool")
+        if isinstance(tool, str) and tool in TOOL_NAMES:  # a list or a table can't even be looked up
+            state["tool"] = tool
         color = saved.get("color")
         if isinstance(color, str) and _HEX_COLOR.fullmatch(color):
             state["color"] = color.lower()

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:22:49.939269
-Revised: 2026/11/14 18:00:30.455255
+Revised: 2026/11/15 03:02:14.457730
 
 A stroke as it is saved: what it writes it reads back the same (for any stroke), files from before strokes had
 a time still load, and a damaged entry is refused with a reason instead of reaching the painter.
@@ -195,3 +195,30 @@ def test_a_point_is_exactly_two_numbers(point):
     entry = shape("LINE", [0, 0], [1, 1]).to_dict()
     with pytest.raises(ValueError, match="two numbers"):
         Stroke.from_dict({**entry, "points": [[0.0, 0.0], point]})
+
+
+json_values = st.recursive(
+    st.none() | st.booleans() | st.integers() | st.floats() | st.text(max_size=8),
+    lambda inner: st.lists(inner, max_size=3) | st.dictionaries(st.text(max_size=5), inner, max_size=3),
+    max_leaves=8,
+)
+"""Anything a JSON file can hold."""
+
+
+@pytest.mark.parametrize("tool", [["PEN"], {"name": "PEN"}, 7, None, True])
+def test_a_tool_that_isnt_text_is_damage_not_a_crash(tool):
+    """Regression guard: a list or a table for the tool raised ``TypeError``, which nothing caught: one such
+    stroke in the file and Vitralis no longer started."""
+    entry = shape("LINE", [0, 0], [1, 1]).to_dict()
+    with pytest.raises(ValueError, match="unknown tool"):
+        Stroke.from_dict({**entry, "tool": tool})
+
+
+@pytest.mark.property
+@given(st.dictionaries(st.sampled_from(["tool", "color", "width", "points", "created", "filled"]), json_values))
+def test_whatever_a_file_holds_for_a_stroke_reads_or_is_refused_as_damage(entry):
+    try:
+        stroke = Stroke.from_dict(entry)
+    except ValueError:
+        return
+    assert stroke.tool in TOOL_NAMES and stroke.points
