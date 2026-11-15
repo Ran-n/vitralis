@@ -1,146 +1,164 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/04/27 10:48:03.565778 )
-[//]: # (+ Revised: 	2026/11/15 00:37:57.029656 )
+[//]: # (+ Revised: 	2026/11/15 16:41:04.941911 )
 [//]: # ( ---------------------------------------------------------------------- )
 
-![Vitralis icon](src/vitralis/media/logo/icon_title.png)
+<div align="center">
+
+<img src="src/vitralis/media/logo/icon_title.png" alt="Vitralis" width="160">
 
 # Vitralis
 
-> *Vitralis* — from Latin *vitreus*, of glass. A surface that is there without being in the way.
+**Your screen, with memory.**
 
-Your screen, with memory.
+Draw notes, arrows and shapes right on top of whatever is on your Windows screen. They stay there, across restarts, until you remove them, and the rest of the time you click straight through them.
 
-Draw annotations, shapes, and marks directly over your live desktop. They stay — across sessions, across reboots — until you decide to remove them. The rest of the time, the overlay is invisible to your mouse: click through it as if it weren't there.
+<br>
 
-## Features
+[![Download for Windows](https://img.shields.io/badge/Download_for_Windows-ffffff?style=for-the-badge&labelColor=d65d0e&color=d65d0e)](https://github.com/Ran-n/vitralis/releases/latest)
 
-- Transparent, always-on-top overlay spanning all monitors
-- Always click-through — use your computer normally at all times
-- Drawing activated via a small floating toolbar; it stays on for as many strokes as you need, until a right-click or Esc
-- Tools: freehand pen, eraser, rectangle, ellipse, line, arrow
-- Color palette with a custom color picker (pick a shade or type `#rrggbb`), stroke size control, and scroll-wheel color cycling
-- Per-stroke undo (the latest stroke, whichever monitor it is on) and click-to-delete individual strokes
-- Pan mode — drag all drawings to reposition them
-- Drawings persist across restarts (JSON stroke list, per-monitor), and so do the toolbar's tool, color, size and position
-- Named snapshots: save the drawings of every monitor and load them back later
-- Follows your monitors: plug one in, unplug it or change its resolution and the overlay adapts
-- Show/hide overlay without losing drawings
-- System tray icon — lives quietly in the background; starting Vitralis again just brings its toolbar back
-- Info panel — version, author, and license at a glance
-- License key — activated once per computer, works offline for up to 30 days
-- Tells you when a new version is out (Settings → Updates), and installs it from inside the app
+[![GitHub](https://img.shields.io/badge/GitHub-releases-181717?logo=github&style=flat-square)](https://github.com/Ran-n/vitralis/releases)
+[![GitLab](https://img.shields.io/badge/GitLab-releases-FC6D26?logo=gitlab&style=flat-square)](https://gitlab.com/Ran-n/vitralis/-/releases)
+[![Codeberg](https://img.shields.io/badge/Codeberg-releases-2185D0?logo=codeberg&style=flat-square)](https://codeberg.org/ran-n/vitralis/releases)
 
-## Install
+[![Version](https://img.shields.io/github/v/release/Ran-n/vitralis?label=version)](https://github.com/Ran-n/vitralis/releases/latest)
+![Windows 10 and later](https://img.shields.io/badge/platform-Windows_10%2B-0078D6)
+![9 languages](https://img.shields.io/badge/languages-9-458588)
+[![PayBack License (PBL) v2.0](https://img.shields.io/badge/license-PBL_v2.0-98971a)](LICENSE)
 
-From the [latest release](https://github.com/Ran-n/vitralis/releases/latest), on Windows (64-bit):
+<br>
 
-- **`vitralis-<version>-setup.exe`**, the installer. It installs for your account only, with no admin prompt, in `%LOCALAPPDATA%\Programs\Vitralis`, adds Vitralis to the Start menu, and can add a desktop shortcut and start Vitralis when you sign in. Uninstall it from Windows's Settings → Apps. Your settings, drawings and license (`%APPDATA%\Vitralis`) stay, so installing again needs no new key. Running a newer version's installer updates it in place. It speaks every language Vitralis does, and Vitralis starts in the one you install in until you pick another in Settings.
-- **`vitralis-<version>.exe`**, the portable version: one file, nothing installed. Put it in a folder of your own and run it.
+<img src="tests/rendered/baselines/toolbar-en.png" alt="The Vitralis toolbar" height="420">
 
-Both update themselves from inside the app (see [Updates](#updates)). Every file has a `.b3` BLAKE3 checksum next to it (`b3sum -c vitralis-<version>-setup.exe.b3`).
+[Why Vitralis?](#why-vitralis) · [A closer look](#a-closer-look) · [Download and install](#download-and-install) · [Getting started](#getting-started) · [Your data](#your-data) · [Questions](#questions) · [From source](#install-or-run-from-source) · [Technical details](#technical-details) · [License](#license)
 
-## License key
+</div>
 
-Vitralis needs a license key (`BRN-XXXX-XXXX-XXXX-XXXX`). On first start it shows a license window instead of the overlay: type the key and press **Activate**. No key yet? Ask ran.hash@proton.me for one.
+## Why Vitralis?
 
-- **One key, one computer.** A key works on the first computer it's activated on. After a reinstall or a new PC, ask for a reset and enter the same key again.
-- **Works offline.** Vitralis checks the license once a day when online, and keeps working on its saved license for up to 30 days without internet.
-- **Settings → License** shows whether it's a test license, until when it's valid, and until when it works offline (highlighted when under 5 days away), with **Check now**.
-- If the license is revoked, expires, or needs an online check, Vitralis closes the overlay and shows the license window again with the reason.
+- **Mark up anything on your screen.** Pen, line, arrow, rectangle, ellipse and eraser, in any colour, over any app, video or slide.
+- **Your notes stay.** Close Vitralis, restart the computer: your drawings are where you left them, on each monitor, until you clear them.
+- **Never in your way.** When you aren't drawing, clicks go straight through to the windows underneath.
+- **Keep sets of drawings.** Save everything on screen as a named snapshot and bring it back later.
+- **Speaks your language.** English, Galician (both spellings), Spanish, Portuguese, French, German, Chinese and Japanese.
+- **Keeps itself up to date.** It tells you when a new version is out and installs it with one click, checking it really comes from its author.
 
-**What is sent, and where.** Keys are checked by Clavren at `clavren.breren.com`. Activating sends the key; after that, once a day, Vitralis sends a check signed by this computer, with the computer's name and the app version. The saved license (`%APPDATA%\Vitralis\licence.dat`) is encrypted for your Windows account and useless when copied to another account or computer.
+## A closer look
 
-## Updates
+<table>
+<tr>
+<td align="center"><img src="tests/rendered/baselines/toolbar-drawing.png" alt="Drawing" height="320"><br><b>Draw</b><br>Pick a tool and a colour; draw for as long as you like</td>
+<td align="center"><img src="tests/rendered/baselines/panel-color.png" alt="Colour picker" width="250"><br><b>Any colour</b><br>Pick a shade or type its code</td>
+</tr>
+<tr>
+<td align="center"><img src="tests/rendered/baselines/panel-snapshots-one.png" alt="Snapshots" width="280"><br><b>Snapshots</b><br>Save the drawings under a name and load them back</td>
+<td align="center"><img src="tests/rendered/baselines/panel-info.png" alt="About" height="320"><br><b>About</b><br>Version, author and links</td>
+</tr>
+<tr>
+<td align="center"><img src="tests/rendered/baselines/panel-settings-update.png" alt="Settings" height="420"><br><b>Settings</b><br>Your own shortcuts, the language, updates and the license</td>
+<td align="center"><img src="tests/rendered/baselines/toolbar-ja.png" alt="Japanese" height="300"> <img src="tests/rendered/baselines/toolbar-de.png" alt="German" height="300"><br><b>In your language</b><br>Japanese and German here, nine in all</td>
+</tr>
+</table>
 
-At start (after 10 seconds) and then once a day, Vitralis asks GitHub for the latest release. When a newer one is out, the toolbar's Settings button gets an orange dot, the tray says **Vitralis {version} is out** once, and **Settings → Updates** shows it with **Release notes** and **Skip this version** (a skipped version stays quiet until a newer one comes out; **Don't skip** undoes it). The **Check for new versions** switch turns the automatic checks off; **Check now** still works. If a check fails (offline, GitHub's hourly limit), Settings → Updates says why.
+## Download and install
 
-**Updating.** In the Windows exe, Settings → Updates (or a click on the tray message) offers **Install {version}**. It downloads the new exe to `%APPDATA%\Vitralis\updates`, showing the progress, and checks it against the release's BLAKE3 checksum; a damaged download is deleted and you can try again. **Restart to update** then quits Vitralis cleanly, puts the new exe at the same path as the old one (so shortcuts and pinned icons keep working, even though the file name keeps the old version), and starts it; it says **Updated to {version}** once and needs no new license key. If anything goes wrong, the old exe is put back and keeps running. The exe's folder must be writable, as the installer's is: under `C:\Program Files`, move Vitralis to a folder of your own or update by hand. In an installed Vitralis, Settings → Apps shows the new version after the restart. Running from source, only Release notes is offered.
+Get it from the [latest release](https://github.com/Ran-n/vitralis/releases/latest). Vitralis runs on Windows 10 (version 1809) or later, 64-bit.
 
-## Setup
+| You want | Download |
+|---|---|
+| Vitralis installed, in the Start menu (recommended) | `vitralis-<version>-windows-x86_64-setup.exe` |
+| One file to run from a folder of your own, nothing installed | `vitralis-<version>-windows-x86_64.exe` |
+
+The installer needs no administrator rights and installs for your account only. Both copies update themselves.
+
+> [!NOTE]
+> Windows may show "Windows protected your PC" the first time, because Vitralis isn't signed with a paid Microsoft certificate. Click **More info**, then **Run anyway**. Each release file has a `.b3` checksum next to it if you want to check your download (`b3sum -c <file>.b3`).
+
+## Getting started
+
+1. Run the installer (or the portable exe). The toolbar appears near the corner of your main screen.
+2. Enter your license key and press **Activate** (no key yet? write to ran.hash@proton.me).
+3. Press **Draw** (or `D`), pick a tool and a colour, and draw anywhere on the screen.
+4. Right-click or press `Esc` to stop drawing: your clicks go through to the windows again, and the drawings stay.
+5. Press `F8` from any app to bring the toolbar forward; **Settings** lets you change every shortcut.
+
+Everything else (tools, snapshots, shortcuts, updates) is in the [user guide](docs/user-guide.md).
+
+## Your data
+
+- Your drawings, snapshots and settings stay on your computer, in `%APPDATA%\Vitralis`. Uninstalling keeps them.
+- The license is checked with Breren's license server (`clavren.breren.com`) when you activate and once a day: it sends the key, this computer's name and the app version. It keeps working offline for up to 30 days.
+- The update check asks GitHub and GitLab for the latest release once a day and sends nothing about you. Turn it off in **Settings → Updates**.
+
+> [!WARNING]
+> **Clear all** (`Del`) removes every drawing on every screen at once. Save a snapshot first if you may want them back.
+
+## Questions
+
+<details>
+<summary><b>Is it free?</b></summary>
+
+Free for personal, academic and non-commercial use. Using it commercially needs a revenue-share agreement with the author. The [PayBack License (PBL) v2.0](LICENSE) has the exact terms.
+</details>
+
+<details>
+<summary><b>Does it work on Mac or Linux?</b></summary>
+
+No. Vitralis draws over the Windows desktop and uses Windows to let clicks pass through, so it is Windows only.
+</details>
+
+<details>
+<summary><b>Can I use it on more than one computer?</b></summary>
+
+A license key works on the first computer it is activated on. After a reinstall or on a new computer, ask for a reset and enter the same key again.
+</details>
+
+<details>
+<summary><b>Will it get in the way of my work?</b></summary>
+
+No. Outside draw mode the overlay lets every click and scroll through, and the toolbar can be hidden; drawings are kept either way.
+</details>
+
+<details>
+<summary><b>How do I know an update is genuine?</b></summary>
+
+Vitralis checks that each update is signed with its author's release key before it downloads it, and checks the download against its checksum before installing it. Anything else is refused and deleted.
+</details>
+
+<details>
+<summary><b>Where do I report a problem?</b></summary>
+
+Open an issue on [GitHub](https://github.com/Ran-n/vitralis/issues) (see [Reporting Bugs](CONTRIBUTING.md#reporting-bugs)), and attach `%APPDATA%\Vitralis\vitralis.log` if you can.
+</details>
+
+## Install or run from source
+
+You need Windows, [Python 3.13](https://www.python.org/) and [uv](https://docs.astral.sh/uv/).
 
 ```
+git clone https://github.com/Ran-n/vitralis.git
+cd vitralis
 uv sync
 ```
 
-## Usage
+**Run it:** `uv run vitralis`. A copy run from source never updates itself: update it with `git pull`.
 
-```
-uv run vitralis
-```
+**Install it:** `uv run build` makes the exe and the installer in `dist/` ([Inno Setup 6](https://jrsoftware.org/isinfo.php) needed for the installer). The [development guide](docs/development.md#build) has the details.
 
-Or directly:
+## Technical details
 
-```
-uv run python -m vitralis
-```
-
-Logs go to `%APPDATA%\Vitralis\vitralis.log`, errors nothing else caught included. Only one Vitralis runs per Windows account.
-
-## Tests
-
-```
-uv run pytest
-```
-
-With the coverage gate (branch coverage of `src/vitralis`, as CI runs it), and the linter:
-
-```
-uv run pytest --cov
-uv run ruff format --check . && uv run ruff check .
-```
-
-The tests never touch your own `%APPDATA%\Vitralis`: each one gets a data folder of its own.
-
-The contract tests against the real license server are left out of the default run. `uv run pytest -m live` checks that the server refuses an unknown key; with a Vitralis test license's key in an environment variable it also activates and checks that license (never write a key in the repository; each run with a key adds an activation named `<computer> (live test)`):
-
-```
-VITRALIS_LICENCE_TEST_KEY=BRN-... uv run pytest -m live
-```
-
-The rendered tests (`tests/rendered`, Windows only) are left out of the default run too, because they put real windows on your screen for about a minute: the real toolbar, its windows and a small overlay run in a process of their own on a scratch data folder, with a license and an update feed held in memory. They click and drag by posting window messages and look at the windows with `PrintWindow`, so your mouse, keyboard, running Vitralis and its data are left alone. Each test checks the pixels a click leaves and what it saved, and the windows are compared with the reviewed pictures in `tests/rendered/baselines` (the test copy draws one pixel per pixel whatever the monitors' scaling, so the pictures don't follow your screens):
-
-```
-uv run pytest -m desktop --no-cov
-```
-
-After a deliberate change of look, write the pictures again, look at each one, and commit them with the change (what differs on a failure is written to `tests/rendered/failures`):
-
-```
-VITRALIS_UPDATE_BASELINES=1 uv run pytest -m desktop --no-cov
-```
-
-## Build
-
-```
-uv run build
-```
-
-It builds the one-file exe `dist/vitralis-<version>.exe` (PyInstaller) and, from [installer/vitralis.iss](installer/vitralis.iss), the installer `dist/vitralis-<version>-setup.exe`. The installer needs [Inno Setup 6](https://jrsoftware.org/isinfo.php) (`winget install JRSoftware.InnoSetup`): `build` looks for `ISCC.exe` on PATH and in Inno Setup's usual folders, or takes its path from `ISCC`. `uv run build --no-installer` builds only the exe.
-
-## Keyboard shortcuts
-
-### Global (work from any app)
-
-| Key | Action |
+| Document | What is in it |
 |---|---|
-| `F8` | Focus/unfocus Vitralis toolbar — restores previous window on unfocus |
+| [docs/user-guide.md](docs/user-guide.md) | Every feature, the keyboard shortcuts, the license, updates, and where your data lives |
+| [docs/development.md](docs/development.md) | Running from source, the code's layout, tests, building, the installer and releases |
+| [docs/design-decisions.md](docs/design-decisions.md) | Why the updater and the About window work the way they do |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to report a bug, suggest a feature or send a change |
+| [CHANGELOG.md](CHANGELOG.md) | What changed in each version |
+| [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) | The licenses of the code Vitralis is built with |
 
-### Local (when Vitralis is focused)
-
-| Key | Action | Key | Action |
-|---|---|---|---|
-| `D` | Toggle draw mode | `P` | Pen |
-| `G` | Toggle pan mode | `E` | Eraser |
-| `X` | Toggle delete mode | `L` | Line |
-| `Z` | Undo last stroke | `A` | Arrow |
-| `Del` | Clear all | `R` | Rectangle |
-| `H` | Hide/show overlay | `O` | Ellipse |
-| `[` / `]` | Decrease / increase size | `Right-click` | Exit active mode |
-| `Scroll wheel` | Cycle through palette colors | | |
-| `Esc` | Close the open panel, else leave the active mode, else quit | `Ctrl+Q` | Quit |
+**Built with** Python, Qt 6 (PyQt6), httpx, cryptography and BLAKE3, packaged with PyInstaller and Inno Setup.
 
 ## License
 
-[PayBack License (PBL) v2.0](LICENSE) — free for personal, academic, and non-commercial use. Commercial use requires a revenue-share agreement with the author. See [LICENSE](LICENSE) for full terms.
+[PayBack License (PBL) v2.0](LICENSE): free for personal, academic and non-commercial use; commercial use needs a revenue-share agreement with the author. Vitralis is made by Ran# and published by [Breren](https://breren.com).

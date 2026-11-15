@@ -2,23 +2,18 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 16:06:25.762869
-Revised: 2026/11/14 18:18:36.654478
+Revised: 2026/11/15 14:26:59.902779
 """
 
 import argparse
 import os
-import shutil
 import struct
 import subprocess
 import sys
 import tomllib
 from pathlib import Path
 
-from vitralis.installed import INSTALLER_GUID
-
-ISCC_VARIABLE = "ISCC"
-"""Path to Inno Setup's ``ISCC.exe`` when it isn't on PATH or in its usual folders."""
-ISCC_HINT = "install Inno Setup 6 (winget install JRSoftware.InnoSetup), set ISCC, or build with --no-installer"
+from vitralis.updates.target import RELEASE_TARGET_VARIABLE, TARGETS, asset_name
 
 
 def png_to_ico(png_path: str, ico_path: str) -> None:
@@ -62,55 +57,57 @@ def png_to_ico(png_path: str, ico_path: str) -> None:
     print(f"Icon -> {ico_path}")
 
 
-def find_iscc(env: dict[str, str] | None = None) -> Path | None:
-    """Inno Setup's compiler: ``$ISCC``, then PATH, then the per-user and the all-users install folders."""
+INSTALLER_SCRIPT = Path("packaging") / "windows" / "build-installer.ps1"
+TARGET = "windows-x86_64"
+"""What this machine builds: Vitralis runs on Windows on x86-64 only."""
+
+
+def release_target(env: dict[str, str] | None = None) -> str | None:
+    """``VITRALIS_RELEASE_TARGET`` when it names a target; ``None`` (a build from source) when unset. A value
+    that isn't a target stops the build rather than ship an exe that would never update."""
     env = os.environ if env is None else env
-    if env.get(ISCC_VARIABLE):
-        given = Path(env[ISCC_VARIABLE])
-        return given if given.is_file() else None
-    on_path = shutil.which("ISCC")
-    if on_path:
-        return Path(on_path)
-    roots = [env.get("LOCALAPPDATA", ""), env.get("ProgramFiles(x86)", ""), env.get("ProgramFiles", "")]
-    for root in filter(None, roots):
-        for candidate in (Path(root) / "Programs" / "Inno Setup 6", Path(root) / "Inno Setup 6"):
-            if (candidate / "ISCC.exe").is_file():
-                return candidate / "ISCC.exe"
-    return None
+    given = env.get(RELEASE_TARGET_VARIABLE, "")
+    if not given:
+        return None
+    if given not in TARGETS:
+        print(f"{RELEASE_TARGET_VARIABLE}={given!r} isn't a target; targets: {', '.join(TARGETS)}")
+        sys.exit(2)
+    return given
 
 
-def installer_name(version: str) -> str:
-    """The release's installer; ``vitralis.updates.rules`` never takes it for the exe it swaps in."""
-    return f"vitralis-{version}-setup.exe"
+def write_build_info(package: Path, version: str, target: str | None) -> None:
+    """``_version.py`` (the version the exe reports) and ``_release.py`` (its release target, ``None`` for a
+    build from source), both read by the packaged exe."""
+    (package / "_version.py").write_text(f'__version__ = "{version}"\n', encoding="utf-8")
+    (package / "_release.py").write_text(f"TARGET = {target!r}\n", encoding="utf-8")
 
 
-def iscc_command(iscc: Path, script: Path, version: str, exe: Path, ico: Path, licence: Path, out: Path) -> list[str]:
+def installer_command(root: Path, exe: Path, ico: Path, dist: Path) -> list[str]:
+    script = root / INSTALLER_SCRIPT
     return [
-        str(iscc),
-        "/Q",
-        f"/DAppVersion={version}",
-        f"/DAppGuid={INSTALLER_GUID}",
-        f"/DSourceExe={exe}",
-        f"/DIconFile={ico}",
-        f"/DLicenseFile={licence}",
-        f"/DOutputDir={out}",
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
         str(script),
+        "-Binary",
+        str(exe),
+        "-OutputDirectory",
+        str(dist),
+        "-Icon",
+        str(ico),
     ]
 
 
-def build_installer(root: Path, version: str, exe: Path, ico: Path, dist: Path) -> Path:
-    """Compile ``installer/vitralis.iss`` around ``exe``; exits with a reason when Inno Setup is missing or fails."""
-    iscc = find_iscc()
-    if iscc is None:
-        print(f"\nNo installer: Inno Setup's ISCC.exe wasn't found; {ISCC_HINT}.")
-        sys.exit(1)
-    command = iscc_command(iscc, root / "installer" / "vitralis.iss", version, exe, ico, root / "LICENSE", dist)
-    print("Running Inno Setup...")
-    result = subprocess.run(command)
+def build_installer(root: Path, exe: Path, ico: Path, dist: Path) -> None:
+    """Run ``packaging/windows/build-installer.ps1`` around ``exe``; exits with its code when it fails (it says
+    why, Inno Setup missing included)."""
+    print("Building the installer...")
+    result = subprocess.run(installer_command(root, exe, ico, dist))
     if result.returncode != 0:
         print("\nInstaller build failed.")
         sys.exit(result.returncode)
-    return dist / installer_name(version)
 
 
 def parse_arguments(argv: list[str]) -> argparse.Namespace:
@@ -128,10 +125,11 @@ def main() -> None:
     with open(os.path.join(root, "pyproject.toml"), "rb") as f:
         version = tomllib.load(f)["project"]["version"]
 
-    with open(os.path.join(here, "_version.py"), "w") as f:
-        f.write(f'__version__ = "{version}"\n')
+    target = release_target()
+    write_build_info(Path(here), version, target)
+    print(f"Building Vitralis {version}, " + (f"release target {target}" if target else "a build from source"))
 
-    exe_name = f"vitralis-{version}"
+    exe_name = asset_name(version, TARGET).removesuffix(".exe")
     script = os.path.join(here, "__main__.py")
     build = os.path.join(root, "build")
     dist = os.path.join(root, "dist")
@@ -172,8 +170,7 @@ def main() -> None:
     built = os.path.join(dist, f"{exe_name}.exe")
     print(f"\nDone ->      {built}")
     if not args.no_installer:
-        setup = build_installer(Path(root), version, Path(built), Path(ico), Path(dist))
-        print(f"Installer -> {setup}")
+        build_installer(Path(root), Path(built), Path(ico), Path(dist))
 
 
 if __name__ == "__main__":

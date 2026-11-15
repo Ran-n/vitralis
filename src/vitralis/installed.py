@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 19:56:03.727418
-Revised: 2026/11/13 20:11:33.960447
+Revised: 2026/11/15 14:27:00.191158
 
 What the installer leaves in the registry, under ``HKEY_CURRENT_USER``, and what Vitralis does with it.
 
@@ -13,6 +13,7 @@ What the installer leaves in the registry, under ``HKEY_CURRENT_USER``, and what
 """
 
 import logging
+import os
 import sys
 from pathlib import Path
 
@@ -24,7 +25,7 @@ from vitralis.updates.rules import parse_version_or_none
 logger = logging.getLogger("vitralis.installed")
 
 INSTALLER_GUID = "AB080C02-6AA8-4842-973A-AA93F9C4E128"
-"""The installer's ``AppId`` (``installer/vitralis.iss`` gets it from ``build``). Never change it: Windows
+"""The installer's ``AppId`` (the default ``AppId`` of ``packaging/windows/vitralis.iss``). Never change it: Windows
 would take a new one for another app, and installing over an old version would leave two entries."""
 UNINSTALL_KEY = rf"Software\Microsoft\Windows\CurrentVersion\Uninstall\{{{INSTALLER_GUID}}}_is1"
 """Where Inno Setup registers a per-user install, under ``HKEY_CURRENT_USER``."""
@@ -32,14 +33,20 @@ MAJOR_NAMES = ("MajorVersion", "VersionMajor")
 MINOR_NAMES = ("MinorVersion", "VersionMinor")
 """Inno Setup writes the version's numbers under both names, as DWORDs, beside ``DisplayVersion``."""
 APP_KEY = r"Software\Vitralis"
-"""The installer's own key; ``installer/vitralis.iss`` deletes it on uninstall."""
+"""The installer's own key; ``packaging/windows/vitralis.iss`` deletes it on uninstall."""
 LANGUAGE_VALUE = "Language"
 """A language as Settings names it (``Galego``, ``日本語``): the one the installer ran in."""
 
 
+DISPLAY_NAME = "Vitralis"
+"""The plain name in the installed apps, never "Vitralis 1.3.0", which an in-app update would leave stale."""
+
+
 def _same_folder(install_location: str, exe: Path) -> bool:
+    """Whether ``exe`` is in the registered folder, ignoring case and trailing separators."""
     try:
-        return Path(install_location).resolve() == exe.parent.resolve()
+        registered = os.path.normcase(str(Path(install_location.rstrip("\\/")).resolve()))
+        return registered == os.path.normcase(str(exe.parent.resolve()))
     except OSError:
         return False
 
@@ -64,13 +71,15 @@ def sync_installed_version(exe: Path, version: str, key_path: str = UNINSTALL_KE
         if not _same_folder(str(location), exe) or shown == version:
             return False
         try:
-            winreg.SetValueEx(key, "DisplayVersion", 0, winreg.REG_SZ, version)
+            winreg.SetValueEx(key, "DisplayName", 0, winreg.REG_SZ, DISPLAY_NAME)
             parsed = parse_version_or_none(version)
             if parsed is not None:
                 for name in MAJOR_NAMES:
                     winreg.SetValueEx(key, name, 0, winreg.REG_DWORD, parsed.major)
                 for name in MINOR_NAMES:
                     winreg.SetValueEx(key, name, 0, winreg.REG_DWORD, parsed.minor)
+            # last: a failure before it leaves the old version shown, so the next start tries again
+            winreg.SetValueEx(key, "DisplayVersion", 0, winreg.REG_SZ, version)
         except OSError as ex:
             logger.warning("couldn't set the installed-apps entry to %s: %s", version, ex)
             return False

@@ -1,0 +1,122 @@
+# Pushing a vX.Y.Z tag builds the portable exe and the installer as release builds (VITRALIS_RELEASE_TARGET),
+# tests the installer for real, adds the wheel and the sdist, gives each a BLAKE3 `.b3`, attests where every
+# file came from, and attaches them to a draft GitHub release. The exe's name comes from `vitralis-asset-name`,
+# the same rule the in-app updater looks for, so the two can't disagree. The `.sig` files are added by hand
+# afterwards: the release key never comes near CI (CONTRIBUTING.md, Releases).
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+# Read-only by default; only the build job may write attestations and only the publish job the release.
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Tag matches pyproject.toml
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Compare versions
+        run: |
+          version="$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")"
+          if [ "${GITHUB_REF_NAME#v}" != "$version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match pyproject.toml's version $version"
+            exit 1
+          fi
+
+  build:
+    name: Build / windows-x86_64
+    needs: verify
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      VITRALIS_RELEASE_TARGET: windows-x86_64
+    # The attestation is signed with this job's identity and kept with the repository.
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+      - run: uv sync --locked
+      - name: Build the exe and the installer
+        shell: pwsh
+        run: |
+          uv run build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $asset = uv run --locked vitralis-asset-name $env:VITRALIS_RELEASE_TARGET
+          if (!(Test-Path -LiteralPath "dist/$asset")) { throw "The exe isn't dist/$asset." }
+          $said = & "dist/$asset" --version | Out-String
+          Write-Output "dist/$asset says: $said"
+      - name: Test the installer
+        shell: pwsh
+        run: ./packaging/windows/test-installer.ps1 -Installer (Get-Item dist/*-setup.exe).FullName
+      - name: Build the wheel and the sdist
+        run: uv build --out-dir dist
+      - name: Checksum every file
+        shell: bash
+        run: |
+          # Pinned, so a new b3sum release can't change what checksums the updater verifies.
+          cargo install b3sum --locked --version 1.8.7
+          cd dist
+          for file in vitralis-*; do
+            b3sum "$file" > "$file.b3"
+            b3sum --check "$file.b3"
+          done
+          ls -l
+      # Records which workflow run, at which commit, made each file. The maintainer checks it with
+      # `gh attestation verify` before signing, so a file swapped into the draft afterwards is never signed.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: dist/vitralis-*
+      - uses: actions/upload-artifact@v7
+        with:
+          name: vitralis-windows-x86_64
+          path: dist/vitralis-*
+          if-no-files-found: error
+
+  publish:
+    name: Draft GitHub release
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Cut this version's changelog section
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          awk -v heading="## [$version]" '
+            index($0, heading) == 1 { found = 1; next }
+            found && /^## \[/ { exit }
+            found { print }
+          ' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::CHANGELOG.md has no section for $version"
+            exit 1
+          fi
+          printf '\nDownload `vitralis-%s-windows-x86_64-setup.exe` to install Vitralis, or `vitralis-%s-windows-x86_64.exe` to run it without installing.\n' "$version" "$version" >> notes.md
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ls -l dist
+          # the exe, the installer, the wheel and the sdist, each with its .b3
+          test "$(ls dist | wc -l)" -eq 8
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft \
+            --title "Vitralis ${GITHUB_REF_NAME#v}" --notes-file notes.md dist/*

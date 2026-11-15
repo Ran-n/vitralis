@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 16:56:37.129213
-Revised: 2026/11/15 00:38:14.248660
+Revised: 2026/11/15 14:27:04.006189
 
 The real toolbar, its windows and one overlay canvas, running as a process of its own for the rendered tests:
 ``python -m tests.rendered.driver <data folder>``. It reads one JSON command per line on stdin and answers each
@@ -26,12 +26,16 @@ os.environ.pop("QT_QPA_PLATFORM", None)  # the real screen, not the offscreen on
 # one pixel per pixel on every screen: with any screen scaled (a 150 % monitor plugged in), Qt draws all text
 # unhinted, on the 100 % screens too, and the pictures would follow the monitors instead of the app
 os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "0"
+os.environ["VITRALIS_RELEASE_TARGET"] = "windows-x86_64"  # drawn as the release build users have
+os.environ["LOCALAPPDATA"] = sys.argv[1]  # nothing in the real download folder
+for name in ("VITRALIS_UPDATE_SOURCES", "VITRALIS_UPDATE_KEY", "VITRALIS_UPDATE_DIR"):
+    os.environ.pop(name, None)
 
 from PyQt6.QtCore import QPoint, QRect, QThread, pyqtSignal
 from PyQt6.QtWidgets import QApplication, QPushButton, QWidget
 
 from tests.licence.fakes import START, FakeClock, licensed
-from tests.updates.fakes import NOON, FakeFeed, MemorySettings
+from tests.updates.fakes import NOON, TARGET, FakeFeed, MemorySettings
 from vitralis import toolbar as toolbar_module
 from vitralis.canvas import Canvas, DrawCapture
 from vitralis.icons import init_icons_dir
@@ -97,7 +101,7 @@ class Driver:
     @staticmethod
     def _updates() -> UpdateChecker:
         """Updates from a feed in memory that offers 1.4.0, not yet asked."""
-        return UpdateChecker(FakeFeed(), MemorySettings(), VERSION, clock=lambda: NOON)
+        return UpdateChecker(FakeFeed(), MemorySettings(), VERSION, TARGET, clock=lambda: NOON)
 
     @staticmethod
     def _no_prompt(gate: LicenceGate):
@@ -197,7 +201,7 @@ class Driver:
             "visible": self.canvas.isVisible(),
             "undo_enabled": bar._undo_btn.isEnabled(),
             "busy": self.updates.busy or self.gate.busy or bool(snapshots and snapshots.busy),
-            "update_offered": self.updates.status.offered is not None,
+            "update_offered": self.updates.status.offer is not None,
             "snapshot_names": [snapshots._list.item(row).text() for row in range(snapshots._list.count())]
             if snapshots
             else [],

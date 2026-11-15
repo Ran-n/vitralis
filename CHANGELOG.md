@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/15 03:12:08.346746 )
+[//]: # (+ Revised: 	2026/11/15 16:42:41.139637 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -17,17 +17,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - A notice when a newer Vitralis is out: a dot on the toolbar's Settings
   button, one tray message, and Settings → Updates with **Release notes**
-  and **Skip this version**, checked at start and once a day (the
-  **Check for new versions** switch turns the automatic checks off).
-- Installing a new version from inside Vitralis: **Install** downloads it
-  and checks its BLAKE3 checksum, **Restart to update** replaces the exe at
-  the same path and starts the new version, going back to the old one if
-  anything fails.
-- A Windows installer, `vitralis-<version>-setup.exe`, built by
-  `uv run build` with Inno Setup: installs for the current user without an
-  admin prompt, adds a Start menu entry and, optionally, a desktop shortcut
-  and starting at sign-in, and uninstalls from Settings → Apps keeping the
-  settings, drawings and license. The portable exe is still released.
+  and **Skip this version** / **Stop skipping**. GitHub and GitLab are both
+  asked, at once, a minute after start and then a day after the last check
+  that worked (an hour after one that didn't); **Check for updates
+  automatically** turns that off. A failed check says each forge's reason,
+  and a pre-release is only offered to a pre-release.
+- Updating from inside Vitralis: **Update and restart** checks that the
+  release is signed with Vitralis's release key (Ed25519, over the version,
+  the file name and its BLAKE3 checksum) before downloading anything, then
+  downloads the exe (with **Cancel**), checks the checksum, replaces the
+  exe at the same path and starts the new version, going back to the old
+  one if anything fails. A build from source never checks or updates.
+- `vitralis-sign`, the release signing tool (`keygen`, `public`, `sign`,
+  `verify`; the key is pasted unseen or piped from KeePassXC), and
+  `vitralis-asset-name`, which names the exe the updater looks for.
+- A release workflow: pushing a `vX.Y.Z` tag builds the exe and the
+  installer as release builds, tests the installer for real, adds the
+  wheel and the sdist, checksums and attests them, and drafts the GitHub
+  release with that version's changelog.
+- A Windows installer, `vitralis-<version>-windows-x86_64-setup.exe`, built
+  by `uv run build` with Inno Setup through
+  `packaging/windows/build-installer.ps1`: installs for the current user
+  without an admin prompt, published by Breren, adds a Start menu entry
+  and, optionally, a desktop shortcut and starting at sign-in, and
+  uninstalls from Settings → Apps keeping the settings, drawings and
+  license. `packaging/windows/test-installer.ps1` installs, reinstalls and
+  uninstalls it for real and fails on anything left behind. The portable
+  exe, `vitralis-<version>-windows-x86_64.exe`, is still released.
+- `vitralis.exe --version` prints the version.
+- The About window says which build this is, names Breren, which publishes
+  Vitralis, with its logo and site, links to the license, the third-party
+  licenses (`THIRD-PARTY-NOTICES.md`), the source, the releases, the
+  changelog and the issue tracker, and has a one-line description.
   It speaks every language Vitralis does (Galego reintegrado and Chinese
   included) and asks which at the start; Vitralis then starts in that
   language until another is picked in Settings.
@@ -54,7 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Uninstalling while Vitralis runs asks to close it first, instead of
   leaving its exe behind.
 - Linting, formatting and the tests with a coverage gate run in CI (the
-  linter on GitHub, GitLab and Codeberg; the tests on GitHub, on Windows).
+  linter on GitHub and GitLab; the tests on GitHub, on Windows).
 - `.python-version` pins Python 3.13, the version Vitralis is built with.
 - The live test that the real license server refuses an unknown key runs
   without a test key (`uv run pytest -m live`).
@@ -66,15 +87,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The README is a landing page for people who want to use Vitralis
+  (download, screenshots from the reviewed test pictures, getting started,
+  your data, questions); the full manual moved to `docs/user-guide.md`, the
+  build, test and release guide to `docs/development.md`, and the design
+  record to `docs/design-decisions.md`.
+- Updates are signed with the same release keys as Orin; the signed
+  statement names the app, so one app's signature never passes for
+  another's.
+- The linter no longer runs on Codeberg: CI runs on GitHub and GitLab, and
+  Codeberg is a mirror with the releases.
 - `uv run build` no longer leaves an unversioned `dist\vitralis.exe` beside
-  `vitralis-<version>.exe`.
+  the versioned one.
+- The rendered tests allow 64 differing pixels per picture instead of 0.4 %
+  of it, which on the tall Settings window let a changed sentence through.
 - Undo takes back the latest stroke on whichever monitor it was drawn,
   instead of one stroke on every monitor at once.
 - Assigning a shortcut another action already had moves it: the other
   action is left without one (one key on two actions worked for neither).
-- A failed update check or download caused by the connection, or by
-  GitHub's rate limit, is explained in words in every language instead of
-  with the technical error.
+- A failed update check or download is explained in a short sentence in
+  every language ("the request timed out", "the server answered 429")
+  instead of with the technical error.
 - `strokes.json`, `settings.json` and the snapshots are written whole or not
   at all, so a crash can't leave half a file; strokes now carry the time
   they were drawn.

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 07:52:06.389478
-Revised: 2026/11/15 03:12:09.290150
+Revised: 2026/11/15 14:27:00.518654
 
 ``settings.json`` (``SettingsManager``) and the settings window: the keyboard shortcuts, the language, the
 updates and the licence.
@@ -31,7 +31,7 @@ from vitralis.icons import flag_icon
 from vitralis.installed import installer_language
 from vitralis.licence.gate import LicenceGate
 from vitralis.licence.section import LicenceSection
-from vitralis.models import HEX_COLOR, MAX_COORDINATE, MAX_WIDTH, TOOL_NAMES
+from vitralis.models import HEX_COLOR, MAX_COORDINATE, MAX_TIME, MAX_WIDTH, TOOL_NAMES
 from vitralis.persistence import (
     DATA_DIR,
     drop_failed_write,
@@ -45,6 +45,7 @@ from vitralis.styles import base_btn, danger_btn, muted_btn
 from vitralis.translations import set_language, t
 from vitralis.updates.checker import UpdateChecker
 from vitralis.updates.messages import UPDATES
+from vitralis.updates.rules import parse_version_or_none
 from vitralis.updates.section import UpdatesSection
 
 logger = logging.getLogger("vitralis.settings")
@@ -297,20 +298,40 @@ class SettingsManager:
         saved = self._data.get("updates", {})
         return saved if isinstance(saved, dict) else {}
 
+    def _saved_update(self, name: str, before: str) -> object:
+        """An update setting, under the name every app of the family saves it as, or under the one Vitralis
+        1.3 used (``before``) until it is next changed."""
+        saved = self._updates()
+        return saved[name] if name in saved else saved.get(before)
+
+    def _put_update(self, name: str, before: str, value: object) -> None:
+        kept = {key: entry for key, entry in self._updates().items() if key != before}
+        self._put("updates", {**kept, name: value})
+
     def update_check(self) -> bool:
-        """Whether Vitralis looks for new versions by itself (at start and once a day)."""
-        return bool(self._updates().get("check", True))
+        """Whether Vitralis looks for new versions by itself (a minute after start, then once a day)."""
+        saved = self._saved_update("check_automatically", "check")
+        return saved if isinstance(saved, bool) else True
 
     def set_update_check(self, enabled: bool) -> None:
-        self._put("updates", {**self._updates(), "check": enabled})
+        self._put_update("check_automatically", "check", enabled)
 
     def skipped_version(self) -> str:
-        """The release the user chose to skip, ``""`` for none."""
-        skipped = self._updates().get("skipped", "")
-        return skipped if isinstance(skipped, str) else ""
+        """The release the user chose to skip, ``""`` for none (or for one that isn't a version)."""
+        skipped = self._saved_update("skipped_version", "skipped")
+        return skipped if isinstance(skipped, str) and parse_version_or_none(skipped) is not None else ""
 
     def set_skipped_version(self, version: str) -> None:
-        self._put("updates", {**self._updates(), "skipped": version})
+        self._put_update("skipped_version", "skipped", version)
+
+    def last_check(self) -> float | None:
+        """When the last successful update check was, in seconds since the epoch; ``None`` before the first."""
+        saved = self._updates().get("last_check")
+        number = isinstance(saved, (int, float)) and not isinstance(saved, bool)
+        return float(saved) if number and 0 <= saved <= MAX_TIME else None
+
+    def set_last_check(self, when: float) -> None:
+        self._put("updates", {**self._updates(), "last_check": when})
 
     def toolbar_state(self) -> dict:
         """What the toolbar was left at: any of ``tool`` (a ``Tool`` name), ``color`` (``#rrggbb``), ``size``

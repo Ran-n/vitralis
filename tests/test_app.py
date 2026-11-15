@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.433417
-Revised: 2026/11/15 02:48:36.289253
+Revised: 2026/11/15 14:27:04.558023
 
 The overlay session behind the licence: nothing of the overlay exists while locked, it starts once the licence
 holds, and locking tears it all down (toolbar with its global hooks, canvases, captures, tray). The real toolbar
@@ -21,7 +21,7 @@ import pytest
 
 from tests.conftest import wait_until
 from tests.licence.fakes import KEY
-from tests.updates.fakes import FakeFeed, MemorySettings
+from tests.updates.fakes import TARGET, FakeFeed, MemorySettings
 from vitralis import app as app_module
 from vitralis.app import Session
 from vitralis.licence.gate import LicenceGate
@@ -274,7 +274,7 @@ def test_setup_logging_writes_to_the_data_folder(monkeypatch, tmp_path):
 
 @pytest.fixture
 def updates(qapp):
-    checker = UpdateChecker(FakeFeed(), MemorySettings(), "1.3.0")
+    checker = UpdateChecker(FakeFeed(), MemorySettings(), "1.3.0", TARGET)
     yield checker
     checker.stop()
 
@@ -297,7 +297,7 @@ def test_a_new_version_is_told_once_in_the_tray(qapp, session, updates):
     session.start()
     check(qapp, updates)
     check(qapp, updates)  # the daily re-check of the same version doesn't nag
-    assert session.trays[0].messages == ["Vitralis 1.4.0 is out"]
+    assert session.trays[0].messages == ["Vitralis 1.4.0 is available."]
 
 
 def test_clicking_the_update_message_opens_settings(qapp, session, updates):
@@ -457,8 +457,9 @@ def test_cleanup_runs_only_in_the_packaged_exe(monkeypatch, tmp_path):
     deadline = time.monotonic() + 5
     while not synced and time.monotonic() < deadline:
         time.sleep(0.01)
-    running, updates_dir, current = calls[0]
-    assert running == tmp_path / "vitralis-1.3.0.exe" and updates_dir.name == "updates" and str(current) == "1.4.0"
+    running, updates_dir, legacy = calls[0]
+    assert running == tmp_path / "vitralis-1.3.0.exe" and updates_dir == app_module.download_dir()
+    assert legacy == app_module.DATA_DIR / "updates"  # where 1.3 kept its download, tidied
     assert synced == [(tmp_path / "vitralis-1.3.0.exe", "1.4.0")]  # the installed-apps entry follows the update
 
 
@@ -658,7 +659,7 @@ def wired_main(qapp, monkeypatch, tmp_path):
     updates = SimpleNamespace(checker=None, close=lambda: record("updates closed"))
     made = SimpleNamespace(order=order, instance=None, flushed=True)
     monkeypatch.setattr(app_module, "flush_writes", lambda timeout: record(("flush", timeout)) or made.flushed)
-    monkeypatch.setattr(app_module, "build_updates", lambda data_dir, settings: record("updates") or updates)
+    monkeypatch.setattr(app_module, "build_updates", lambda settings: record("updates") or updates)
 
     class Gate:
         def __init__(self, licence, checks, on_unlock, on_lock, make_prompt) -> None:
@@ -800,3 +801,46 @@ def test_a_second_start_asks_the_first_to_show_itself_and_builds_nothing(wired_m
     # regression guard: a second start used to delete the update the running Vitralis had downloaded
     assert "clean" not in wired_main.order and "running mark" not in wired_main.order
     assert any("already running" in r.getMessage() for r in caplog.records)
+
+
+def test_version_prints_the_name_and_version_and_quits_before_anything_starts(monkeypatch, capsys):
+    started = []
+    monkeypatch.setattr(app_module, "setup_logging", lambda: started.append("logging"))
+    monkeypatch.setattr(app_module.sys, "argv", ["vitralis", "--version"])
+    with pytest.raises(SystemExit) as raised:
+        app_module.main()
+    assert raised.value.code == 0 and started == []
+    assert capsys.readouterr().out == f"Vitralis {app_module.app_version()}\n"
+
+
+def test_version_without_a_console_writes_to_the_handle_it_was_given(monkeypatch):
+    """The packaged exe has no ``sys.stdout``: the redirected handle is written to directly."""
+    written = []
+
+    class Kernel32:
+        def GetStdHandle(self, which):
+            assert which == app_module.STD_OUTPUT_HANDLE
+            return 1234
+
+        def WriteFile(self, handle, data, size, count, overlapped):
+            written.append((handle, bytes(data), size))
+            return 1
+
+    monkeypatch.setattr(app_module.sys, "stdout", None)
+    monkeypatch.setattr(app_module.ctypes, "windll", type("W", (), {"kernel32": Kernel32()})(), raising=False)
+    app_module.print_version()
+    line = f"Vitralis {app_module.app_version()}\n".encode()
+    assert written == [(1234, line, len(line))]
+
+
+def test_version_with_no_handle_at_all_writes_nothing_and_doesnt_fail(monkeypatch):
+    class Kernel32:
+        def GetStdHandle(self, which):
+            return 0
+
+        def WriteFile(self, *args):
+            raise AssertionError("nothing to write to")
+
+    monkeypatch.setattr(app_module.sys, "stdout", None)
+    monkeypatch.setattr(app_module.ctypes, "windll", type("W", (), {"kernel32": Kernel32()})(), raising=False)
+    app_module.print_version()

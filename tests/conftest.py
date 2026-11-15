@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.370504
-Revised: 2026/11/14 12:31:24.960698
+Revised: 2026/11/15 14:27:03.722155
 
 Shared fixtures for the licence's Qt tests: one offscreen ``QApplication``, a clock, an in-memory Clavren and
 store, a gate wired to them with a fake daily checker, and a way to wait for a worker thread's answer.
@@ -51,6 +51,20 @@ def own_data_folder(monkeypatch, tmp_path_factory):
     persistence.forget_strokes()
     yield data
     persistence.forget_strokes()  # waits for what the test left on its way to the disk, too
+
+
+@pytest.fixture(autouse=True)
+def no_update_overrides(monkeypatch, tmp_path_factory):
+    """No updater override from the shell running the tests, and downloads in a folder of the test's own:
+    none may land in the real ``%LOCALAPPDATA%\\Vitralis``."""
+    from vitralis.updates.target import OVERRIDES, release_target
+
+    for name in OVERRIDES:
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path_factory.mktemp("local-app-data")))
+    release_target.cache_clear()
+    yield
+    release_target.cache_clear()
 
 
 @pytest.fixture(autouse=True)

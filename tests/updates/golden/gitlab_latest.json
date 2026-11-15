@@ -1,0 +1,160 @@
+{
+  "name": "Vitralis 1.4.0",
+  "tag_name": "v1.4.0",
+  "description": "Release notes.",
+  "created_at": "2026-11-11T15:57:17.359Z",
+  "released_at": "2026-11-11T15:57:17.359Z",
+  "upcoming_release": false,
+  "author": {
+    "id": 4127227,
+    "username": "Ran-n",
+    "public_email": "ran.hash@proton.me",
+    "name": "Ran",
+    "state": "active",
+    "locked": false,
+    "avatar_url": "https://gitlab.com/uploads/-/system/user/avatar/4127227/avatar.png?v=1794746622",
+    "web_url": "https://gitlab.com/Ran-n"
+  },
+  "commit": {
+    "id": "d6de731ac4c9a3f5c8318909ab0c3fa1595a429b",
+    "short_id": "d6de731a",
+    "created_at": "2026-11-11T16:52:01.000+01:00",
+    "parent_ids": [
+      "db159e8703048245bbd95120948f4c7fce6462d1"
+    ],
+    "title": "[R] bump version to 1.4.0",
+    "message": "[R] bump version to 1.4.0\n\nchore: promote the changelog's unreleased section to 1.4.0\n",
+    "author_name": "Ran#",
+    "author_email": "ran.hash@proton.me",
+    "authored_date": "2026-11-11T16:52:01.000+01:00",
+    "committer_name": "Ran#",
+    "committer_email": "ran.hash@proton.me",
+    "committed_date": "2026-11-11T16:52:01.000+01:00",
+    "trailers": {},
+    "extended_trailers": {},
+    "web_url": "https://gitlab.com/Ran-n/vitralis/-/commit/d6de731ac4c9a3f5c8318909ab0c3fa1595a429b"
+  },
+  "commit_path": "/Ran-n/vitralis/-/commit/d6de731ac4c9a3f5c8318909ab0c3fa1595a429b",
+  "tag_path": "/Ran-n/vitralis/-/tags/v1.4.0",
+  "assets": {
+    "count": 10,
+    "sources": [
+      {
+        "format": "zip",
+        "url": "https://gitlab.com/Ran-n/vitralis/-/archive/v1.4.0/vitralis-v1.4.0.zip"
+      },
+      {
+        "format": "tar.gz",
+        "url": "https://gitlab.com/Ran-n/vitralis/-/archive/v1.4.0/vitralis-v1.4.0.tar.gz"
+      },
+      {
+        "format": "tar.bz2",
+        "url": "https://gitlab.com/Ran-n/vitralis/-/archive/v1.4.0/vitralis-v1.4.0.tar.bz2"
+      },
+      {
+        "format": "tar",
+        "url": "https://gitlab.com/Ran-n/vitralis/-/archive/v1.4.0/vitralis-v1.4.0.tar"
+      }
+    ],
+    "links": [
+      {
+        "id": 14184262,
+        "name": "vitralis-1.4.0-windows-x86_64.exe",
+        "url": "https://gitlab.com/-/project/85099758/uploads/00000000000000000000000000000000/vitralis-1.4.0-windows-x86_64.exe",
+        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0-windows-x86_64.exe",
+        "link_type": "other"
+      },
+      {
+        "id": 14184263,
+        "name": "vitralis-1.4.0-windows-x86_64.exe.b3",
+        "url": "https://gitlab.com/files/exe.b3",
+        "link_type": "other"
+      },
+      {
+        "id": 14184264,
+        "name": "vitralis-1.4.0-windows-x86_64.exe.sig",
+        "url": "https://gitlab.com/-/project/85099758/uploads/00000000000000000000000000000002/vitralis-1.4.0-windows-x86_64.exe.sig",
+        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0-windows-x86_64.exe.sig",
+        "link_type": "other"
+      },
+      {
+        "id": 14184265,
+        "name": "vitralis-1.4.0-windows-x86_64-setup.exe",
+        "url": "https://gitlab.com/-/project/85099758/uploads/00000000000000000000000000000003/vitralis-1.4.0-windows-x86_64-setup.exe",
+        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0-windows-x86_64-setup.exe",
+        "link_type": "other"
+      },
+      {
+        "id": 14184266,
+        "name": "vitralis-1.4.0-windows-x86_64-setup.exe.b3",
+        "url": "https://gitlab.com/-/project/85099758/uploads/00000000000000000000000000000004/vitralis-1.4.0-windows-x86_64-setup.exe.b3",
+        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0-windows-x86_64-setup.exe.b3",
+        "link_type": "other"
+      },
+      {
+        "id": 14184267,
+        "name": "vitralis-1.4.0-windows-x86_64-setup.exe.sig",
+        "url": "https://gitlab.com/-/project/85099758/uploads/00000000000000000000000000000005/vitralis-1.4.0-windows-x86_64-setup.exe.sig",
+        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0-windows-x86_64-setup.exe.sig",
+        "link_type": "other"
+      },
+      {
+        "id": 14184268,
+        "name": "vitralis-1.4.0-py3-none-any.whl",
+        "url": "https://gitlab.com/-/project/85099758/uploads/00000000000000000000000000000006/vitralis-1.4.0-py3-none-any.whl",
+        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0-py3-none-any.whl",
+        "link_type": "other"
+      },
+      {
+        "id": 14184269,
+        "name": "vitralis-1.4.0-py3-none-any.whl.b3",
+        "url": "https://gitlab.com/-/project/85099758/uploads/00000000000000000000000000000007/vitralis-1.4.0-py3-none-any.whl.b3",
+        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0-py3-none-any.whl.b3",
+        "link_type": "other"
+      },
+      {
+        "id": 14184270,
+        "name": "vitralis-1.4.0-py3-none-any.whl.sig",
+        "url": "https://gitlab.com/-/project/85099758/uploads/00000000000000000000000000000008/vitralis-1.4.0-py3-none-any.whl.sig",
+        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0-py3-none-any.whl.sig",
+        "link_type": "other"
+      },
+      {
+        "id": 14184271,
+        "name": "vitralis-1.4.0.tar.gz",
+        "url": "https://gitlab.com/-/project/85099758/uploads/00000000000000000000000000000009/vitralis-1.4.0.tar.gz",
+        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0.tar.gz",
+        "link_type": "other"
+      },
+      {
+        "id": 14184272,
+        "name": "vitralis-1.4.0.tar.gz.b3",
+        "url": "https://gitlab.com/-/project/85099758/uploads/0000000000000000000000000000000a/vitralis-1.4.0.tar.gz.b3",
+        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0.tar.gz.b3",
+        "link_type": "other"
+      },
+      {
+        "id": 14184273,
+        "name": "vitralis-1.4.0.tar.gz.sig",
+        "url": "https://gitlab.com/-/project/85099758/uploads/0000000000000000000000000000000b/vitralis-1.4.0.tar.gz.sig",
+        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0.tar.gz.sig",
+        "link_type": "other"
+      }
+    ]
+  },
+  "evidences": [
+    {
+      "sha": "94c4722b930135d12653745323a974ca209d02f12f0d",
+      "filepath": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/evidences/26145040.json",
+      "collected_at": "2026-11-11T15:57:17.727Z"
+    }
+  ],
+  "_links": {
+    "closed_issues_url": "https://gitlab.com/Ran-n/vitralis/-/issues?release_tag=v1.4.0&scope=all&state=closed",
+    "closed_merge_requests_url": "https://gitlab.com/Ran-n/vitralis/-/merge_requests?release_tag=v1.4.0&scope=all&state=closed",
+    "merged_merge_requests_url": "https://gitlab.com/Ran-n/vitralis/-/merge_requests?release_tag=v1.4.0&scope=all&state=merged",
+    "opened_issues_url": "https://gitlab.com/Ran-n/vitralis/-/issues?release_tag=v1.4.0&scope=all&state=opened",
+    "opened_merge_requests_url": "https://gitlab.com/Ran-n/vitralis/-/merge_requests?release_tag=v1.4.0&scope=all&state=opened",
+    "self": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0"
+  }
+}

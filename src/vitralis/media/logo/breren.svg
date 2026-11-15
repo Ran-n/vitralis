@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- Reduced-detail variant of breren-square.svg for small raster sizes
+       (16-32px) where the three concentric rampart rings and six hut
+       dots in the full mark collapse into noise. Keeps one thick outer
+       ring and a single fused hut cluster so the silhouette still reads
+       as a castro at a glance. -->
+  <rect width="512" height="512" rx="96" fill="#3c3836"/>
+  <path fill="none" stroke="#b0a696" stroke-width="46" stroke-linecap="round"
+        d="M 191.0 68.5 Q 256.0 59.9 321.7 67.6 Q 387.3 75.2 412.8 136.1
+           Q 438.2 196.8 449.0 259.5 Q 459.8 322.2 417.5 371.3
+           Q 375.2 420.2 315.6 452.1 Q 256.0 484.0 200.4 446.5
+           Q 144.7 409.1 97.4 366.0 Q 50.0 322.9 55.5 257.7
+           Q 60.8 192.6 93.4 134.8"/>
+  <circle fill="#c9944f" cx="256.0" cy="256.0" r="58"/>
+</svg>

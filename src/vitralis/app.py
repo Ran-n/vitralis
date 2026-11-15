@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:03.794151
-Revised: 2026/11/15 02:48:35.159514
+Revised: 2026/11/15 14:26:59.612820
 
 Starts Vitralis behind its licence: the licence window first when no key is active on this computer, the
 overlay (``Session``) once the licence holds, and back to the licence window if it stops holding.
@@ -41,11 +41,12 @@ from vitralis.single_instance import SingleInstance, mark_running, wait_for_turn
 from vitralis.toolbar import Toolbar
 from vitralis.translations import set_language, t
 from vitralis.tray import make_app_icon, make_tray_icon
-from vitralis.updates import UPDATES_DIR, build_updates, is_packaged
+from vitralis.updates import build_updates, download_dir, legacy_download_dir
 from vitralis.updates.checker import UpdateChecker, UpdateStatus
 from vitralis.updates.install import clean_leftovers, wait_for_exit
 from vitralis.updates.messages import out_message, updated_message
-from vitralis.updates.rules import Version, parse_version_or_none
+from vitralis.updates.rules import Version
+from vitralis.updates.target import is_packaged
 from vitralis.version import app_version
 
 logger = logging.getLogger("vitralis.app")
@@ -197,10 +198,10 @@ class Session:
 
     def _on_update_status(self, status: UpdateStatus) -> None:
         """One tray message per newly offered version per run."""
-        offered = status.offered
-        if offered is None or offered.version in self._announced or self._tray is None:
+        offer = status.offer
+        if offer is None or offer.release.version in self._announced or self._tray is None:
             return
-        self._announced.add(offered.version)
+        self._announced.add(offer.release.version)
         self._show_message(out_message(status), about_update=True)
 
     def _on_message_clicked(self) -> None:
@@ -294,13 +295,17 @@ def set_app_user_model_id() -> None:
         logger.warning("couldn't set the app's taskbar identity: %s", ex)
 
 
+STD_OUTPUT_HANDLE = -11
+INVALID_HANDLE_VALUE = ctypes.c_void_p(-1).value
 WAIT_FOR_OLD_SECONDS = 30.0
 """How long a freshly installed version waits for the one that started it to quit."""
 
 
 def parse_arguments(argv: list[str]) -> tuple[argparse.Namespace, list[str]]:
-    """Vitralis's own options (``--updated``, ``--wait-pid``, given by an in-app update); the rest is Qt's."""
+    """Vitralis's own options (``--version``; ``--updated`` and ``--wait-pid``, given by an in-app update); the
+    rest is Qt's."""
     parser = argparse.ArgumentParser(prog="vitralis", add_help=False)
+    parser.add_argument("--version", action="store_true", help="print the version and quit")
     parser.add_argument("--updated", metavar="OLD_VERSION", help="this start follows an in-app update")
     parser.add_argument("--wait-pid", type=int, metavar="PID", help="wait for this process to quit first")
     return parser.parse_known_args(argv[1:])
@@ -315,16 +320,38 @@ def clean_after_updates(current: str) -> None:
     running = Path(sys.executable)
 
     def tidy() -> None:
-        clean_leftovers(running, DATA_DIR / UPDATES_DIR, parse_version_or_none(current))
+        clean_leftovers(running, download_dir(), legacy_download_dir(DATA_DIR))
         sync_installed_version(running, current)
 
     threading.Thread(target=tidy, name="vitralis-update-cleanup", daemon=True).start()
 
 
+def print_version() -> None:
+    """``Vitralis X.Y.Z`` on standard output. The packaged exe has no console, so Python has no ``sys.stdout``
+    there; the handle a caller redirected (``vitralis.exe --version > file``) is written to directly."""
+    line = f"Vitralis {app_version()}\n"
+    if sys.stdout is not None:
+        sys.stdout.write(line)
+        sys.stdout.flush()
+        return
+    try:
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.GetStdHandle(STD_OUTPUT_HANDLE)
+        data = line.encode()
+        written = ctypes.c_ulong()
+        if handle not in (0, INVALID_HANDLE_VALUE):
+            kernel32.WriteFile(handle, data, len(data), ctypes.byref(written), None)
+    except (AttributeError, OSError) as ex:
+        logger.warning("couldn't print the version: %s", ex)
+
+
 def main() -> None:
+    args, qt_args = parse_arguments(sys.argv)
+    if args.version:
+        print_version()
+        sys.exit(0)
     setup_logging()
     install_error_logging()
-    args, qt_args = parse_arguments(sys.argv)
     # two overlays, two sets of global hooks or two writers of licence.dat must never run at once
     if args.wait_pid is not None and not wait_for_exit(args.wait_pid, WAIT_FOR_OLD_SECONDS):
         logger.error(
@@ -362,7 +389,7 @@ def main() -> None:
     set_language(settings.language())  # the licence window may come before the toolbar
 
     parts = build_licence(DATA_DIR)
-    updates = build_updates(DATA_DIR, settings)
+    updates = build_updates(settings)
     session = Session(app, updates=updates.checker, updated=bool(args.updated))
     gate = LicenceGate(parts.licence, parts.checks, session.start, session.stop, LicenceWindow)
     session.attach(gate)

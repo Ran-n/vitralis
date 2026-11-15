@@ -54,6 +54,8 @@ docstring-code-format = true
 this = "vitralis.app:main"
 vitralis = "vitralis.app:main"
 build = "vitralis.build:main"
+vitralis-sign = "vitralis.sign:main"
+vitralis-asset-name = "vitralis.updates.target:asset_name_main"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -68,7 +70,7 @@ markers = [
 [tool.coverage.run]
 branch = true
 source = ["vitralis"]
-omit = ["*/_version.py"]
+omit = ["*/_version.py", "*/_release.py"]
 
 [tool.coverage.report]
 show_missing = true

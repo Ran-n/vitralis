@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 19:56:04.131186
-Revised: 2026/11/13 20:12:35.773023
+Revised: 2026/11/15 14:27:05.328748
 
 What the installer leaves in the registry: the installed-apps entry following in-app updates, and the language
 the installer ran in. Against real keys under ``HKEY_CURRENT_USER``, made for each test the way Inno Setup writes
@@ -165,3 +165,61 @@ def test_a_value_that_isnt_a_name_is_logged(app_key, caplog, value):
     with caplog.at_level(logging.WARNING, "vitralis.installed"):
         assert installer_language(app_key) is None
     assert any("isn't a name" in r.getMessage() for r in caplog.records)
+
+
+def display_name(path: str) -> str:
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path) as key:
+        return winreg.QueryValueEx(key, "DisplayName")[0]
+
+
+def test_the_entry_keeps_the_plain_name(entry):
+    """Never "Vitralis 1.3.0", which goes stale after the next in-app update."""
+    path, exe = entry
+    assert sync_installed_version(exe, "2.4.1", path)
+    assert display_name(path) == "Vitralis"
+
+
+def test_the_folder_is_compared_ignoring_case_and_trailing_separators(entry):
+    path, exe = entry
+    with winreg.OpenKey(winreg.HKEY_CURRENT_USER, path, 0, winreg.KEY_SET_VALUE) as key:
+        winreg.SetValueEx(key, "InstallLocation", 0, winreg.REG_SZ, str(exe.parent).upper() + "\\\\")
+    assert sync_installed_version(exe, "2.4.1", path)
+
+
+def test_the_version_is_written_last_so_a_failure_before_it_is_tried_again(entry, monkeypatch):
+    path, exe = entry
+    real = winreg.SetValueEx
+    order = []
+
+    def recording(key, name, reserved, kind, value):
+        order.append(name)
+        if name == "MinorVersion":
+            raise PermissionError("denied")
+        return real(key, name, reserved, kind, value)
+
+    monkeypatch.setattr(winreg, "SetValueEx", recording)
+    assert not sync_installed_version(exe, "2.4.1", path)
+    assert "DisplayVersion" not in order and values(path)["DisplayVersion"] == "1.3.0"
+    monkeypatch.setattr(winreg, "SetValueEx", real)
+    assert sync_installed_version(exe, "2.4.1", path)  # the next start finishes it
+    assert values(path)["DisplayVersion"] == "2.4.1"
+
+
+def test_a_registered_folder_that_cant_be_resolved_is_not_this_one(monkeypatch, tmp_path):
+    from vitralis import installed
+
+    def refuse(self, *args, **kwargs):
+        raise OSError("bad path")
+
+    monkeypatch.setattr(type(tmp_path), "resolve", refuse)
+    assert not installed._same_folder(str(tmp_path), tmp_path / "vitralis.exe")
+
+
+def test_an_entry_that_cant_be_opened_is_logged(monkeypatch, caplog, tmp_path):
+    def refuse(*args, **kwargs):
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(winreg, "OpenKey", refuse)
+    with caplog.at_level(logging.WARNING, "vitralis.installed"):
+        assert not sync_installed_version(tmp_path / "vitralis.exe", "2.4.1", "Software\\Nowhere")
+    assert "couldn't open" in caplog.text

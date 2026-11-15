@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:07:07.959602 )
-[//]: # (+ Revised: 	2026/11/14 16:56:42.544351 )
+[//]: # (+ Revised: 	2026/11/15 16:41:05.218969 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 Thank you for your interest in contributing.
@@ -12,6 +12,7 @@ Thank you for your interest in contributing.
 - [Reporting Bugs](#reporting-bugs)
 - [Suggesting Features](#suggesting-features)
 - [Submitting Changes](#submitting-changes)
+- [Releases](#releases)
 - [Backlog](#backlog)
 - [Commit Style](#commit-style)
 - [License](#license)
@@ -56,7 +57,7 @@ Open an issue with:
    with `-m live` and `VITRALIS_LICENCE_TEST_KEY`; never commit a license
    key). A change to what a window looks like or does on a click also runs
    `uv run pytest -m desktop --no-cov` (the real windows, on Windows; see
-   the README's Tests), with its reviewed pictures in
+   [docs/development.md](docs/development.md#tests)), with its reviewed pictures in
    `tests/rendered/baselines` updated in the same commit. A new sentence on
    screen needs its translation in every language
    of `src/vitralis/translations.py`: `tests/test_translations.py` fails
@@ -67,41 +68,10 @@ Open an issue with:
 
 Keep one concern per pull request.
 
-To check the in-app updater end to end, on Windows:
+## Releases
 
-1. Build two versions, N and N+1: set the version (`uv version 1.3.98`), run
-   `uv run build`, then again with `uv version 1.3.99`; put the version back
-   afterwards
-2. Write `vitralis-<N+1>.exe.b3` next to the N+1 exe (`b3sum`, or Python's
-   `blake3`) and serve both, plus a release JSON like GitHub's
-   (`tag_name`, `html_url`, `assets[].name` and `browser_download_url`), on
-   `http://127.0.0.1:<port>/`
-3. Copy the N exe into a folder of your own and start it with
-   `VITRALIS_RELEASES_URL=http://127.0.0.1:<port>/<json path>`
-4. Settings → Updates → **Install**, then **Restart to update**
-5. Confirm that N+1 starts licensed at the same path, says "Updated to …",
-   that `<exe>.old` and `%APPDATA%\Vitralis\updates` are gone, and that only
-   one Vitralis is running; serving an exe with one changed byte must give
-   the checksum error and swap nothing
-
-To check the installer, on Windows, after `uv run build`:
-
-1. `dist\vitralis-<version>-setup.exe /VERYSILENT /DIR=<scratch folder>
-   /TASKS=desktopicon`
-2. Confirm `Vitralis.exe` is in the folder, the Start menu and desktop
-   shortcuts exist, and Settings → Apps lists Vitralis with the version
-3. Run the same installer again with `/VERYSILENT`: it must reuse the folder
-4. `<scratch folder>\unins000.exe /VERYSILENT`: the folder, both shortcuts,
-   the Settings → Apps entry and `HKCU\Software\Vitralis` are gone,
-   `%APPDATA%\Vitralis` is kept
-5. With `/LANG=glr` (or `gl`, `zh`, `ja`, …), `HKCU\Software\Vitralis`
-   holds that language as Settings names it, and a fresh Vitralis starts in
-   it. A new app language needs an installer one too: a `[Languages]` line
-   and its `StartWithWindows` and `AppLanguage` messages in
-   `installer/vitralis.iss` (the tests check they match)
-
-Never change `INSTALLER_GUID` in `src/vitralis/installed.py`:
-Windows tells installs apart by it.
+How a release is built, signed and published, with the release keys and the
+signing tool, is in [docs/development.md](docs/development.md#releases).
 
 ---
 

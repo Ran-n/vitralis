@@ -2,9 +2,13 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 12:31:22.249417
-Revised: 2026/11/14 12:31:22.249417
+Revised: 2026/11/15 14:26:59.290192
 
-The About window: the logo, the app and its version, the author and the licence.
+The About window: the logo, the app with a one-line description, its version and which build it is, the
+author, the company that publishes it (Breren, with its logo and site), the licence with a way to read it and
+the bundled third-party code's, and the links to the source, the releases, the changelog and where to report
+a problem. Its own panel beside the toolbar rather than a section of Settings, which already fills the height
+of a 1080p screen.
 """
 
 from PyQt6.QtCore import Qt
@@ -17,33 +21,91 @@ from vitralis.translations import t
 from vitralis.version import LICENCE_NAME
 from vitralis.widgets import Divider, Panel
 
+REPOSITORY = "https://github.com/Ran-n/vitralis"
+COMPANY = "Breren"
+COMPANY_SITE = "https://breren.com"
+LICENCE_URL = f"{REPOSITORY}/blob/main/LICENSE"
+THIRD_PARTY_URL = f"{REPOSITORY}/blob/main/THIRD-PARTY-NOTICES.md"
+LINKS = (
+    ("Source code", REPOSITORY),
+    ("Releases", f"{REPOSITORY}/releases"),
+    ("Changelog", f"{REPOSITORY}/blob/main/CHANGELOG.md"),
+    ("Report a problem", f"{REPOSITORY}/issues"),
+)
+DESCRIPTION = "Draw over your screen"
+BUILT_FROM_SOURCE = "built from source"
+
+_LBL = "color: rgba(255,255,255,60); font-size: 10px; background: transparent; letter-spacing: 0.5px;"
+_VAL = "color: rgba(255,255,255,200); font-size: 12px; background: transparent;"
+_LINK = "color: rgba(255,255,255,200); font-size: 11px; background: transparent;"
+_LINK_COLOUR = "#8ab4f8"
+
+
+def build_text(version: str, target: str | None) -> str:
+    """``1.4.0 · windows-x86_64``, or ``1.4.0 · built from source``."""
+    return f"v{version} · {target if target else t(BUILT_FROM_SOURCE)}"
+
+
+def _anchor(url: str, text: str) -> str:
+    return f'<a href="{url}" style="color: {_LINK_COLOUR}; text-decoration: none;">{text}</a>'
+
 
 class InfoWindow(Panel):
-    def __init__(self, version: str, parent=None) -> None:
+    def __init__(self, version: str, target: str | None = None, parent=None) -> None:
         super().__init__(f"Vitralis — {t('About')}", parent)
-        self._build_ui(version)
+        self._version = version
+        self._target = target
+        self._field_labels: list[QLabel] = []
+        self._build_ui()
+        self.retranslate()
 
-    def _build_ui(self, version: str) -> None:
+    def _logo(self, name: str, size: int) -> QLabel | None:
+        path = media_base() / "media" / "logo" / name
+        pixmap = QPixmap(str(path))
+        if pixmap.isNull():
+            return None
+        label = QLabel()
+        label.setPixmap(
+            pixmap.scaled(size, size, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+        )
+        label.setFixedSize(size, size)
+        label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        label.setStyleSheet("background: transparent;")
+        return label
+
+    def _field(self, root: QVBoxLayout, key: str, value: QLabel | QHBoxLayout) -> None:
+        col = QVBoxLayout()
+        col.setSpacing(1)
+        lbl = QLabel()
+        lbl.setStyleSheet(_LBL)
+        lbl.setProperty("i18n_key", key)
+        self._field_labels.append(lbl)
+        col.addWidget(lbl)
+        if isinstance(value, QLabel):
+            col.addWidget(value)
+        else:
+            col.addLayout(value)
+        root.addLayout(col)
+        root.addSpacing(10)
+
+    @staticmethod
+    def _value(text: str = "", style: str = _VAL) -> QLabel:
+        label = QLabel(text)
+        label.setStyleSheet(style)
+        label.setWordWrap(True)
+        return label
+
+    def _link(self) -> QLabel:
+        label = self._value(style=_LINK)
+        label.setOpenExternalLinks(True)
+        label.setTextInteractionFlags(Qt.TextInteractionFlag.LinksAccessibleByMouse)
+        return label
+
+    def _build_ui(self) -> None:
         root = QVBoxLayout(self)
         root.setContentsMargins(20, 14, 20, 18)
         root.setSpacing(0)
 
-        _LBL = "color: rgba(255,255,255,60); font-size: 10px; background: transparent; letter-spacing: 0.5px;"
-        _VAL = "color: rgba(255,255,255,200); font-size: 12px; background: transparent;"
-
-        def _field(key: str, value: str) -> tuple[QVBoxLayout, QLabel]:
-            col = QVBoxLayout()
-            col.setSpacing(1)
-            lbl = QLabel(t(key).upper())
-            lbl.setStyleSheet(_LBL)
-            lbl.setProperty("i18n_key", key)
-            val = QLabel(value)
-            val.setStyleSheet(_VAL)
-            col.addWidget(lbl)
-            col.addWidget(val)
-            return col, lbl
-
-        # close button row
         close_row = QHBoxLayout()
         close_row.setContentsMargins(0, 0, 0, 0)
         close_row.addStretch()
@@ -53,52 +115,62 @@ class InfoWindow(Panel):
         close_btn.clicked.connect(self.close)
         close_row.addWidget(close_btn)
         root.addLayout(close_row)
-
         root.addSpacing(6)
 
-        # centered logo
-        icon_path = media_base() / "media" / "logo" / "icon.png"
-        if icon_path.exists():
-            px = QPixmap(str(icon_path)).scaled(
-                128, 128, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
-            )
-            logo_lbl = QLabel()
-            logo_lbl.setPixmap(px)
-            logo_lbl.setFixedSize(128, 128)
-            logo_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            logo_lbl.setStyleSheet("background: transparent;")
+        logo = self._logo("icon.png", 96)
+        if logo is not None:
             logo_row = QHBoxLayout()
             logo_row.addStretch()
-            logo_row.addWidget(logo_lbl)
+            logo_row.addWidget(logo)
             logo_row.addStretch()
             root.addLayout(logo_row)
+            root.addSpacing(8)
+        name = QLabel("Vitralis")
+        name.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        name.setStyleSheet("color: white; font-size: 15px; font-weight: 700; background: transparent;")
+        root.addWidget(name)
+        self.description = self._value(style=_LINK)
+        self.description.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        root.addWidget(self.description)
 
-        root.addSpacing(14)
+        root.addSpacing(12)
         root.addWidget(Divider())
         root.addSpacing(12)
 
-        self._field_labels: list[QLabel] = []
-        for key, value in [
-            ("App", "Vitralis"),
-            ("Version", f"v{version}"),
-        ]:
-            col, lbl = _field(key, value)
-            root.addLayout(col)
-            root.addSpacing(10)
-            self._field_labels.append(lbl)
+        self.build_label = self._value()
+        self._field(root, "Version", self.build_label)
         root.addWidget(Divider())
         root.addSpacing(10)
-        for key, value in [
-            ("Author", "Ran#"),
-            ("Email", "ran.hash@proton.me"),
-            ("License", LICENCE_NAME),
-        ]:
-            col, lbl = _field(key, value)
-            root.addLayout(col)
-            root.addSpacing(10)
-            self._field_labels.append(lbl)
+        self._field(root, "Author", self._value("Ran#"))
+        self._field(root, "Email", self._value("ran.hash@proton.me"))
+
+        company = QHBoxLayout()
+        company.setSpacing(6)
+        mark = self._logo("breren.svg", 18)
+        if mark is not None:
+            company.addWidget(mark)
+        self.company_link = self._link()
+        self.company_link.setText(_anchor(COMPANY_SITE, COMPANY))
+        self.company_link.setStyleSheet(_VAL)
+        company.addWidget(self.company_link)
+        company.addStretch()
+        self._field(root, "Company", company)
+
+        self.licence_label = self._link()
+        self._field(root, "License", self.licence_label)
+        root.addWidget(Divider())
+        root.addSpacing(10)
+        self.links_label = self._link()
+        self._field(root, "Links", self.links_label)
 
     def retranslate(self) -> None:
         for lbl in self._field_labels:
             lbl.setText(t(lbl.property("i18n_key")).upper())
         self.setWindowTitle(f"Vitralis — {t('About')}")
+        self.description.setText(t(DESCRIPTION))
+        self.build_label.setText(build_text(self._version, self._target))
+        self.licence_label.setText(
+            f"{LICENCE_NAME}<br>{_anchor(LICENCE_URL, t('Read the license'))}"
+            f"<br>{_anchor(THIRD_PARTY_URL, t('Third-party licenses'))}"
+        )
+        self.links_label.setText("<br>".join(_anchor(url, t(text)) for text, url in LINKS))

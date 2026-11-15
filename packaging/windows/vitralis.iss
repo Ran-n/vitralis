@@ -1,29 +1,46 @@
-; Vitralis's Windows installer (Inno Setup 6). `uv run build` compiles it after PyInstaller and passes:
-;   /DAppVersion=1.4.0  /DAppGuid=<GUID, no braces>  /DSourceExe=<built exe>  /DIconFile=<.ico>
-;   /DLicenseFile=<LICENSE>  /DOutputDir=<dist>
+; Vitralis's Windows installer (Inno Setup 6). build-installer.ps1 compiles it and passes:
+;   /DAppVersion=1.4.0  /DAppBinary=<the portable exe>  /DIconFile=<.ico>  /DLicenseFile=<LICENSE>  /DDistDir=<dist>
+; The installer test also passes /DAppId, /DAppName, /DAppKey and /DAppMutex of its own, so it can run beside a
+; real installation without touching it.
 ; It installs for the current user only, in %LOCALAPPDATA%\Programs\Vitralis: no admin prompt, and the folder
-; stays writable, which the in-app updater needs to swap Vitralis.exe in place. Settings, drawings and the
-; licence live in %APPDATA%\Vitralis and are kept on uninstall, so a reinstall needs no new key.
+; stays writable, which the in-app updater needs to swap vitralis.exe in place. The installed exe is the
+; portable one, renamed. Settings, drawings and the licence live in %APPDATA%\Vitralis and are kept on
+; uninstall, so a reinstall needs no new key.
 ; It speaks every language Vitralis does, and saves the one picked (HKCU\Software\Vitralis, Language) so
 ; Vitralis starts in it until another is picked in Settings (vitralis.installed). Galician and Chinese come
-; from installer\languages: Inno Setup ships Galician only as unofficial, and some builds lack Chinese; the
+; from languages\: Inno Setup ships Galician only as unofficial, and some builds lack Chinese; the
 ; reintegrated Galician is Vitralis's own.
 
 #ifndef AppVersion
-  #error AppVersion is not defined: build with `uv run build`
+  #error AppVersion is required: build with packaging/windows/build-installer.ps1
 #endif
-
-#define AppName "Vitralis"
-#define AppExe "Vitralis.exe"
+#ifndef AppBinary
+  #error AppBinary is required
+#endif
+#ifndef DistDir
+  #error DistDir is required
+#endif
+; never change it: Windows would take a new one for another app (vitralis.installed.INSTALLER_GUID)
+#ifndef AppId
+  #define AppId "{{AB080C02-6AA8-4842-973A-AA93F9C4E128}"
+#endif
+#ifndef AppName
+  #define AppName "Vitralis"
+#endif
+#ifndef AppKey
+  #define AppKey "Software\Vitralis"
+#endif
 ; held by Vitralis while it runs (vitralis.single_instance.RUNNING_MUTEX)
-#define AppMutex "VitralisRunning"
+#ifndef AppMutex
+  #define AppMutex "VitralisRunning"
+#endif
+#define AppExe "vitralis.exe"
 
 [Setup]
-AppId={{{#AppGuid}}
+AppId={#AppId}
 AppName={#AppName}
 AppVersion={#AppVersion}
-AppVerName={#AppName} {#AppVersion}
-AppPublisher=Ran#
+AppPublisher=Breren
 AppPublisherURL=https://github.com/Ran-n/vitralis
 AppSupportURL=https://github.com/Ran-n/vitralis/issues
 AppUpdatesURL=https://github.com/Ran-n/vitralis/releases
@@ -31,15 +48,16 @@ VersionInfoVersion={#AppVersion}
 VersionInfoProductName={#AppName}
 VersionInfoDescription={#AppName} installer
 PrivilegesRequired=lowest
-DefaultDirName={autopf}\{#AppName}
+DefaultDirName={localappdata}\Programs\{#AppName}
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
+MinVersion=10.0.17763
 LicenseFile={#LicenseFile}
 SetupIconFile={#IconFile}
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
-OutputDir={#OutputDir}
-OutputBaseFilename=vitralis-{#AppVersion}-setup
+OutputDir={#DistDir}
+OutputBaseFilename=vitralis-{#AppVersion}-windows-x86_64-setup
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 WizardStyle=modern
@@ -88,15 +106,15 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Name: "startup"; Description: "{cm:StartWithWindows}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "{#SourceExe}"; DestDir: "{app}"; DestName: "{#AppExe}"; Flags: ignoreversion
+Source: "{#AppBinary}"; DestDir: "{app}"; DestName: "{#AppExe}"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "ran.vitralis"
-Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "ran.vitralis"; Tasks: desktopicon
+Name: "{userprograms}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "ran.vitralis"
+Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; AppUserModelID: "ran.vitralis"; Tasks: desktopicon
 Name: "{userstartup}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: startup
 
 [Registry]
-Root: HKCU; Subkey: "Software\Vitralis"; ValueType: string; ValueName: "Language"; ValueData: "{cm:AppLanguage}"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "{#AppKey}"; ValueType: string; ValueName: "Language"; ValueData: "{cm:AppLanguage}"; Flags: uninsdeletekey
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent

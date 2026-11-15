@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 16:56:37.809690
-Revised: 2026/11/14 16:56:37.809690
+Revised: 2026/11/15 14:27:04.282364
 
 The rendered tests' reviewed pictures: a capture is compared with the PNG checked in under ``baselines/``, and
 what differs is written to ``failures/`` (ignored by git) as the capture and a picture of where it differs.
@@ -23,10 +23,11 @@ UPDATE_FLAG = "VITRALIS_UPDATE_BASELINES"
 CHANNEL_TOLERANCE = 24
 """How far a channel may be off before the pixel counts as different: text is smoothed a little differently
 from one graphics driver to the next."""
-DIFFERENT_ALLOWED = 0.004
-"""The share of pixels that may differ: a few text edges and the toolbar's small focus dot (which follows
-whether the test copy really has the keyboard, and the tests never take it), never a missing button or a moved
-row."""
+DIFFERENT_ALLOWED = 64
+"""How many pixels may differ: the toolbar's small focus dot (which follows whether the test copy really has
+the keyboard, and the tests never take it) and a few text edges, never a changed word, a missing button or a
+moved row. Two full runs on unchanged code differ in no pixel at all; a share of the picture (0.4 % until
+2026-11-15) let a changed sentence of 779 pixels through on the tall Settings window."""
 
 
 def differing(seen: QImage, wanted: QImage) -> tuple[int, QImage]:
@@ -62,7 +63,7 @@ def check(seen: QImage, name: str) -> None:
         problem = f"is {seen.width()}x{seen.height()}, the baseline {wanted.width()}x{wanted.height()}"
     else:
         count, marks = differing(seen, wanted)
-        if count > DIFFERENT_ALLOWED * seen.width() * seen.height():
+        if count > DIFFERENT_ALLOWED:
             problem = f"differs from the baseline in {count} pixels"
     if problem:
         FAILURES.mkdir(exist_ok=True)

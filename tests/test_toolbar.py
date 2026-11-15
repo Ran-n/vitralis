@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:11.688678
-Revised: 2026/11/15 00:38:22.983884
+Revised: 2026/11/15 14:27:05.933234
 
 The real toolbar on the offscreen ``QApplication``, with its system-wide keyboard and mouse hooks replaced by
 inert stand-ins: the accent dot on the Settings button shows only while an update is offered, painted inside
@@ -17,7 +17,7 @@ from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QLabel
 
 from tests.conftest import wait_until
-from tests.updates.fakes import FakeFeed, MemorySettings, release
+from tests.updates.fakes import TARGET, FakeFeed, MemorySettings, release
 from vitralis import toolbar as toolbar_module
 from vitralis.styles import BTN_CHECKED
 from vitralis.toolbar import UPDATE_DOT_MARGIN, UPDATE_DOT_SIZE, InfoWindow, Toolbar
@@ -76,7 +76,7 @@ def make_toolbar(qapp, icons, monkeypatch, tmp_path):
 
 
 def checked(qapp, feed):
-    checker = UpdateChecker(feed, MemorySettings(), "1.3.0")
+    checker = UpdateChecker(feed, MemorySettings(), "1.3.0", TARGET)
     checker.check_now()
     wait_until(qapp, lambda: not checker.busy)
     return checker
@@ -100,7 +100,7 @@ def test_the_dot_shows_only_while_an_update_is_offered(qapp, make_toolbar):
     checker = checked(qapp, FakeFeed())
     bar = make_toolbar(checker)
     assert bar._settings_btn.dot and is_accent(dot_pixel(bar))
-    assert bar._settings_btn.toolTip() == "Settings · Vitralis 1.4.0 is out"
+    assert bar._settings_btn.toolTip() == "Settings · Vitralis 1.4.0 is available"
     checker.skip()
     assert not bar._settings_btn.dot and not is_accent(dot_pixel(bar))
     assert bar._settings_btn.toolTip() == "Settings"
@@ -125,7 +125,7 @@ def test_the_tooltip_keeps_the_update_after_a_language_change(qapp, make_toolbar
     bar = make_toolbar(checked(qapp, FakeFeed()))
     set_language("Deutsch")
     bar.retranslate()
-    assert bar._settings_btn.toolTip() == "Einstellungen · Vitralis 1.4.0 ist erschienen"
+    assert bar._settings_btn.toolTip() == "Einstellungen · Vitralis 1.4.0 ist verfügbar"
 
 
 def test_settings_open_with_the_updates_section(qapp, make_toolbar):
@@ -139,9 +139,41 @@ def test_settings_open_with_the_updates_section(qapp, make_toolbar):
 def test_the_about_window_shows_the_versioned_licence(qapp, icons, language):
     set_language(language)
     window = InfoWindow("1.3.0")
+    assert window.licence_label.text().startswith(LICENCE_NAME + "<br>")
     texts = [label.text() for label in window.findChildren(QLabel)]
-    assert LICENCE_NAME in texts and "PayBack License (PBL)" not in texts
+    assert "PayBack License (PBL)" not in texts
     window.deleteLater()
+
+
+def test_the_about_window_says_the_build_the_company_and_the_links(qapp, icons):
+    from vitralis import about
+
+    window = InfoWindow("1.4.0", "windows-x86_64")
+    assert window.build_label.text() == "v1.4.0 · windows-x86_64"
+    assert InfoWindow("1.4.0").build_label.text() == "v1.4.0 · built from source"
+    assert window.description.text() == "Draw over your screen"
+    assert 'href="https://breren.com"' in window.company_link.text() and ">Breren<" in window.company_link.text()
+    for _, url in about.LINKS:
+        assert f'href="{url}"' in window.links_label.text()
+    assert about.LICENCE_URL in window.licence_label.text() and about.THIRD_PARTY_URL in window.licence_label.text()
+    assert window.company_link.openExternalLinks() and window.links_label.openExternalLinks()
+    pictures = [label for label in window.findChildren(QLabel) if label.pixmap() and not label.pixmap().isNull()]
+    assert len(pictures) == 2  # Vitralis's logo and Breren's
+    set_language("Deutsch")
+    window.retranslate()
+    assert window.description.text() == "Zeichne auf deinem Bildschirm"
+    assert ">Quellcode<" in window.links_label.text()
+    window.deleteLater()
+
+
+def test_the_about_links_point_at_files_the_repository_has():
+    from pathlib import Path
+
+    from vitralis import about
+
+    root = Path(__file__).resolve().parent.parent
+    for url in (about.LICENCE_URL, about.THIRD_PARTY_URL, dict((t, u) for t, u in about.LINKS)["Changelog"]):
+        assert (root / url.rsplit("/blob/main/", 1)[1]).is_file(), url
 
 
 def test_the_logo_and_name_sit_in_the_middle_of_the_toolbar(make_toolbar, qapp):

@@ -2,37 +2,64 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:10:58.341088
-Revised: 2026/11/14 12:01:48.265281
+Revised: 2026/11/15 14:27:03.162537
 
-The updater's rules, with no I/O and no Qt: release versions and how they compare, which release to offer,
-the file names a release carries, the ``b3sum`` checksum format, and the errors an install can end in.
+The updater's rules, with no I/O and no Qt: versions (semantic versioning, pre-releases included) and how
+they compare, the release a forge describes, what a check comes to (``decide``), the ``b3sum`` checksum
+format, the short reasons a request can fail for, and the errors an install can end in.
 """
 
 import enum
+import functools
 import re
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 
-_VERSION = re.compile(r"v?(\d+)\.(\d+)\.(\d+)")
-_EXE = re.compile(r"vitralis-(\d+\.\d+\.\d+)\.exe")
+_VERSION = re.compile(
+    r"v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+    r"(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?"
+    r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
+)
 _B3 = re.compile(r"([0-9a-fA-F]{64})(?:\s|$)")
+MAX_VERSION_LENGTH = 64
+"""Longer than any version Vitralis will have; a saved or served one beyond it is refused unread."""
 
 
-@dataclass(frozen=True, slots=True, order=True)
+@functools.total_ordering
+@dataclass(frozen=True, slots=True)
 class Version:
     major: int
     minor: int
     patch: int
+    pre: tuple[str, ...] = ()
+    """The pre-release identifiers (``("rc", "1")`` for ``1.4.0-rc.1``); empty for a release."""
 
     def __str__(self) -> str:
-        return f"{self.major}.{self.minor}.{self.patch}"
+        core = f"{self.major}.{self.minor}.{self.patch}"
+        return f"{core}-{'.'.join(self.pre)}" if self.pre else core
+
+    @property
+    def is_prerelease(self) -> bool:
+        return bool(self.pre)
+
+    def _key(self) -> tuple:
+        # semver precedence: a release ranks above its pre-releases; numeric identifiers below alphanumeric ones
+        pre = tuple((0, int(part), "") if part.isdigit() else (1, 0, part) for part in self.pre)
+        return self.major, self.minor, self.patch, not self.pre, pre
+
+    def __lt__(self, other: object) -> bool:
+        if not isinstance(other, Version):
+            return NotImplemented
+        return self._key() < other._key()
 
 
 def parse_version(text: str) -> Version:
-    """``v1.4.0`` or ``1.4.0``; anything else (``1.2``, ``v1.2.3-rc1``, ``?``) raises ``ValueError``."""
-    found = _VERSION.fullmatch(text)
+    """``v1.4.0``, ``1.4.0`` or ``1.4.0-rc.1`` (build metadata ignored); anything else raises ``ValueError``."""
+    found = _VERSION.fullmatch(text) if isinstance(text, str) and len(text) <= MAX_VERSION_LENGTH else None
     if found is None:
         raise ValueError(f"not a version: {text!r}")
-    return Version(*(int(part) for part in found.groups()))
+    major, minor, patch, pre = found.groups()
+    return Version(int(major), int(minor), int(patch), tuple(pre.split(".")) if pre else ())
 
 
 def parse_version_or_none(text: str) -> Version | None:
@@ -40,21 +67,6 @@ def parse_version_or_none(text: str) -> Version | None:
         return parse_version(text)
     except ValueError:
         return None
-
-
-def exe_name(version: Version) -> str:
-    """The release's Windows exe, as ``build`` names it."""
-    return f"vitralis-{version}.exe"
-
-
-def checksum_name(version: Version) -> str:
-    return exe_name(version) + ".b3"
-
-
-def exe_version(file_name: str) -> Version | None:
-    """The version in a ``vitralis-X.Y.Z.exe`` name, else ``None``."""
-    found = _EXE.fullmatch(file_name)
-    return None if found is None else parse_version(found.group(1))
 
 
 def parse_b3(text: str) -> str:
@@ -69,64 +81,115 @@ def parse_b3(text: str) -> str:
 class Release:
     version: Version
     page_url: str
-    exe_url: str | None
-    checksum_url: str | None
-
-    @property
-    def installable(self) -> bool:
-        """It carries both the exe and its checksum, which installing needs."""
-        return self.exe_url is not None and self.checksum_url is not None
+    assets: Mapping[str, str] = field(default_factory=dict)
+    """File name → download URL, every one on HTTPS."""
+    source: str = ""
+    """The forge it came from (``GitHub``, ``GitLab``)."""
 
 
-def is_newer(current: Version | None, latest: Release) -> bool:
-    """A release counts as newer than an unknown running version, so a build without a version still hears."""
-    return current is None or latest.version > current
+@dataclass(frozen=True, slots=True)
+class Offer:
+    """A release this build can install: the three files it needs, all present."""
+
+    release: Release
+    asset: str
+    asset_url: str
+    checksum_url: str
+    signature_url: str
 
 
-def update_to_offer(current: Version | None, latest: Release, skipped: str) -> Release | None:
-    """``latest`` when it is newer than the running version and than the skipped one (when that parses)."""
-    if not is_newer(current, latest):
-        return None
+class CheckKind(enum.Enum):
+    SOURCE_BUILD = "source_build"
+    """Not a release build: nothing is asked, nothing is offered."""
+    UP_TO_DATE = "up_to_date"
+    AVAILABLE = "available"
+    NO_BUILD = "no_build"
+    """Newer, but its exe, ``.b3`` or ``.sig`` for this system is missing: never offered."""
+    SKIPPED = "skipped"
+    FAILED = "failed"
+
+
+def is_offered_version(current: Version, candidate: Version) -> bool:
+    """Newer, and not a pre-release unless the running version is one."""
+    return candidate > current and (not candidate.is_prerelease or current.is_prerelease)
+
+
+def decide(current: Version | None, release: Release, skipped: str, asset: str) -> tuple[CheckKind, Offer | None]:
+    """What a successful check comes to. An unknown running version counts as older than any release."""
+    floor = current if current is not None else Version(0, 0, 0, ("0",))
+    if not is_offered_version(floor, release.version):
+        return CheckKind.UP_TO_DATE, None
+    urls = [release.assets.get(name) for name in (asset, asset + ".b3", asset + ".sig")]
+    if any(url is None for url in urls):
+        return CheckKind.NO_BUILD, None
     skipped_version = parse_version_or_none(skipped)
-    if skipped_version is not None and latest.version <= skipped_version:
-        return None
-    return latest
+    if skipped_version is not None and release.version <= skipped_version:
+        return CheckKind.SKIPPED, None
+    return CheckKind.AVAILABLE, Offer(release, asset, *urls)
 
 
-class FeedFailure(enum.Enum):
-    """Why the latest release couldn't be read, as far as the user can do something about it."""
+def newest(releases: list[Release]) -> Release | None:
+    """The newest; on a tie the earlier one, so the first source's files are used."""
+    best: Release | None = None
+    for release in releases:
+        if best is None or release.version > best.version:
+            best = release
+    return best
 
-    OFFLINE = "offline"
-    """GitHub couldn't be reached: no connection, a timeout, a broken one."""
-    RATE_LIMITED = "rate_limited"
-    """GitHub takes no more unauthenticated requests from this address for now."""
-    OTHER = "other"
-    """Anything else; the error's text is the reason."""
+
+class Reason(enum.Enum):
+    """Why a request failed, short and with no URL or header in it; ``status`` fills ``ANSWERED``."""
+
+    TIMED_OUT = "the request timed out"
+    NOT_FOUND = "the server couldn't be found"
+    CONNECTION = "the connection failed"
+    TOO_LARGE = "the answer was too large"
+    NOT_HTTPS = "the server didn't use HTTPS"
+    TLS = "the secure connection failed"
+    ANSWERED = "the server answered {status}"
+    UNREADABLE = "the answer couldn't be read"
+
+
+@dataclass(frozen=True, slots=True)
+class Failure:
+    reason: Reason
+    status: int = 0
+    """The HTTP status, for ``Reason.ANSWERED``."""
+
+
+@dataclass(frozen=True, slots=True)
+class SourceFailure:
+    source: str
+    failure: Failure
+
+
+FOLDER_NOT_WRITABLE = "the folder can't be written to"
+"""Why the exe can't be replaced when its folder takes no new files (the all-users Program Files, say)."""
 
 
 class UpdateError(Exception):
-    """An install that couldn't finish; the message is a one-line reason."""
+    """An install that couldn't finish."""
 
 
-class DownloadUnreachable(UpdateError):
-    """The download's server couldn't be reached, or the connection broke on the way."""
+class DownloadFailed(UpdateError):
+    """The exe, its checksum or its signature couldn't be fetched."""
 
-
-class DownloadRefused(UpdateError):
-    """The download's server answered with an error."""
-
-    def __init__(self, what: str, status: int) -> None:
-        super().__init__(f"HTTP {status} for {what}")
-        self.status = status
-
-
-class SwapFailed(UpdateError):
-    """The downloaded exe couldn't be put in the running one's place, or started."""
+    def __init__(self, failure: Failure) -> None:
+        super().__init__(failure.reason.value.format(status=failure.status))
+        self.failure = failure
 
 
 class ChecksumMismatch(UpdateError):
     """The downloaded exe isn't the one the release's checksum describes."""
 
 
+class NotSigned(UpdateError):
+    """The release's signature isn't by a key Vitralis trusts, or isn't for this version and file."""
+
+
+class SwapFailed(UpdateError):
+    """The downloaded exe couldn't be put in the running one's place, or started."""
+
+
 class UpdateCancelled(UpdateError):
-    """Vitralis quit during the download."""
+    """Cancel was pressed, or Vitralis quit, during the download."""

@@ -2,12 +2,15 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 19:56:04.526845
-Revised: 2026/11/14 12:01:48.983098
+Revised: 2026/11/15 14:27:04.955552
 
-``uv run build``'s installer step: finding Inno Setup, the command it runs, the installer's name (never taken
-for the exe the updater swaps in), and a real compile of ``installer/vitralis.iss`` around a stand-in exe.
+``uv run build`` and the installer: the release target the exe is built with (a value that isn't a target
+stops the build), the files the packaged exe reads, the installer script's command line, a real compile of
+``packaging/windows/vitralis.iss`` around a stand-in exe through ``build-installer.ps1``, and what the
+script declares (per-user folder, publisher, application id, languages, the running-copy check).
 """
 
+import os
 import re
 import subprocess
 import sys
@@ -18,67 +21,50 @@ import pytest
 from vitralis import build
 from vitralis.installed import INSTALLER_GUID
 from vitralis.settings import LANGUAGES
-from vitralis.updates.rules import exe_name, exe_version, parse_version
+from vitralis.updates.target import asset_name, installer_name
 
 ROOT = Path(__file__).resolve().parent.parent
+windows_only = pytest.mark.skipif(sys.platform != "win32", reason="Inno Setup and PowerShell run on Windows")
+MACHINE_ENV = dict(os.environ)
+"""As the shell gave it, before a fixture moves ``LOCALAPPDATA``: Inno Setup may be installed per user there."""
 
 
-def fake_iscc(folder: Path) -> Path:
-    folder.mkdir(parents=True)
-    (folder / "ISCC.exe").write_bytes(b"")
-    return folder / "ISCC.exe"
+def test_without_a_release_target_the_build_is_a_build_from_source():
+    assert build.release_target({}) is None
 
 
-def test_iscc_variable_wins(tmp_path, monkeypatch):
-    given = fake_iscc(tmp_path / "custom")
-    monkeypatch.setattr(build.shutil, "which", lambda name: "C:/elsewhere/ISCC.exe")
-    assert build.find_iscc({"ISCC": str(given)}) == given
+def test_a_release_target_is_taken_when_it_is_one():
+    assert build.release_target({"VITRALIS_RELEASE_TARGET": "windows-x86_64"}) == "windows-x86_64"
 
 
-def test_an_iscc_variable_naming_no_file_finds_nothing(tmp_path):
-    assert build.find_iscc({"ISCC": str(tmp_path / "missing.exe")}) is None
+def test_a_release_target_that_isnt_one_stops_the_build(capsys):
+    with pytest.raises(SystemExit) as raised:
+        build.release_target({"VITRALIS_RELEASE_TARGET": "windows-arm64"})
+    assert raised.value.code == 2 and "isn't a target" in capsys.readouterr().out
 
 
-def test_path_comes_before_the_install_folders(tmp_path, monkeypatch):
-    fake_iscc(tmp_path / "Programs" / "Inno Setup 6")
-    monkeypatch.setattr(build.shutil, "which", lambda name: "C:/on/path/ISCC.exe")
-    assert build.find_iscc({"LOCALAPPDATA": str(tmp_path)}) == Path("C:/on/path/ISCC.exe")
+def test_the_build_writes_the_version_and_the_target_the_packaged_exe_reads(tmp_path):
+    build.write_build_info(tmp_path, "1.4.0", "windows-x86_64")
+    assert (tmp_path / "_version.py").read_text(encoding="utf-8") == '__version__ = "1.4.0"\n'
+    namespace: dict = {}
+    exec((tmp_path / "_release.py").read_text(encoding="utf-8"), namespace)
+    assert namespace["TARGET"] == "windows-x86_64"
+    build.write_build_info(tmp_path, "1.4.0", None)
+    namespace = {}
+    exec((tmp_path / "_release.py").read_text(encoding="utf-8"), namespace)
+    assert namespace["TARGET"] is None
 
 
-@pytest.mark.parametrize(
-    ("variable", "sub"),
-    [("LOCALAPPDATA", ("Programs", "Inno Setup 6")), ("ProgramFiles(x86)", ("Inno Setup 6",))],
-)
-def test_the_usual_install_folders_are_searched(tmp_path, monkeypatch, variable, sub):
-    found = fake_iscc(tmp_path.joinpath(*sub))
-    monkeypatch.setattr(build.shutil, "which", lambda name: None)
-    assert build.find_iscc({variable: str(tmp_path)}) == found
+def test_the_exe_and_the_installer_never_share_a_name():
+    assert asset_name("1.4.0", build.TARGET) == "vitralis-1.4.0-windows-x86_64.exe"
+    assert installer_name("1.4.0", build.TARGET) == "vitralis-1.4.0-windows-x86_64-setup.exe"
 
 
-def test_nothing_found_is_none(monkeypatch, tmp_path):
-    monkeypatch.setattr(build.shutil, "which", lambda name: None)
-    assert build.find_iscc({"LOCALAPPDATA": str(tmp_path)}) is None
-
-
-def test_the_installer_is_never_taken_for_the_update_exe():
-    name = build.installer_name("1.4.0")
-    assert name == "vitralis-1.4.0-setup.exe"
-    assert exe_version(name) is None and name != exe_name(parse_version("1.4.0"))
-
-
-def test_the_command_passes_everything_the_script_needs(tmp_path):
-    command = build.iscc_command(
-        Path("ISCC.exe"), Path("vitralis.iss"), "1.4.0", Path("v.exe"), Path("v.ico"), Path("LICENSE"), tmp_path
-    )
-    assert command[0] == "ISCC.exe" and command[-1] == "vitralis.iss"
-    assert {
-        "/DAppVersion=1.4.0",
-        f"/DAppGuid={INSTALLER_GUID}",
-        "/DSourceExe=v.exe",
-        "/DIconFile=v.ico",
-        "/DLicenseFile=LICENSE",
-        f"/DOutputDir={tmp_path}",
-    } <= set(command)
+def test_the_installer_command_runs_the_script_with_the_exe_the_icon_and_the_folder(tmp_path):
+    command = build.installer_command(ROOT, Path("v.exe"), Path("v.ico"), tmp_path)
+    assert command[:5] == ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File"]
+    assert command[5] == str(ROOT / "packaging" / "windows" / "build-installer.ps1")
+    assert command[6:] == ["-Binary", "v.exe", "-OutputDirectory", str(tmp_path), "-Icon", "v.ico"]
 
 
 def test_no_installer_flag():
@@ -86,42 +72,53 @@ def test_no_installer_flag():
     assert not build.parse_arguments([]).no_installer
 
 
-def test_a_missing_inno_setup_stops_the_build_with_the_hint(monkeypatch, tmp_path, capsys):
-    monkeypatch.setattr(build, "find_iscc", lambda: None)
+def test_a_failed_installer_build_stops_the_build(monkeypatch, tmp_path, capsys):
+    monkeypatch.setattr(build.subprocess, "run", lambda command: subprocess.CompletedProcess(command, 3))
     with pytest.raises(SystemExit) as raised:
-        build.build_installer(tmp_path, "1.4.0", tmp_path / "v.exe", tmp_path / "v.ico", tmp_path)
-    assert raised.value.code == 1 and "--no-installer" in capsys.readouterr().out
+        build.build_installer(tmp_path, tmp_path / "v.exe", tmp_path / "v.ico", tmp_path)
+    assert raised.value.code == 3 and "Installer build failed" in capsys.readouterr().out
 
 
-def test_a_failed_compile_stops_the_build(monkeypatch, tmp_path):
-    monkeypatch.setattr(build, "find_iscc", lambda: Path("ISCC.exe"))
-    monkeypatch.setattr(build.subprocess, "run", lambda command: subprocess.CompletedProcess(command, 2))
-    with pytest.raises(SystemExit) as raised:
-        build.build_installer(tmp_path, "1.4.0", tmp_path / "v.exe", tmp_path / "v.ico", tmp_path)
-    assert raised.value.code == 2
+def run_script(*arguments: str) -> subprocess.CompletedProcess:
+    script = ROOT / "packaging" / "windows" / "build-installer.ps1"
+    command = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script), *arguments]
+    return subprocess.run(command, capture_output=True, text=True, timeout=300, env=MACHINE_ENV)
 
 
-@pytest.mark.skipif(sys.platform != "win32", reason="Inno Setup runs on Windows")
-def test_the_script_compiles_into_a_versioned_installer(tmp_path, qapp):
-    if build.find_iscc() is None:
-        pytest.fail(f"Inno Setup's ISCC.exe wasn't found: {build.ISCC_HINT}")
-    exe = tmp_path / "vitralis-9.8.7.exe"
+@windows_only
+def test_the_script_compiles_a_versioned_installer_around_the_exe(tmp_path, qapp):
+    exe = tmp_path / "stand-in.exe"
     exe.write_bytes(b"MZ stand-in exe")
     ico = tmp_path / "vitralis.ico"
     build.png_to_ico(str(ROOT / "src" / "vitralis" / "media" / "logo" / "icon.png"), str(ico))
     out = tmp_path / "dist"
-    setup = build.build_installer(ROOT, "9.8.7", exe, ico, out)
-    assert setup == out / "vitralis-9.8.7-setup.exe"
+    result = run_script("-Binary", str(exe), "-Icon", str(ico), "-OutputDirectory", str(out))
+    assert result.returncode == 0, result.stdout + result.stderr
+    version = re.search(r'(?m)^version = "([^"]+)"', (ROOT / "pyproject.toml").read_text(encoding="utf-8")).group(1)
+    setup = out / installer_name(version, build.TARGET)
+    assert result.stdout.strip().splitlines()[-1] == str(setup)
     assert setup.is_file() and setup.read_bytes()[:2] == b"MZ"
 
 
-SCRIPT = ROOT / "installer" / "vitralis.iss"
-LANGUAGE_FILES = ROOT / "installer" / "languages"
+@windows_only
+def test_the_script_says_what_is_missing(tmp_path):
+    result = run_script("-Binary", str(tmp_path / "missing.exe"), "-Icon", str(tmp_path / "missing.ico"))
+    assert result.returncode != 0 and "missing.exe is missing" in result.stdout + result.stderr
+    exe = tmp_path / "v.exe"
+    exe.write_bytes(b"MZ")
+    ico = tmp_path / "v.ico"
+    ico.write_bytes(b"")
+    result = run_script("-Binary", str(exe), "-Icon", str(ico), "-Compiler", str(tmp_path / "no-iscc.exe"))
+    assert result.returncode != 0 and "Inno Setup 6 is missing" in result.stdout + result.stderr
+
+
+SCRIPT = ROOT / "packaging" / "windows" / "vitralis.iss"
+LANGUAGE_FILES = ROOT / "packaging" / "windows" / "languages"
 PLACEHOLDER = re.compile(r"%\d|%n|\[[a-z/]+\]|&")
 
 
 def script_section(name: str) -> list[str]:
-    """The lines of one ``[section]`` of ``installer/vitralis.iss``, without comments or blank lines."""
+    """The lines of one ``[section]`` of ``packaging/windows/vitralis.iss``, without comments or blank lines."""
     lines, inside = [], False
     for line in SCRIPT.read_text(encoding="utf-8").splitlines():
         if line.startswith("["):
@@ -189,3 +186,41 @@ def test_the_reintegrated_galician_has_every_message_with_its_placeholders():
         if key in ("LanguageName", "LanguageCodePage"):
             continue
         assert sorted(PLACEHOLDER.findall(reintegrated[key])) == sorted(PLACEHOLDER.findall(text)), key
+
+
+def setup_value(name: str) -> str:
+    found = [line.split("=", 1)[1] for line in script_section("Setup") if line.startswith(name + "=")]
+    assert len(found) == 1, name
+    return found[0]
+
+
+def test_the_installer_is_per_user_published_by_breren_and_keeps_its_id():
+    """Its id must stay the one Vitralis looks its installed-apps record up by, or an in-app update would never
+    correct the version shown, and a new installer would install beside the old one instead of over it."""
+    text = SCRIPT.read_text(encoding="utf-8")
+    assert '#define AppId "{{' + INSTALLER_GUID + '}"' in text
+    assert setup_value("PrivilegesRequired") == "lowest"
+    assert setup_value("DefaultDirName") == r"{localappdata}\Programs\{#AppName}"
+    assert setup_value("AppPublisher") == "Breren"
+    assert setup_value("UninstallDisplayName") == "{#AppName}"  # the plain name, never with a version
+    assert setup_value("MinVersion") == "10.0.17763"
+    assert setup_value("ArchitecturesAllowed") == "x64compatible"
+    assert setup_value("OutputBaseFilename") == "vitralis-{#AppVersion}-windows-x86_64-setup"
+    assert setup_value("CloseApplications") == "yes" and setup_value("RestartApplications") == "no"
+    assert "AppVerName" not in text
+    assert '#define AppExe "vitralis.exe"' in text
+
+
+def test_the_desktop_shortcut_is_offered_unchecked_and_the_launch_is_skipped_when_silent():
+    tasks = " ".join(script_section("Tasks"))
+    assert 'Name: "desktopicon"' in tasks and "Flags: unchecked" in tasks
+    run = " ".join(script_section("Run"))
+    assert "postinstall" in run and "skipifsilent" in run
+
+
+def test_a_test_build_can_change_every_identity_the_script_has():
+    text = SCRIPT.read_text(encoding="utf-8")
+    for name in ("AppId", "AppName", "AppKey", "AppMutex"):
+        assert f"#ifndef {name}" in text, name
+    test_script = (ROOT / "packaging" / "windows" / "test-installer.ps1").read_text(encoding="utf-8")
+    assert f"[string]$AppId = '{INSTALLER_GUID}'" in test_script

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:00.709191
-Revised: 2026/11/14 12:01:48.107007
+Revised: 2026/11/15 14:27:02.613256
 
 Puts a downloaded release in place of the running exe, on Windows. Windows lets a running exe be renamed but
 not overwritten or deleted, so the running file moves aside to ``<name>.old``, the new one takes its path
@@ -13,13 +13,15 @@ anything once this process has gone. Any failure puts the old exe back: the user
 import ctypes
 import logging
 import os
+import re
 import shutil
 import subprocess
+import time
 from collections.abc import Callable
 from pathlib import Path
 
-from vitralis.updates.download import file_hash
-from vitralis.updates.rules import SwapFailed, Version, checksum_name, exe_version, parse_b3
+from vitralis.updates.download import TEMP_PREFIX
+from vitralis.updates.rules import SwapFailed
 
 logger = logging.getLogger("vitralis.updates.install")
 
@@ -69,10 +71,6 @@ def swap_and_start(
             env={**os.environ, RESET_ENVIRONMENT: "1"},
         )
     except Exception as ex:
-        try:
-            shutil.move(running, new)  # kept, so Install can try again without downloading
-        except OSError as move_ex:
-            logger.warning("couldn't move the new version back to %s: %s", new, move_ex)
         _put_back(old, running)
         raise SwapFailed(f"couldn't start the new version: {ex}") from ex
     logger.info("started %s; %s is kept until it runs", running, old.name)
@@ -100,57 +98,61 @@ def wait_for_exit(pid: int, timeout_s: float) -> bool:
         kernel32.CloseHandle(handle)
 
 
-def _keep(path: Path, current: Version | None) -> bool:
-    """A downloaded exe (or its checksum) for a version newer than the running one is a pending update."""
-    name = path.name.removesuffix(".b3")
-    version = exe_version(name)
-    return version is not None and (current is None or version > current)
+LEFTOVER_AGE_SECONDS = 40 * 60
+"""Older than the longest download (30 minutes) plus ten: a younger file may be another copy's live download."""
+LEGACY_NAMES = re.compile(r"vitralis-\d+\.\d+\.\d+\.exe(?:\.b3|\.part)?")
+"""What Vitralis 1.3 kept in its old download folder (an exe downloaded ahead of the restart)."""
 
 
-def clean_leftovers(running: Path, updates_dir: Path, current: Version | None) -> None:
-    """Delete ``<running>.old`` and everything in ``updates_dir`` that isn't a pending newer version. Failures
-    are logged and tried again at the next start; nothing is raised."""
-    old = old_path(running)
+def _unlink(path: Path) -> None:
     try:
-        if old.exists():
-            old.unlink()
-            logger.info("deleted the previous version %s", old)
+        path.unlink()
+        logger.info("deleted %s", path)
+    except FileNotFoundError:
+        pass
     except OSError as ex:
-        logger.warning("couldn't delete %s (next start tries again): %s", old, ex)
-    if not updates_dir.is_dir():
-        return
-    for path in updates_dir.iterdir():
-        if _keep(path, current):
+        logger.warning("couldn't delete %s (the next start tries again): %s", path, ex)
+
+
+def clean_leftovers(running: Path, updates_dir: Path, legacy_dir: Path | None = None, now: float | None = None) -> None:
+    """Delete ``<running>.old``, the downloads in ``updates_dir`` older than ``LEFTOVER_AGE_SECONDS`` and what
+    Vitralis 1.3 left in ``legacy_dir``. Other files and folders are left alone; one that can't be deleted is
+    logged and tried again at the next start. Nothing is raised."""
+    _unlink(old_path(running))
+    now = time.time() if now is None else now
+    for path in _files(updates_dir):
+        if not path.name.startswith(TEMP_PREFIX):
             continue
         try:
-            path.unlink()
-            logger.info("deleted %s", path)
+            age = now - path.stat().st_mtime
         except OSError as ex:
-            logger.warning("couldn't delete %s (next start tries again): %s", path, ex)
-    try:
-        if not any(updates_dir.iterdir()):
-            updates_dir.rmdir()
-    except OSError as ex:
-        logger.warning("couldn't delete %s: %s", updates_dir, ex)
-
-
-def pending(updates_dir: Path, current: Version | None) -> Path | None:
-    """The newest prepared exe newer than ``current`` whose kept checksum still matches, else ``None``."""
-    if not updates_dir.is_dir():
-        return None
-    found: list[tuple[Version, Path]] = []
-    for path in updates_dir.glob("vitralis-*.exe"):
-        version = exe_version(path.name)
-        if version is None or (current is not None and version <= current):
+            logger.warning("couldn't look at %s: %s", path, ex)
             continue
+        if age > LEFTOVER_AGE_SECONDS:
+            _unlink(path)
+    if legacy_dir is not None:
+        for path in _files(legacy_dir):
+            if LEGACY_NAMES.fullmatch(path.name):
+                _unlink(path)
         try:
-            expected = parse_b3((updates_dir / checksum_name(version)).read_text(encoding="utf-8"))
-            actual = file_hash(path)
-        except (OSError, ValueError) as ex:
-            logger.warning("ignoring %s: %s", path, ex)
-            continue
-        if actual != expected:
-            logger.warning("ignoring %s: its checksum no longer matches", path)
-            continue
-        found.append((version, path))
-    return max(found)[1] if found else None
+            if legacy_dir.is_dir() and not any(legacy_dir.iterdir()):
+                legacy_dir.rmdir()
+        except OSError as ex:
+            logger.warning("couldn't delete %s: %s", legacy_dir, ex)
+
+
+def _files(folder: Path) -> list[Path]:
+    """The files in ``folder``; one that can't even be looked at is left out (and logged), not the rest."""
+    try:
+        entries = list(folder.iterdir()) if folder.is_dir() else []
+    except OSError as ex:
+        logger.warning("couldn't look in %s: %s", folder, ex)
+        return []
+    files = []
+    for path in entries:
+        try:
+            if path.is_file():
+                files.append(path)
+        except OSError as ex:
+            logger.warning("couldn't look at %s: %s", path, ex)
+    return files

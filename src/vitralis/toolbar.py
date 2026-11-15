@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.341523
-Revised: 2026/11/15 00:38:03.418555
+Revised: 2026/11/15 14:27:01.091988
 
 The floating toolbar that drives the overlay (modes, tools, colours, size, undo, clear, hide) and opens its
 windows (Settings, Snapshots, About, the colour picker). What it is left at is remembered for the next start:
@@ -42,6 +42,7 @@ from vitralis.translations import set_language, t
 from vitralis.tray import make_app_icon
 from vitralis.updates.checker import UpdateChecker, UpdateStatus
 from vitralis.updates.messages import settings_tooltip
+from vitralis.updates.target import release_target
 from vitralis.version import app_version
 from vitralis.widgets import Divider
 
@@ -657,12 +658,12 @@ class Toolbar(QWidget):
                 return
 
     def _open_info(self) -> None:
-        self._open_panel("info", lambda: InfoWindow(app_version(), parent=None))
+        self._open_panel("info", lambda: InfoWindow(app_version(), release_target(), parent=None))
 
     def _show_update(self, status: UpdateStatus) -> None:
         """The accent dot and the tooltip on the Settings button while a new version is offered."""
         self._update_status = status
-        self._settings_btn.set_dot(status.offered is not None)
+        self._settings_btn.set_dot(status.offer is not None)
         self._settings_btn.setToolTip(settings_tooltip(status))
 
     def open_settings(self) -> None:

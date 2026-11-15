@@ -1,213 +1,238 @@
 #!/usr/bin/env python3
 """
 Authors: Ran# <ran.hash@proton.me>
-Created: 2026/11/13 09:11:07.122997
-Revised: 2026/11/14 12:01:49.185951
+Created: 2026/11/13 09:11:07.444893
+Revised: 2026/11/15 14:27:07.131071
 
-Downloading a release (respx, real bytes in ``tmp_path``): the verified exe lands with its checksum beside it;
-a checksum mismatch, a truncated or failed stream, a bad checksum file and stopping mid-way each raise and leave
-no ``.part`` file behind.
+The verified download, against a real server on localhost: a good download is proven and verified; a checksum
+mismatch, an oversize body (declared or real), Cancel, a stall, a download that takes too long and a truncated
+body all leave no file behind; and a malformed ``.b3``, a stranger's signature, a genuine signature for other
+bytes or another version, and a missing ``.sig`` are all refused with not one request for the exe.
 """
 
-import logging
 import threading
 
-import httpx
 import pytest
-import respx
 from blake3 import blake3
 
-from vitralis.net import InsecureAddress, secure_client
-from vitralis.updates.download import CHUNK_BYTES, download_release, file_hash
+from tests.updates.fakes import OTHER_SECRET, PUBLIC, SECRET, TARGET
+from tests.updates.server import ReleaseServer, Route
+from vitralis.net import secure_client
+from vitralis.updates import download as download_module
+from vitralis.updates.download import TEMP_PREFIX, download_offer, file_hash
 from vitralis.updates.rules import (
     ChecksumMismatch,
-    DownloadRefused,
-    DownloadUnreachable,
-    Release,
+    DownloadFailed,
+    NotSigned,
+    Offer,
+    Reason,
     UpdateCancelled,
-    UpdateError,
-    Version,
+    parse_version,
 )
+from vitralis.updates.signature import sign, statement
+from vitralis.updates.target import asset_name
 
-EXE_URL = "https://github.com/Ran-n/vitralis/releases/download/v1.4.0/vitralis-1.4.0.exe"
-B3_URL = EXE_URL + ".b3"
-BODY = bytes(range(256)) * 1024  # 256 KiB: several chunks
-HASH = blake3(BODY).hexdigest()
-RELEASE = Release(Version(1, 4, 0), "https://github.com/Ran-n/vitralis/releases/tag/v1.4.0", EXE_URL, B3_URL)
-
-
-def run(tmp_path, stop: threading.Event | None = None, calls: list | None = None):
-    seen = [] if calls is None else calls
-    with httpx.Client() as http:
-        return download_release(
-            http, RELEASE, tmp_path / "updates", lambda r, t: seen.append((r, t)), stop or threading.Event()
-        )
+VERSION = parse_version("1.4.0")
+ASSET = asset_name(VERSION, TARGET)
+EXE = b"MZ" + bytes(range(256)) * 1000
 
 
-def leftovers(tmp_path) -> list[str]:
-    folder = tmp_path / "updates"
-    return sorted(p.name for p in folder.iterdir()) if folder.exists() else []
+def b3_line(data: bytes) -> bytes:
+    return f"{blake3(data).hexdigest()}  {ASSET}\n".encode()
 
 
-@respx.mock
-def test_the_verified_exe_lands_with_its_checksum_and_progress_counts_up(tmp_path):
-    respx.get(B3_URL).mock(return_value=httpx.Response(200, text=f"{HASH}  vitralis-1.4.0.exe\n"))
-    respx.get(EXE_URL).mock(return_value=httpx.Response(200, content=BODY))
-    calls = []
-    path = run(tmp_path, calls=calls)
-    assert path == tmp_path / "updates" / "vitralis-1.4.0.exe"
-    assert path.read_bytes() == BODY and file_hash(path) == HASH
-    assert (tmp_path / "updates" / "vitralis-1.4.0.exe.b3").read_text(encoding="utf-8").startswith(HASH)
-    assert leftovers(tmp_path) == ["vitralis-1.4.0.exe", "vitralis-1.4.0.exe.b3"]
-    assert calls[-1] == (len(BODY), len(BODY))
-    assert [r for r, _ in calls] == sorted(r for r, _ in calls) and len(calls) >= len(BODY) // CHUNK_BYTES
+def signed(data: bytes, secret: str = SECRET, version: str = "1.4.0", asset: str = ASSET) -> bytes:
+    return sign(secret, statement(version, asset, blake3(data).hexdigest())).encode()
 
 
-@respx.mock
-def test_without_content_length_the_total_is_unknown(tmp_path):
-    respx.get(B3_URL).mock(return_value=httpx.Response(200, text=HASH))
-
-    def stream(request):
-        return httpx.Response(200, stream=httpx.ByteStream(BODY), headers={"Transfer-Encoding": "chunked"})
-
-    respx.get(EXE_URL).mock(side_effect=stream)
-    calls = []
-    run(tmp_path, calls=calls)
-    assert calls and all(total is None for _, total in calls)
-
-
-@respx.mock
-def test_a_checksum_mismatch_deletes_the_file_and_logs_both_hashes(tmp_path, caplog):
-    respx.get(B3_URL).mock(return_value=httpx.Response(200, text="00" * 32))
-    respx.get(EXE_URL).mock(return_value=httpx.Response(200, content=BODY))
-    with caplog.at_level(logging.WARNING, "vitralis.updates.download"), pytest.raises(ChecksumMismatch):
-        run(tmp_path)
-    assert leftovers(tmp_path) == []
-    assert any(HASH in r.getMessage() and "00" * 32 in r.getMessage() for r in caplog.records)
+@pytest.fixture
+def server():
+    running = ReleaseServer()
+    running.routes = {
+        "/exe": Route(EXE),
+        "/exe.b3": Route(b3_line(EXE)),
+        "/exe.sig": Route(signed(EXE)),
+    }
+    yield running
+    running.close()
 
 
-@respx.mock
-def test_one_changed_byte_is_a_mismatch(tmp_path):
-    respx.get(B3_URL).mock(return_value=httpx.Response(200, text=HASH))
-    respx.get(EXE_URL).mock(return_value=httpx.Response(200, content=b"X" + BODY[1:]))
-    with pytest.raises(ChecksumMismatch):
-        run(tmp_path)
+@pytest.fixture
+def http():
+    with secure_client() as client:
+        yield client
 
 
-@respx.mock
-def test_a_truncated_stream_raises_with_no_file_left(tmp_path):
-    respx.get(B3_URL).mock(return_value=httpx.Response(200, text=HASH))
-    short = BODY[: len(BODY) // 2]
-    respx.get(EXE_URL).mock(
-        return_value=httpx.Response(200, stream=httpx.ByteStream(short), headers={"Content-Length": str(len(BODY))})
+def offer(server: ReleaseServer) -> Offer:
+    from tests.updates.fakes import release
+
+    return Offer(release("1.4.0"), ASSET, server.url("/exe"), server.url("/exe.b3"), server.url("/exe.sig"))
+
+
+class Progress:
+    def __init__(self, then=None):
+        self.seen: list[tuple[int, int | None]] = []
+        self.then = then
+
+    def __call__(self, received, total):
+        self.seen.append((received, total))
+        if self.then is not None:
+            self.then(received, total)
+
+
+def run(http, server, folder, progress=None, cancel=None, **kw):
+    return download_offer(
+        http, offer(server), folder, progress or Progress(), cancel or threading.Event(), (PUBLIC,), True, **kw
     )
-    with pytest.raises(DownloadUnreachable, match="stopped at"):  # the connection's fault: said as such
-        run(tmp_path)
-    assert leftovers(tmp_path) == []
 
 
-@respx.mock
-def test_stopping_mid_stream_leaves_no_part_file(tmp_path):
-    respx.get(B3_URL).mock(return_value=httpx.Response(200, text=HASH))
-    respx.get(EXE_URL).mock(return_value=httpx.Response(200, content=BODY))
-    stop = threading.Event()
-    calls = []
-
-    def progress(received, total):
-        calls.append(received)
-        stop.set()  # Vitralis quits after the first chunk
-
-    with httpx.Client() as http, pytest.raises(UpdateCancelled):
-        download_release(http, RELEASE, tmp_path / "updates", progress, stop)
-    assert leftovers(tmp_path) == [] and len(calls) == 1
+def test_a_good_download_is_proven_streamed_and_verified(http, server, tmp_path):
+    progress = Progress()
+    path = run(http, server, tmp_path, progress)
+    assert path.parent == tmp_path and path.name.startswith(TEMP_PREFIX)
+    assert path.read_bytes() == EXE and file_hash(path) == blake3(EXE).hexdigest()
+    assert progress.seen[-1] == (len(EXE), len(EXE))
+    assert list(tmp_path.iterdir()) == [path]
+    exe_request = [h for h in server.seen_headers if h.get("Accept") == "application/octet-stream"]
+    assert len(exe_request) == 1 and exe_request[0]["User-Agent"].startswith("Vitralis/")
 
 
 @pytest.mark.parametrize(
-    ("b3", "exe", "match"),
+    ("route", "change", "error"),
     [
-        (httpx.Response(404), None, "checksum"),
-        (httpx.Response(200, text="not a hash"), None, "b3sum"),
-        (httpx.Response(200, text=HASH), httpx.Response(500), "HTTP 500"),
+        ("/exe.b3", Route(b"not a checksum"), ChecksumMismatch),
+        ("/exe.b3", Route(b"\xff\xfe" + b"a" * 64), ChecksumMismatch),
+        ("/exe.sig", Route(signed(EXE, OTHER_SECRET)), NotSigned),
+        ("/exe.sig", Route(signed(b"other bytes")), NotSigned),
+        ("/exe.sig", Route(signed(EXE, version="1.3.0")), NotSigned),
+        ("/exe.sig", Route(signed(EXE, asset="vitralis-1.4.0-windows-x86_64-setup.exe")), NotSigned),
+        ("/exe.sig", Route(b"not a signature"), NotSigned),
+        ("/exe.sig", Route(b"\xff" * 10), NotSigned),
+        ("/exe.sig", Route(b"missing", 404), DownloadFailed),
+        ("/exe.b3", Route(b"missing", 404), DownloadFailed),
+        ("/exe.sig", Route(b"a" * 2000), DownloadFailed),
     ],
 )
-@respx.mock
-def test_server_failures_raise_a_reason(tmp_path, b3, exe, match):
-    respx.get(B3_URL).mock(return_value=b3)
-    respx.get(EXE_URL).mock(return_value=exe or httpx.Response(200, content=BODY))
-    with pytest.raises(UpdateError, match=match):
-        run(tmp_path)
-    assert leftovers(tmp_path) == []
+def test_a_release_that_doesnt_prove_itself_is_refused_without_asking_for_the_exe(
+    http, server, tmp_path, route, change, error
+):
+    server.routes[route] = change
+    with pytest.raises(error):
+        run(http, server, tmp_path)
+    assert "/exe" not in server.requests
+    assert list(tmp_path.iterdir()) == []
 
 
-@pytest.mark.parametrize(
-    ("b3", "exe", "status"),
-    [(httpx.Response(404), None, 404), (httpx.Response(200, text=HASH), httpx.Response(503), 503)],
-)
-@respx.mock
-def test_a_server_that_answers_with_an_error_is_refused_with_its_status(tmp_path, b3, exe, status):
-    respx.get(B3_URL).mock(return_value=b3)
-    respx.get(EXE_URL).mock(return_value=exe or httpx.Response(200, content=BODY))
-    with pytest.raises(DownloadRefused) as raised:
-        run(tmp_path)
-    assert raised.value.status == status and f"HTTP {status}" in str(raised.value)
+def test_a_download_that_doesnt_match_its_checksum_is_deleted(http, server, tmp_path):
+    server.routes["/exe"] = Route(EXE[:-1] + b"!")
+    with pytest.raises(ChecksumMismatch):
+        run(http, server, tmp_path)
+    assert list(tmp_path.iterdir()) == []
 
 
-@respx.mock
-def test_a_redirect_off_https_is_never_followed(tmp_path):
-    """Regression guard: only the first address was checked; GitHub's redirects were followed wherever they
-    led, plain HTTP included."""
-    elsewhere = respx.get("http://evil.example/vitralis-1.4.0.exe").mock(return_value=httpx.Response(200, content=BODY))
-    respx.get(B3_URL).mock(return_value=httpx.Response(200, text=HASH))
-    respx.get(EXE_URL).mock(
-        return_value=httpx.Response(302, headers={"Location": "http://evil.example/vitralis-1.4.0.exe"})
-    )
-    with secure_client() as http, pytest.raises(UpdateError, match="not HTTPS") as raised:
-        download_release(http, RELEASE, tmp_path / "updates", lambda *_: None, threading.Event())
-    assert not elsewhere.called and isinstance(raised.value.__cause__, InsecureAddress)
-    assert not isinstance(raised.value, DownloadUnreachable) and leftovers(tmp_path) == []
+def test_a_declared_length_over_the_limit_is_refused_before_the_body(http, server, tmp_path, monkeypatch):
+    monkeypatch.setattr(download_module, "MAX_BYTES", 1000)
+    with pytest.raises(DownloadFailed) as raised:
+        run(http, server, tmp_path)
+    assert raised.value.failure.reason is Reason.TOO_LARGE and list(tmp_path.iterdir()) == []
 
 
-@respx.mock
-def test_a_redirect_that_stays_on_https_is_followed(tmp_path):
-    cdn = "https://release-assets.githubusercontent.com/vitralis-1.4.0.exe"
-    respx.get(B3_URL).mock(return_value=httpx.Response(200, text=HASH))
-    respx.get(EXE_URL).mock(return_value=httpx.Response(302, headers={"Location": cdn}))
-    respx.get(cdn).mock(return_value=httpx.Response(200, content=BODY))
-    with secure_client() as http:
-        path = download_release(http, RELEASE, tmp_path / "updates", lambda *_: None, threading.Event())
-    assert path.read_bytes() == BODY
+def test_a_body_over_the_limit_without_a_length_is_cut_off(http, server, tmp_path, monkeypatch):
+    monkeypatch.setattr(download_module, "MAX_BYTES", 100_000)
+    server.routes["/exe"] = Route(EXE, length=-1)
+    with pytest.raises(DownloadFailed) as raised:
+        run(http, server, tmp_path)
+    assert raised.value.failure.reason is Reason.TOO_LARGE and list(tmp_path.iterdir()) == []
 
 
-@respx.mock
-def test_no_connection_raises_an_update_error(tmp_path):
-    respx.get(B3_URL).mock(side_effect=httpx.ConnectError("offline"))
-    with pytest.raises(DownloadUnreachable, match="ConnectError"):
-        run(tmp_path)
+def test_a_truncated_body_is_a_failed_connection(http, server, tmp_path):
+    server.routes["/exe"] = Route(EXE, length=len(EXE) + 500)
+    with pytest.raises(DownloadFailed) as raised:
+        run(http, server, tmp_path)
+    assert raised.value.failure.reason is Reason.CONNECTION and list(tmp_path.iterdir()) == []
 
 
-@respx.mock
-def test_a_connection_lost_mid_download_is_unreachable_and_leaves_no_part_file(tmp_path):
-    respx.get(B3_URL).mock(return_value=httpx.Response(200, text=f"{HASH}  vitralis-1.4.0.exe\n"))
-    respx.get(EXE_URL).mock(side_effect=httpx.ReadError("reset"))
-    with pytest.raises(DownloadUnreachable, match="ReadError"):
-        run(tmp_path)
-    assert leftovers(tmp_path) == []
+def test_cancel_stops_the_download_and_deletes_it(http, server, tmp_path):
+    cancel = threading.Event()
+    server.routes["/exe"] = Route(EXE, chunk=4096, pace=0.002)
+    with pytest.raises(UpdateCancelled):
+        run(http, server, tmp_path, Progress(lambda received, _: received > 20_000 and cancel.set()), cancel)
+    assert list(tmp_path.iterdir()) == []
 
 
-@respx.mock
-def test_a_protocol_failure_is_an_update_error_but_not_unreachable(tmp_path):
-    respx.get(B3_URL).mock(side_effect=httpx.TooManyRedirects("loop"))
-    with pytest.raises(UpdateError, match="TooManyRedirects") as raised:
-        run(tmp_path)
-    assert not isinstance(raised.value, DownloadUnreachable)
+def test_a_cancel_during_the_hash_check_still_stops_the_replace(http, server, tmp_path):
+    cancel = threading.Event()
+    with pytest.raises(UpdateCancelled):
+        run(http, server, tmp_path, Progress(lambda received, total: received == total and cancel.set()), cancel)
+    assert list(tmp_path.iterdir()) == []
 
 
-def test_a_release_without_exe_or_off_https_is_refused(tmp_path):
-    with httpx.Client() as http:
-        with pytest.raises(UpdateError, match="no exe"):
-            download_release(
-                http, Release(Version(1, 4, 0), "https://p", None, None), tmp_path, lambda *_: None, threading.Event()
-            )
-        insecure = Release(Version(1, 4, 0), "https://p", "http://evil.example/x.exe", "http://evil.example/x.b3")
-        with pytest.raises(UpdateError, match="not HTTPS"):
-            download_release(http, insecure, tmp_path, lambda *_: None, threading.Event())
+def test_a_stalled_download_times_out_and_is_deleted(http, server, tmp_path, monkeypatch):
+    monkeypatch.setattr(download_module, "STALL_SECONDS", 0.5)
+    server.routes["/exe"] = Route(EXE, chunk=4096, stall_after=8192)
+    with pytest.raises(DownloadFailed) as raised:
+        run(http, server, tmp_path)
+    assert raised.value.failure.reason is Reason.TIMED_OUT and list(tmp_path.iterdir()) == []
+
+
+def test_a_download_that_takes_too_long_in_all_is_given_up(http, server, tmp_path, caplog):
+    ticks = iter(range(0, 10_000_000, 600))
+    server.routes["/exe"] = Route(EXE, chunk=4096)
+    with pytest.raises(DownloadFailed) as raised:
+        run(http, server, tmp_path, clock=lambda: next(ticks))
+    assert raised.value.failure.reason is Reason.TIMED_OUT and list(tmp_path.iterdir()) == []
+    assert "took over 30 minutes" in caplog.text
+
+
+def test_an_error_status_for_the_exe_says_its_number(http, server, tmp_path):
+    server.routes["/exe"] = Route(b"gone", 410)
+    with pytest.raises(DownloadFailed) as raised:
+        run(http, server, tmp_path)
+    assert raised.value.failure.status == 410 and list(tmp_path.iterdir()) == []
+
+
+def test_plain_http_off_this_machine_is_refused_unsent(http, tmp_path):
+    from tests.updates.fakes import release
+
+    far = Offer(release("1.4.0"), ASSET, "http://example.com/exe", "http://example.com/b3", "http://example.com/sig")
+    with pytest.raises(DownloadFailed) as raised:
+        download_offer(http, far, tmp_path, Progress(), threading.Event(), (PUBLIC,))
+    assert raised.value.failure.reason is Reason.NOT_HTTPS
+
+
+def test_a_download_folder_that_cant_be_made_is_said(http, server, tmp_path):
+    blocker = tmp_path / "file"
+    blocker.write_text("x")
+    with pytest.raises(download_module.UpdateError, match="can't be written"):
+        run(http, server, blocker / "updates")
+
+
+def test_a_disk_that_refuses_the_file_is_not_a_network_failure(http, server, tmp_path, monkeypatch):
+    real = download_module._stream
+
+    def failing_stream(http_, offer_, file, *rest):
+        class Full:
+            def write(self, _):
+                raise OSError(28, "No space left on device")
+
+        return real(http_, offer_, Full(), *rest)
+
+    monkeypatch.setattr(download_module, "_stream", failing_stream)
+    with pytest.raises(download_module.UpdateError, match="couldn't be saved") as raised:
+        run(http, server, tmp_path)
+    assert not isinstance(raised.value, DownloadFailed) and list(tmp_path.iterdir()) == []
+
+
+def test_a_file_that_cant_be_deleted_after_a_failure_is_logged(http, server, tmp_path, monkeypatch, caplog):
+    server.routes["/exe"] = Route(EXE[:-1] + b"!")
+    real = type(tmp_path).unlink
+
+    def refuse(self, *args, **kwargs):
+        if self.name.startswith(TEMP_PREFIX):
+            raise PermissionError("held by an antivirus")
+        return real(self, *args, **kwargs)
+
+    monkeypatch.setattr(type(tmp_path), "unlink", refuse)
+    with pytest.raises(ChecksumMismatch):
+        run(http, server, tmp_path)
+    assert "the next start tries again" in caplog.text

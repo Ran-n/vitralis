@@ -2,12 +2,13 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:03.066760
-Revised: 2026/11/14 17:53:26.662406
+Revised: 2026/11/15 14:27:03.443893
 
-The Updates section of the settings window: the running version, what the last check found (or why it
-failed), the **Check for new versions** switch, **Check now**, **Release notes** and **Skip this version** /
-**Don't skip**, and in the packaged exe **Install {version}**, the download's progress and **Restart to
-update**. Buttons with nothing to do are dimmed; the install button only shows when installing is possible.
+The Updates section of the settings window: the running version and which build it is, what the last check
+found (or why it failed), **Check for updates automatically**, **Check now**, **Release notes** and **Skip
+this version** / **Stop skipping {version}**, and in the packaged exe **Update and restart** with the
+download's progress and **Cancel**. Buttons with nothing to do are dimmed; the update button only shows when
+installing is possible. A build from source shows its version and how to update it, and no controls.
 """
 
 from collections.abc import Callable
@@ -20,17 +21,18 @@ from vitralis.styles import accent_btn, muted_btn
 from vitralis.translations import t
 from vitralis.updates.checker import InstallKind, UpdateChecker, UpdateStatus
 from vitralis.updates.messages import (
+    CANCEL,
     CHECK_SWITCH,
-    INSTALL,
     RELEASE_NOTES,
-    RESTART,
-    RUNNING,
     SKIP,
     UNSKIP,
+    UPDATE,
     error_line,
     install_line,
     result_line,
+    version_line,
 )
+from vitralis.updates.rules import CheckKind
 
 _NAME = "color: rgba(255,255,255,180); font-size: 11px; background: transparent;"
 _VALUE = "color: rgba(255,255,255,220); font-size: 11px; background: transparent;"
@@ -100,6 +102,11 @@ class UpdatesSection(QWidget):
         install_row.addWidget(self.install_button)
         layout.addLayout(install_row)
 
+        self._controls = (self.switch, self.notes_button, self.skip_button, self.check_button)
+        """What a build from source doesn't show: it never checks."""
+        for control in self._controls:
+            control.setVisible(not updates.is_source_build)
+
         updates.changed.connect(self._show)
         updates.busy_changed.connect(self._show_busy)
         self.retranslate()
@@ -127,17 +134,20 @@ class UpdatesSection(QWidget):
             self._open_url(QUrl(latest.page_url))
 
     def _toggle_skip(self) -> None:
-        if self._updates.status.offered is not None:
-            self._updates.skip()
-        else:
+        if self._skipping(self._updates.status):
             self._updates.unskip()
+        else:
+            self._updates.skip()
+
+    @staticmethod
+    def _skipping(status: UpdateStatus) -> bool:
+        return status.kind is CheckKind.SKIPPED
 
     def _install(self) -> None:
-        if self._updates.status.install.kind is InstallKind.READY:
-            if self._quit_app is not None:
-                self._updates.restart_to_update(self._quit_app)
-        else:
-            self._updates.install()
+        if self._updates.status.install.kind is InstallKind.DOWNLOADING:
+            self._updates.cancel()
+        elif self._quit_app is not None:
+            self._updates.install(self._quit_app)
 
     # --- showing --------------------------------------------------------------------------------------------
 
@@ -147,7 +157,7 @@ class UpdatesSection(QWidget):
         label.setVisible(bool(text))
 
     def _show(self, status: UpdateStatus) -> None:
-        self.version_label.setText(t(RUNNING).format(version=status.current))
+        self.version_label.setText(version_line(status))
         self._set_line(self.result_label, result_line(status))
         self._set_line(self.error_label, error_line(status))
         install = status.install
@@ -155,18 +165,19 @@ class UpdatesSection(QWidget):
         self.install_label.setStyleSheet(_ERROR if install.kind is InstallKind.FAILED else _VALUE)
 
         self.notes_button.setEnabled(status.latest is not None)
-        self.skip_button.setText(t(SKIP) if status.offered is not None or not status.newer else t(UNSKIP))
+        skipping = self._skipping(status)
+        version = "" if status.latest is None else str(status.latest.version)
+        self.skip_button.setText(t(UNSKIP).format(version=version) if skipping else t(SKIP))
         under_way = install.kind in (InstallKind.DOWNLOADING, InstallKind.REPLACING)
-        self.skip_button.setEnabled(status.newer and not under_way)
+        self.skip_button.setEnabled((skipping or status.offer is not None) and not under_way)
 
-        ready = install.kind in (InstallKind.READY, InstallKind.REPLACING)
-        self.install_button.setVisible(ready or status.can_install)
-        if ready:
-            self.install_button.setText(t(RESTART))
-            self.install_button.setEnabled(self._quit_app is not None and install.kind is InstallKind.READY)
-        elif status.offered is not None:
-            self.install_button.setText(t(INSTALL).format(version=status.offered.version))
-            self.install_button.setEnabled(install.kind is not InstallKind.DOWNLOADING)
+        self.install_button.setVisible(under_way or status.can_install)
+        if install.kind is InstallKind.DOWNLOADING:
+            self.install_button.setText(t(CANCEL))
+            self.install_button.setEnabled(True)
+        else:
+            self.install_button.setText(t(UPDATE))
+            self.install_button.setEnabled(self._quit_app is not None and install.kind is not InstallKind.REPLACING)
 
     def _show_busy(self, busy: bool) -> None:
         self.check_button.setText(t("Checking…") if busy else t("Check now"))

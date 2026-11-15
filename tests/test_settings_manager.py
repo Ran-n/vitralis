@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:11.023352
-Revised: 2026/11/15 03:12:10.250192
+Revised: 2026/11/15 14:27:05.650829
 
 ``settings.json`` through ``SettingsManager`` (a real file in ``tmp_path``): the update defaults, an old file
 without ``"updates"``, values surviving a restart, two managers not undoing each other's changes, and a broken
@@ -48,7 +48,8 @@ def test_update_values_survive_a_restart(settings_file):
     manager.set_skipped_version("1.4.0")
     again = SettingsManager()
     assert again.update_check() is False and again.skipped_version() == "1.4.0"
-    assert json.loads(settings_file.read_text(encoding="utf-8"))["updates"] == {"check": False, "skipped": "1.4.0"}
+    saved = json.loads(settings_file.read_text(encoding="utf-8"))["updates"]
+    assert saved == {"check_automatically": False, "skipped_version": "1.4.0"}
 
 
 def test_a_change_is_seen_at_once_and_written_without_waiting_for_the_disk(settings_file, monkeypatch):
@@ -69,7 +70,7 @@ def test_a_change_is_seen_at_once_and_written_without_waiting_for_the_disk(setti
     release.set()
     assert flush_writes(5)
     saved = json.loads(settings_file.read_text(encoding="utf-8"))
-    assert saved == {"language": "Galego", "updates": {"skipped": "1.4.0"}}
+    assert saved == {"language": "Galego", "updates": {"skipped_version": "1.4.0"}}
 
 
 def test_two_managers_dont_undo_each_others_changes(settings_file):
@@ -230,7 +231,7 @@ def test_a_change_held_back_is_written_once_the_file_can_be_read_with_no_further
     assert settings_module.save_held_settings() is True and flush_writes(5)
     assert settings_module.save_held_settings() is True  # nothing left: nothing written again
     saved = json.loads(settings_file.read_text(encoding="utf-8"))
-    assert saved["language"] == "Deutsch" and saved["updates"]["skipped"] == "1.3.5"
+    assert saved["language"] == "Deutsch" and saved["updates"]["skipped_version"] == "1.3.5"
 
 
 def test_a_window_moved_after_a_held_start_keeps_the_other_windows_places(settings_file, monkeypatch):
@@ -553,3 +554,38 @@ def test_a_saved_place_off_any_screen_is_left_out(settings_file):
     saved = {"position": [3_000_000_000, 0], "panels": {"settings": [0, -(10**12)], "info": [5, 6]}, "size": 8}
     settings_file.write_text(json.dumps({"toolbar": saved}), encoding="utf-8")
     assert SettingsManager().toolbar_state() == {"size": 8, "panels": {"info": [5, 6]}}
+
+
+def test_update_settings_saved_by_vitralis_1_3_are_read_and_renamed_when_changed(settings_file):
+    """1.3 saved ``check`` and ``skipped``; the family's names are ``check_automatically`` and
+    ``skipped_version``. The old ones count until the setting is next changed, then only the new name stays."""
+    settings_file.write_text(json.dumps({"updates": {"check": False, "skipped": "1.4.0"}}), encoding="utf-8")
+    manager = SettingsManager()
+    assert manager.update_check() is False and manager.skipped_version() == "1.4.0"
+    manager.set_skipped_version("1.5.0")
+    manager.set_update_check(True)
+    assert flush_writes(5)
+    saved = json.loads(settings_file.read_text(encoding="utf-8"))["updates"]
+    assert saved == {"skipped_version": "1.5.0", "check_automatically": True}
+
+
+def test_the_last_check_is_saved_and_a_damaged_one_reads_as_none(settings_file):
+    manager = SettingsManager()
+    assert manager.last_check() is None
+    manager.set_last_check(1_800_000_000.5)
+    assert SettingsManager().last_check() == 1_800_000_000.5
+    for damaged in ("yesterday", True, -1, 1e300, None, [1]):
+        settings_file.write_text(json.dumps({"updates": {"last_check": damaged}}), encoding="utf-8")
+        assert SettingsManager().last_check() is None, damaged
+
+
+@pytest.mark.parametrize("skipped", ["latest", "1.4", "x" * 70, ""])
+def test_a_skipped_version_that_isnt_one_reads_as_none(settings_file, skipped):
+    settings_file.write_text(json.dumps({"updates": {"skipped_version": skipped}}), encoding="utf-8")
+    assert SettingsManager().skipped_version() == ""
+
+
+@pytest.mark.parametrize("check", ["no", 0, None])
+def test_a_check_switch_that_isnt_true_or_false_reads_as_on(settings_file, check):
+    settings_file.write_text(json.dumps({"updates": {"check_automatically": check}}), encoding="utf-8")
+    assert SettingsManager().update_check() is True
