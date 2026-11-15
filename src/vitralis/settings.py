@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 07:52:06.389478
-Revised: 2026/11/15 02:40:00.969342
+Revised: 2026/11/15 02:48:35.919458
 
 ``settings.json`` (``SettingsManager``) and the settings window: the keyboard shortcuts, the language, the
 updates and the licence.
@@ -33,7 +33,15 @@ from vitralis.installed import installer_language
 from vitralis.licence.gate import LicenceGate
 from vitralis.licence.section import LicenceSection
 from vitralis.models import MAX_WIDTH, TOOL_NAMES
-from vitralis.persistence import DATA_DIR, flush_writes, keep_damaged, unsaved_files, write_in_background
+from vitralis.persistence import (
+    DATA_DIR,
+    drop_failed_write,
+    flush_writes,
+    keep_damaged,
+    read_json_text,
+    unsaved_files,
+    write_in_background,
+)
 from vitralis.styles import base_btn, danger_btn, muted_btn
 from vitralis.translations import set_language, t
 from vitralis.updates.checker import UpdateChecker
@@ -191,7 +199,9 @@ class SettingsManager:
 
     def _load(self) -> None:
         global _source, _held_changes
-        flush_writes()  # a change still on its way to the file must not be read over
+        # a change still on its way to the file must not be read over; one the disk refused waits until the
+        # file is known to read: it must never be written over a file that can't be
+        flush_writes(retry=False)
         if _source != SETTINGS_FILE:  # another file: what is in memory says nothing of it
             self._data.clear()
             _held_changes = False
@@ -199,8 +209,11 @@ class SettingsManager:
         # what this run changed and the file doesn't hold yet: refused while it couldn't be read, or by the disk
         unsaved = bool(self._data) and (_held_changes or SETTINGS_FILE in unsaved_files())
         found = self._read()
-        if _unreadable and self._data:
-            return  # held for a moment while Vitralis runs: what this run already knows stays
+        if _unreadable:
+            if drop_failed_write(SETTINGS_FILE):  # memory holds it: written, laid over the file, once it reads
+                _held_changes = True
+            if self._data:
+                return  # held for a moment while Vitralis runs: what this run already knows stays
         if _damaged and self._data:  # damaged while Vitralis runs: what this run knows is written back
             write_in_background(SETTINGS_FILE, copy.deepcopy(self._data))
             return
@@ -217,16 +230,16 @@ class SettingsManager:
         be read at all counts as none too, but is marked unreadable, so no change is written over it."""
         global _unreadable, _damaged
         _unreadable = _damaged = False
-        if not SETTINGS_FILE.exists():
-            return {}
         try:
-            raw = SETTINGS_FILE.read_bytes()
+            raw = read_json_text(SETTINGS_FILE)
         except OSError as ex:
             logger.error("couldn't read %s, using the defaults and leaving the file as it is: %s", SETTINGS_FILE, ex)
             _unreadable = True
             return {}
+        if raw is None:
+            return {}
         try:
-            data = json.loads(raw.decode("utf-8"))
+            data = json.loads(raw)
         except ValueError as ex:
             logger.warning("%s is damaged, using the defaults: %s", SETTINGS_FILE, ex)
             keep_damaged(SETTINGS_FILE)

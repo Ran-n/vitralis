@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:11.023352
-Revised: 2026/11/15 02:40:01.700926
+Revised: 2026/11/15 02:48:37.027017
 
 ``settings.json`` through ``SettingsManager`` (a real file in ``tmp_path``): the update defaults, an old file
 without ``"updates"``, values surviving a restart, two managers not undoing each other's changes, and a broken
@@ -259,6 +259,55 @@ def test_a_file_damaged_while_vitralis_runs_doesnt_reset_what_it_knows(settings_
     assert flush_writes(5)
     assert settings_file.with_name(settings_file.name + DAMAGED_SUFFIX).read_text(encoding="utf-8") == garbage
     assert json.loads(settings_file.read_text(encoding="utf-8"))["shortcuts"]["draw"] == "q"  # mended
+
+
+def test_a_write_the_disk_refused_is_never_replayed_over_a_file_that_cant_be_read(settings_file, monkeypatch):
+    """Regression guard: making a manager retried the refused write first, over a file that had since been
+    replaced and couldn't be read: what it held was gone."""
+    first = SettingsManager()
+    first.set_skipped_version("1.3.5")
+    assert flush_writes(5)
+    replace = persistence.os.replace
+
+    def refuse(*args, **kwargs):
+        raise PermissionError("held by another program")
+
+    monkeypatch.setattr(persistence.os, "replace", refuse)
+    first.set_language("Deutsch")
+    assert flush_writes(5, retry=False) and persistence.unsaved_files() == [settings_file]
+    monkeypatch.setattr(persistence.os, "replace", replace)
+    settings_file.write_text(json.dumps({"toolbar": {"size": 9}}), encoding="utf-8")  # mended by hand meanwhile
+    theirs = settings_file.read_bytes()
+    state = hold(monkeypatch, settings_file)
+    later = SettingsManager()
+    assert flush_writes(5)
+    state["held"] = False
+    assert settings_file.read_bytes() == theirs  # not written over while it couldn't be read
+    assert persistence.unsaved_files() == [] and later.language() == "Deutsch"
+    assert settings_module.save_held_settings() and flush_writes(5)
+    saved = json.loads(settings_file.read_text(encoding="utf-8"))
+    assert saved["language"] == "Deutsch" and saved["toolbar"]["size"] == 9  # theirs kept, ours laid over
+
+
+def test_a_file_saved_with_a_byte_order_mark_is_read(settings_file):
+    """Regression guard: mended by hand in an editor that leaves the mark, it counted as damaged."""
+    settings_file.write_bytes(b"\xef\xbb\xbf" + json.dumps({"language": "Deutsch"}).encode())
+    assert SettingsManager().language() == "Deutsch"
+    assert not settings_file.with_name(settings_file.name + DAMAGED_SUFFIX).exists()
+
+
+def test_a_file_windows_wont_even_say_exists_counts_as_unreadable(settings_file, monkeypatch, caplog):
+    """Regression guard: asking whether the file exists raised, and Vitralis didn't start."""
+    SettingsManager().set_language("Deutsch")
+    assert flush_writes(5)
+    settings_module._saved.clear()
+    kind = type(settings_file)
+    monkeypatch.setattr(kind, "exists", lambda self, **kwargs: (_ for _ in ()).throw(PermissionError("denied")))
+    monkeypatch.setattr(kind, "read_bytes", lambda self: (_ for _ in ()).throw(PermissionError("denied")))
+    with caplog.at_level(logging.ERROR, "vitralis.settings"):
+        manager = SettingsManager()
+    assert manager.shortcuts() == DEFAULT_SHORTCUTS and settings_module.settings_unreadable()  # the defaults
+    assert any("couldn't read" in r.getMessage() for r in caplog.records)
 
 
 def test_once_the_file_can_be_read_again_a_change_keeps_the_rest(settings_file, monkeypatch):

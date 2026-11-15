@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.127720
-Revised: 2026/11/15 00:38:01.942169
+Revised: 2026/11/15 02:48:35.537478
 
 The data folder (``%APPDATA%\\Vitralis``) and the drawings kept in it: ``strokes.json``, the strokes of every
 screen under the screen's top-left corner (``"x,y"``), and one file per named snapshot in ``snapshots``.
@@ -115,6 +115,12 @@ class BackgroundWriter:
             self._failed.clear()
             self._start()
 
+    def drop(self, path: Path) -> bool:
+        """Give up the write of ``path`` the disk refused; whether there was one. For a caller that keeps what
+        it holds itself, and must not have an older copy written later."""
+        with self._lock:
+            return self._failed.pop(path, None) is not None
+
     def unsaved(self) -> list[Path]:
         """The files whose latest write the disk refused."""
         with self._lock:
@@ -138,12 +144,12 @@ class BackgroundWriter:
             except Exception:  # data that can't be JSON: a bug, which must not end the writes after it
                 logger.exception("couldn't save %s", path)
 
-    def flush(self, timeout: float | None = None) -> bool:
+    def flush(self, timeout: float | None = None, retry: bool = True) -> bool:
         """Wait until nothing is left to write, trying the refused writes once more; whether that happened
         within ``timeout`` seconds."""
         with self._lock:
             writing = self._thread is threading.current_thread()
-        if not writing:
+        if retry and not writing:
             self.retry()
         with self._lock:
             thread = self._thread
@@ -171,9 +177,25 @@ def unsaved_files() -> list[Path]:
     return _writer.unsaved()
 
 
-def flush_writes(timeout: float | None = None) -> bool:
-    """Wait for every background write; whether they all ended within ``timeout`` seconds."""
-    return _writer.flush(timeout)
+def drop_failed_write(path: Path) -> bool:
+    """Give up the write of ``path`` the disk refused; whether there was one."""
+    return _writer.drop(path)
+
+
+def flush_writes(timeout: float | None = None, retry: bool = True) -> bool:
+    """Wait for every background write, trying the refused ones once more unless told not to; whether they
+    all ended within ``timeout`` seconds."""
+    return _writer.flush(timeout, retry)
+
+
+def read_json_text(path: Path) -> str | None:
+    """The text of a JSON file Vitralis keeps, ``None`` when there is no such file; ``OSError`` when it is
+    there but can't be read (asking whether it exists can be refused too), ``ValueError`` when it isn't text.
+    A byte-order mark at its start, as some editors leave when the file is mended by hand, is not part of it."""
+    try:
+        return path.read_bytes().decode("utf-8-sig")
+    except FileNotFoundError:
+        return None
 
 
 def screen_key(geo: QRect) -> str:
@@ -207,16 +229,16 @@ def _read_strokes_file() -> dict[str, list]:
     unreadable: its drawings may be whole, so nothing is written over it until it can be read."""
     global _strokes_unreadable
     _strokes_unreadable = False
-    if not STROKES_FILE.exists():
-        return {}
     try:
-        raw = STROKES_FILE.read_bytes()
+        raw = read_json_text(STROKES_FILE)
     except OSError as ex:
         logger.error("couldn't read %s, starting without drawings and leaving the file as it is: %s", STROKES_FILE, ex)
         _strokes_unreadable = True
         return {}
+    if raw is None:
+        return {}
     try:
-        data = json.loads(raw.decode("utf-8"))
+        data = json.loads(raw)
     except ValueError as ex:
         logger.error("%s is damaged, starting without drawings: %s", STROKES_FILE, ex)
         keep_damaged(STROKES_FILE)

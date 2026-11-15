@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:03.794151
-Revised: 2026/11/15 02:40:00.540363
+Revised: 2026/11/15 02:48:35.159514
 
 Starts Vitralis behind its licence: the licence window first when no key is active on this computer, the
 overlay (``Session``) once the licence holds, and back to the licence window if it stops holding.
@@ -87,6 +87,7 @@ class Session:
         self._watched: list[QScreen] = []
         self._tray: QSystemTrayIcon | None = None
         self._told_unsaved = False
+        self._told_held = False
         self._save_watch = QTimer(app)
         self._save_watch.timeout.connect(self._watch_saves)
 
@@ -117,6 +118,7 @@ class Session:
         if strokes_unreadable() or settings_unreadable():  # said, not only logged: the user would lose work
             self._warn(NOT_SAVING)
         self._told_unsaved = False
+        self._told_held = strokes_unreadable() or settings_unreadable()  # just said, when so
         self._save_watch.start(SAVE_WATCH_MS)
         if self._updates is not None:
             self._updates.changed.connect(self._on_update_status)
@@ -175,7 +177,11 @@ class Session:
 
     def _watch_saves(self) -> None:
         """Say once, when it first happens, that the disk refused a save, and go on trying it."""
-        save_held_settings()  # settings changed while their file couldn't be read: written once it can be
+        # settings changed while their file couldn't be read: written once it can be, and said once until then
+        held = not save_held_settings()
+        if held and not self._told_held:
+            self._warn(NOT_SAVING)
+        self._told_held = held
         unsaved = unsaved_files()
         if not unsaved:
             self._told_unsaved = False

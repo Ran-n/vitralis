@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:10.961213
-Revised: 2026/11/15 00:38:22.478192
+Revised: 2026/11/15 02:48:36.652146
 
 The drawings on disk (real files in the test's own data folder): strokes per screen surviving a restart, the
 first versions' bare list, damaged entries and files, writes that are whole or not at all and never make the
@@ -207,6 +207,28 @@ def test_the_app_can_tell_that_drawings_arent_being_saved(monkeypatch):
     state["held"] = False
     save_strokes_for(PRIMARY, [PEN])
     assert not persistence.strokes_unreadable()
+
+
+def test_drawings_saved_with_a_byte_order_mark_are_read():
+    save_strokes_for(PRIMARY, [LINE])
+    assert flush_writes(5)
+    persistence.STROKES_FILE.write_bytes(b"\xef\xbb\xbf" + persistence.STROKES_FILE.read_bytes())
+    restart()
+    assert load_strokes_for(PRIMARY) == [LINE]
+    assert not persistence.STROKES_FILE.with_name(persistence.STROKES_FILE.name + DAMAGED_SUFFIX).exists()
+
+
+def test_a_refused_write_can_be_given_up_and_a_flush_can_leave_it_alone(monkeypatch):
+    replace = persistence.os.replace
+    monkeypatch.setattr(persistence.os, "replace", refuse)
+    save_strokes_for(PRIMARY, [LINE])
+    assert flush_writes(5)
+    monkeypatch.setattr(persistence.os, "replace", replace)
+    assert flush_writes(5, retry=False) and persistence.unsaved_files() == [persistence.STROKES_FILE]
+    assert not persistence.STROKES_FILE.exists()  # left alone
+    assert persistence.drop_failed_write(persistence.STROKES_FILE) is True
+    assert persistence.drop_failed_write(persistence.STROKES_FILE) is False
+    assert flush_writes(5) and persistence.unsaved_files() == [] and not persistence.STROKES_FILE.exists()
 
 
 def test_a_restart_forgets_that_the_file_couldnt_be_read(monkeypatch):

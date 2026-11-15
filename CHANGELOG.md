@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/15 02:40:00.117458 )
+[//]: # (+ Revised: 	2026/11/15 02:48:34.773263 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -139,6 +139,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   soon as it can be, quitting included; the places of the toolbar's other
   windows are kept; and a file damaged while Vitralis runs no longer
   resets the settings in use.
+- `settings.json` and `strokes.json` saved with a byte-order mark (mended
+  by hand in an editor that adds one) are read instead of counting as
+  damaged, and a file Windows refuses to even look at counts as unreadable
+  instead of stopping the start.
+- A tray message also says when settings start being held back while
+  Vitralis runs, and a save the disk refused is never replayed over a
+  file that can't be read.
 - Typing in the Snapshots list jumps to the snapshot with that name instead
   of running the toolbar's shortcuts (a Z undid a stroke).
 - Switching from pan to another mode with the mouse button still held

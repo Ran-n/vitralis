@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/11 11:02:11.433417
-Revised: 2026/11/15 02:40:01.339585
+Revised: 2026/11/15 02:48:36.289253
 
 The overlay session behind the licence: nothing of the overlay exists while locked, it starts once the licence
 holds, and locking tears it all down (toolbar with its global hooks, canvases, captures, tray). The real toolbar
@@ -354,6 +354,36 @@ def test_the_tray_says_once_when_the_disk_refuses_a_save_and_the_save_is_tried_a
     assert len(held) == 5  # each time: settings held back are written as soon as their file can be read
     session.stop()
     assert not session._save_watch.isActive()
+
+
+def test_the_tray_says_once_when_settings_start_being_held_back_while_vitralis_runs(qapp, session, monkeypatch):
+    """Regression guard: only a start with the file unreadable was said; later on, only the log knew."""
+    held = [True]
+    monkeypatch.setattr(app_module, "save_held_settings", lambda: held[0])
+    monkeypatch.setattr(app_module, "unsaved_files", lambda: [])
+    session = session()
+    session.start()
+    session._save_watch.timeout.emit()
+    assert session.trays[0].messages == []
+    held[0] = False
+    session._save_watch.timeout.emit()
+    session._save_watch.timeout.emit()
+    assert session.trays[0].messages == [app_module.NOT_SAVING]  # once
+    held[0] = True
+    session._save_watch.timeout.emit()
+    held[0] = False
+    session._save_watch.timeout.emit()
+    assert session.trays[0].messages == [app_module.NOT_SAVING] * 2  # written meanwhile: a new hold is said
+
+
+def test_a_start_that_already_said_so_doesnt_say_it_again_at_the_first_look(qapp, session, monkeypatch):
+    monkeypatch.setattr(app_module, "settings_unreadable", lambda: True)
+    monkeypatch.setattr(app_module, "save_held_settings", lambda: False)
+    monkeypatch.setattr(app_module, "unsaved_files", lambda: [])
+    session = session()
+    session.start()
+    session._save_watch.timeout.emit()
+    assert session.trays[0].messages == [app_module.NOT_SAVING]
 
 
 def test_the_tray_says_nothing_about_saving_when_all_is_read(qapp, session):
