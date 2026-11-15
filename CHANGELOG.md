@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/15 03:02:12.997053 )
+[//]: # (+ Revised: 	2026/11/15 03:12:08.346746 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -149,6 +149,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A saved stroke or toolbar state whose tool isn't text (a file mended by
   hand) is skipped like any other damaged entry, instead of stopping
   Vitralis at every start.
+- A saved position or point too far for any screen, a file nested too
+  deep to read, and a stroke colour that isn't `#rrggbb` (it was drawn
+  black) count as damage and are left out, instead of stopping the start.
 - A tray message also says when settings start being held back while
   Vitralis runs, and a save the disk refused is never replayed over a
   file that can't be read.

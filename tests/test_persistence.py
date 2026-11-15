@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:23:10.961213
-Revised: 2026/11/15 03:02:14.792998
+Revised: 2026/11/15 03:12:09.937243
 
 The drawings on disk (real files in the test's own data folder): strokes per screen surviving a restart, the
 first versions' bare list, damaged entries and files, writes that are whole or not at all and never make the
@@ -619,3 +619,25 @@ def test_a_stroke_whose_tool_isnt_text_is_skipped_and_the_rest_is_read(caplog):
         json.dumps({"0,0": [{**good, "tool": {}}, good]}), encoding="utf-8"
     )
     assert load_snapshot("review") == {"0,0": [LINE]}
+
+
+DEEP = "[" * 100_000 + "]" * 100_000
+"""Valid JSON nested beyond what can be read."""
+
+
+def test_drawings_nested_beyond_reading_or_with_numbers_beyond_any_screen_dont_stop_the_start(caplog):
+    """Regression guards: the errors of reading them weren't the ones caught."""
+    persistence.STROKES_FILE.write_text(DEEP, encoding="utf-8")
+    assert load_strokes_for(PRIMARY) == []
+    assert persistence.STROKES_FILE.with_name(persistence.STROKES_FILE.name + DAMAGED_SUFFIX).exists()
+    restart()
+    good = LINE.to_dict()
+    text = json.dumps({"0,0": [good, {**good, "points": [[0, 0]]}]}).replace("[[0, 0]]", "[[1" + "0" * 310 + ", 0]]")
+    persistence.STROKES_FILE.write_text(text, encoding="utf-8")
+    with caplog.at_level(logging.WARNING, "vitralis.persistence"):
+        assert load_strokes_for(PRIMARY) == [LINE]
+    assert any("skipped 1 damaged" in r.getMessage() for r in caplog.records)
+    persistence.SNAPSHOTS_DIR.mkdir(parents=True, exist_ok=True)
+    (persistence.SNAPSHOTS_DIR / "deep.json").write_text(DEEP, encoding="utf-8")
+    with pytest.raises(SnapshotError):
+        load_snapshot("deep")

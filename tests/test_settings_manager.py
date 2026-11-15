@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:11.023352
-Revised: 2026/11/15 03:02:15.134940
+Revised: 2026/11/15 03:12:10.250192
 
 ``settings.json`` through ``SettingsManager`` (a real file in ``tmp_path``): the update defaults, an old file
 without ``"updates"``, values surviving a restart, two managers not undoing each other's changes, and a broken
@@ -539,3 +539,17 @@ def test_whatever_the_file_holds_every_setting_reads_without_raising(tmp_path_fa
     finally:
         assert flush_writes(5)
         settings_module.SETTINGS_FILE = saved_file
+
+
+def test_settings_nested_beyond_reading_are_damaged_not_a_crash(settings_file):
+    settings_file.write_text("[" * 100_000 + "]" * 100_000, encoding="utf-8")
+    assert SettingsManager().shortcuts() == DEFAULT_SHORTCUTS
+    assert settings_file.with_name(settings_file.name + DAMAGED_SUFFIX).exists()
+
+
+def test_a_saved_place_off_any_screen_is_left_out(settings_file):
+    """Regression guard: a number too big for a position reached Qt, which raised: Vitralis stopped at every
+    start, with a file that is valid JSON and so was never kept aside."""
+    saved = {"position": [3_000_000_000, 0], "panels": {"settings": [0, -(10**12)], "info": [5, 6]}, "size": 8}
+    settings_file.write_text(json.dumps({"toolbar": saved}), encoding="utf-8")
+    assert SettingsManager().toolbar_state() == {"size": 8, "panels": {"info": [5, 6]}}

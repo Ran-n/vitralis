@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 00:22:49.939269
-Revised: 2026/11/15 03:02:14.457730
+Revised: 2026/11/15 03:12:09.621653
 
 A stroke as it is saved: what it writes it reads back the same (for any stroke), files from before strokes had
 a time still load, and a damaged entry is refused with a reason instead of reaching the painter.
@@ -222,3 +222,31 @@ def test_whatever_a_file_holds_for_a_stroke_reads_or_is_refused_as_damage(entry)
     except ValueError:
         return
     assert stroke.tool in TOOL_NAMES and stroke.points
+
+
+@pytest.mark.parametrize(
+    ("change", "reason"),
+    [
+        ({"points": [[10**310, 0]]}, "two numbers"),  # too long to be a float at all
+        ({"points": [[0, 2_000_000]]}, "two numbers"),  # farther than any screen
+        ({"points": [[0.0, -1e300]]}, "two numbers"),
+        ({"color": "red"}, "#rrggbb"),
+        ({"color": "#12345"}, "#rrggbb"),
+        ({"color": "#12345g"}, "#rrggbb"),
+        ({"color": ""}, "#rrggbb"),
+    ],
+)
+def test_a_number_off_any_screen_or_a_colour_that_isnt_one_is_damage(change, reason):
+    """Regression guards: a whole number of hundreds of digits raised ``OverflowError``, which nothing caught,
+    and a colour damaged by one character was drawn black."""
+    entry = shape("LINE", [0, 0], [1, 1]).to_dict()
+    with pytest.raises(ValueError, match=reason):
+        Stroke.from_dict({**entry, **change})
+
+
+def test_a_time_that_cant_be_one_reads_as_zero_and_the_farthest_point_is_read():
+    entry = shape("LINE", [0, 0], [1, 1]).to_dict()
+    assert Stroke.from_dict({**entry, "created": 10**400}).created == 0.0
+    assert Stroke.from_dict({**entry, "created": 1_800_000_000}).created == 1_800_000_000.0
+    assert Stroke.from_dict({**entry, "points": [[1_000_000, -1_000_000]]}).points == [[1e6, -1e6]]
+    assert Stroke.from_dict({**entry, "color": "#AbCdEf"}).color == "#AbCdEf"

@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/29 07:52:06.389478
-Revised: 2026/11/15 03:02:13.705917
+Revised: 2026/11/15 03:12:09.290150
 
 ``settings.json`` (``SettingsManager``) and the settings window: the keyboard shortcuts, the language, the
 updates and the licence.
@@ -11,7 +11,6 @@ updates and the licence.
 import copy
 import json
 import logging
-import re
 from collections.abc import Callable
 from pathlib import Path
 
@@ -32,7 +31,7 @@ from vitralis.icons import flag_icon
 from vitralis.installed import installer_language
 from vitralis.licence.gate import LicenceGate
 from vitralis.licence.section import LicenceSection
-from vitralis.models import MAX_WIDTH, TOOL_NAMES
+from vitralis.models import HEX_COLOR, MAX_COORDINATE, MAX_WIDTH, TOOL_NAMES
 from vitralis.persistence import (
     DATA_DIR,
     drop_failed_write,
@@ -50,7 +49,6 @@ from vitralis.updates.section import UpdatesSection
 
 logger = logging.getLogger("vitralis.settings")
 
-_HEX_COLOR = re.compile(r"#[0-9a-fA-F]{6}")
 
 SETTINGS_FILE = DATA_DIR / "settings.json"
 
@@ -135,11 +133,11 @@ whole), until a later try reads it."""
 
 
 def _is_point(value: object) -> bool:
-    """Whether ``value`` is ``[x, y]`` in whole numbers, as positions are saved."""
+    """Whether ``value`` is ``[x, y]`` in whole numbers a screen can have, as positions are saved."""
     return (
         isinstance(value, list)
         and len(value) == 2
-        and all(isinstance(part, int) and not isinstance(part, bool) for part in value)
+        and all(isinstance(part, int) and not isinstance(part, bool) and abs(part) <= MAX_COORDINATE for part in value)
     )
 
 
@@ -239,7 +237,7 @@ class SettingsManager:
             logger.error("couldn't read %s, using the defaults and leaving the file as it is: %s", SETTINGS_FILE, ex)
             _unreadable = True
             return {}
-        except ValueError as ex:  # not JSON, or not text at all (saved as UTF-16, say)
+        except (ValueError, RecursionError) as ex:  # not JSON, not text at all, or nested beyond reading
             logger.warning("%s is damaged, using the defaults: %s", SETTINGS_FILE, ex)
             keep_damaged(SETTINGS_FILE)
             _damaged = True
@@ -327,7 +325,7 @@ class SettingsManager:
         if isinstance(tool, str) and tool in TOOL_NAMES:  # a list or a table can't even be looked up
             state["tool"] = tool
         color = saved.get("color")
-        if isinstance(color, str) and _HEX_COLOR.fullmatch(color):
+        if isinstance(color, str) and HEX_COLOR.fullmatch(color):
             state["color"] = color.lower()
         size = saved.get("size")
         if isinstance(size, int) and not isinstance(size, bool) and 1 <= size <= MAX_WIDTH:

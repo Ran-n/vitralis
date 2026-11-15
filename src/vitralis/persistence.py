@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/04/28 15:57:04.127720
-Revised: 2026/11/15 02:54:56.994506
+Revised: 2026/11/15 03:12:08.963334
 
 The data folder (``%APPDATA%\\Vitralis``) and the drawings kept in it: ``strokes.json``, the strokes of every
 screen under the screen's top-left corner (``"x,y"``), and one file per named snapshot in ``snapshots``.
@@ -238,7 +238,7 @@ def _read_strokes_file() -> dict[str, list]:
         logger.error("couldn't read %s, starting without drawings and leaving the file as it is: %s", STROKES_FILE, ex)
         _strokes_unreadable = True
         return {}
-    except ValueError as ex:  # not JSON, or not text at all (saved as UTF-16, say)
+    except (ValueError, RecursionError) as ex:  # not JSON, not text at all, or nested beyond reading
         logger.error("%s is damaged, starting without drawings: %s", STROKES_FILE, ex)
         keep_damaged(STROKES_FILE)
         return {}
@@ -361,7 +361,7 @@ def load_snapshot(name: str) -> dict[str, list[Stroke]]:
         if raw is None:
             raise FileNotFoundError(f"there is no snapshot {name}")
         data = json.loads(raw)
-    except (OSError, ValueError) as ex:
+    except (OSError, ValueError, RecursionError) as ex:
         logger.error("couldn't read the snapshot %s: %s", path, ex)
         raise SnapshotError(f"{path}: {ex}") from ex
     if not isinstance(data, dict):
