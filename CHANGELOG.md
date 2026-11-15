@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/15 22:00:32.843631 )
+[//]: # (+ Revised: 	2026/11/15 22:34:50.073816 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -98,7 +98,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The rendered tests run with their windows cloaked, so nothing shows on
   the screen (`VITRALIS_SHOW_TEST_WINDOW=1` shows them), on a scratch folder
   under `%PUBLIC%` instead of the user's Temp folder, and fail before taking
-  a picture when anything the test copy shows names the user
+  a picture when anything the test copy shows names the user. The test
+  copy starts like Vitralis (its own taskbar identity and icon), and a test
+  checks the toolbar's taskbar button carries the Vitralis icon
 - The README is a landing page for people who want to use Vitralis: a
   first picture of Vitralis at work (notes drawn by its own overlay over a
   made-up slide, recorded and reviewed with the other test pictures), a

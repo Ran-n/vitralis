@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 16:56:38.576341
-Revised: 2026/11/15 22:00:37.739376
+Revised: 2026/11/15 22:34:51.165808
 
 Vitralis as Windows draws it: the real toolbar, its windows and an overlay canvas run in a process of their own
 (``driver.py``) on a scratch data folder, clicked and dragged with posted window messages and looked at with
@@ -215,6 +215,17 @@ def test_the_readme_hero_shows_notes_over_a_slide_beside_the_toolbar(app):
     }
     assert colours <= seen  # every note is on it, in its colour
     pictures.check(picture.convertToFormat(QImage.Format.Format_RGB32), "hero")
+
+
+def test_the_toolbar_has_a_taskbar_button_with_the_vitralis_icon(app):
+    """Regression guard: run from Python without the app's own ID, the taskbar showed Python's icon for the
+    toolbar. With it, and with the window's own icon, Windows shows the stained-glass logo."""
+    from vitralis.app import APP_USER_MODEL_ID
+
+    facts = app.ask("taskbar")
+    assert facts["app_id"] == APP_USER_MODEL_ID
+    assert facts["big_icon"] and facts["small_icon"] and facts["icon_sizes"][:3] == [16, 32, 48]
+    assert not facts["tool_window"] and not facts["owned"]  # either would hide the button
 
 
 def test_the_windows_stay_off_the_screen(app):

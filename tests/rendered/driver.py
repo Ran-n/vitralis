@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/14 16:56:37.129213
-Revised: 2026/11/15 22:00:37.088140
+Revised: 2026/11/15 22:34:50.632943
 
 The real toolbar, its windows and one overlay canvas, running as a process of its own for the rendered tests:
 ``python -m tests.rendered.driver <data folder>``. It reads one JSON command per line on stdin and answers each
@@ -42,6 +42,7 @@ from tests.rendered.hidden import Cloaker, is_cloaked, shown
 from tests.rendered.personal import refuse_personal
 from tests.updates.fakes import NOON, TARGET, FakeFeed, MemorySettings
 from vitralis import toolbar as toolbar_module
+from vitralis.app import set_app_user_model_id
 from vitralis.canvas import Canvas, DrawCapture
 from vitralis.icons import init_icons_dir
 from vitralis.licence.client import LicenceChecks
@@ -51,6 +52,7 @@ from vitralis.persistence import flush_writes, forget_strokes, list_snapshots, l
 from vitralis.settings import SettingsManager
 from vitralis.toolbar import Toolbar
 from vitralis.translations import set_language
+from vitralis.tray import make_app_icon
 from vitralis.updates.checker import UpdateChecker
 
 CANVAS = QRect(420, 80, 360, 240)
@@ -196,6 +198,36 @@ class Driver:
             raise OSError(f"couldn't write {path}")
         return {"path": str(path)}
 
+    def do_taskbar(self, **_) -> dict:
+        """What Windows needs to give the toolbar a taskbar button with Vitralis's icon: the process's app ID,
+        the icon the window hands over, and that it is neither a tool window nor owned by another window."""
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.WinDLL("user32")
+        user32.SendMessageW.argtypes = [wintypes.HWND, ctypes.c_uint, wintypes.WPARAM, wintypes.LPARAM]
+        user32.SendMessageW.restype = ctypes.c_ssize_t
+        user32.GetWindowLongPtrW.argtypes = [wintypes.HWND, ctypes.c_int]
+        user32.GetWindowLongPtrW.restype = ctypes.c_ssize_t
+        user32.GetWindow.argtypes = [wintypes.HWND, ctypes.c_uint]
+        user32.GetWindow.restype = wintypes.HWND
+        shell32 = ctypes.WinDLL("shell32")
+        ole32 = ctypes.WinDLL("ole32")
+        found = ctypes.c_wchar_p()
+        shell32.GetCurrentProcessExplicitAppUserModelID(ctypes.byref(found))
+        app_id = found.value
+        ole32.CoTaskMemFree(found)
+        hwnd = int(self.bar.winId())
+        exstyle = user32.GetWindowLongPtrW(hwnd, -20)
+        return {
+            "app_id": app_id,
+            "big_icon": bool(user32.SendMessageW(hwnd, 0x7F, 1, 0)),
+            "small_icon": bool(user32.SendMessageW(hwnd, 0x7F, 0, 0)),
+            "tool_window": bool(exstyle & 0x80),
+            "owned": bool(user32.GetWindow(hwnd, 4)),
+            "icon_sizes": sorted(size.width() for size in self.bar.windowIcon().availableSizes()),
+        }
+
     def do_cloaked(self, **_) -> dict:
         """Whether DWM keeps each window that is up off the screen."""
         up = [widget for widget in self.app.topLevelWidgets() if widget.isVisible()]
@@ -267,7 +299,9 @@ def main() -> None:
     toolbar_module.GlobalMouseWheelThread = InertThread
     toolbar_module.app_version = lambda: VERSION
     init_icons_dir()
+    set_app_user_model_id()  # as main() does: the taskbar shows Vitralis's icon, not Python's
     app = QApplication(sys.argv[:1])
+    app.setWindowIcon(make_app_icon())
     app.setQuitOnLastWindowClosed(False)
     if not shown():  # off the user's screen unless the run asked to watch
         cloaker = Cloaker(app)
