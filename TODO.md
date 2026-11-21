@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/11/11 17:31:20.784664 )
-[//]: # (+ Revised: 	2026/11/21 18:29:12.295783 )
+[//]: # (+ Revised: 	2026/11/22 00:57:40.721336 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # TODO
@@ -10,13 +10,18 @@ The planned work. Each item is self-contained: reading it alone is enough to
 implement it fully, without asking anything. Work top to bottom unless an item
 says otherwise. Ideas not planned yet live in `BACKLOG.md`.
 
-Next item number: 7
+| To do | Backlog |
+|:-----:|:-------:|
+| **4** | **0** |
+
+Next item number: 8
 
 ## Index
 
 - [4. Check the leaked bounty_board key is dead and decide on the forge purge](#4-check-the-leaked-bounty_board-key-is-dead-and-decide-on-the-forge-purge)
 - [5. Audit the whole history for leaked secrets and personal data](#5-audit-the-whole-history-for-leaked-secrets-and-personal-data)
 - [6. Check the project against the global standards and file the gaps](#6-check-the-project-against-the-global-standards-and-file-the-gaps)
+- [7. Encrypt the release signing key with GPG and shred the plain key files](#7-encrypt-the-release-signing-key-with-gpg-and-shred-the-plain-key-files)
 
 ## Adding an item
 
@@ -331,3 +336,68 @@ audits and files; the filed items do the work.
 - [ ] Every gap is filed as its own item in this `TODO.md`, in the order of step 3, with the Index updated.
 - [ ] The test suite's coverage figure is noted.
 - [ ] The user has the list of gaps and item numbers.
+
+## 7. Encrypt the release signing key with GPG and shred the plain key files
+
+**Why:** On 2026-11-21 Vitralis got its own release keys (made with `uv run vitralis-sign keygen`), whose public
+halves are `RELEASE_KEYS` in `src/vitralis/updates/signature/__init__.py` and in the README (signing key
+`RWTznxbop…`, backup `RWQdjNah…`). Their secrets are still plain files, four of them:
+`~/.release-keys/vitralis-release-signing.key`, `~/.release-keys/vitralis-release-backup.key`, and copies of both
+that the user asked for in their `Desktop\claudeshareme` folder. The custody rule (global memory
+`feedback_in_app_updater.md`) allows no plain secret that stays around: the signing key lives GPG-encrypted in
+`~/.release-keys` so releases can be signed unattended, and the backup lives only in the user's KeePass, apart
+from the signing key, so one loss or theft never takes both. Nothing has been signed with these keys yet.
+
+**Goal:** `~/.release-keys/vitralis-release-signing.key.gpg` exists and decrypts without a prompt to exactly the
+signing key; both secrets are in KeePass; no plain copy of either key is left anywhere.
+
+**Behaviour:**
+- Nothing is deleted until the user has said both keys are saved in KeePass (on 2026-11-21 they answered "Not
+  yet"). Ask with AskUserQuestion first; on any answer but yes, stop and leave every file as it is.
+- A key file whose public half isn't the matching `RELEASE_KEYS` entry stops the whole item: say so and delete
+  nothing (the files would then not be the published keys).
+- A decrypt that isn't byte-identical, or that prompts, stops the item before any shred: delete the `.gpg`, keep
+  the plain files, report the error.
+- No step ever prints a secret key: compare by BLAKE3 hash or by public key only.
+- `~/.release-keys` also holds another project's key files: never read them, touch them or name them in output.
+- The other files in the `Desktop\claudeshareme` folder stay untouched.
+
+**Out of scope:** signing a release (the release steps in `docs/development.md`); rotating the keys.
+
+**Implementation** (all from Git Bash, never PowerShell, which re-encodes piped text):
+1. Ask the user with AskUserQuestion whether both keys are saved in KeePass; stop unless the answer is yes.
+2. Check each of the four files' public half with `uv run vitralis-sign public <file>`: the two signing-key files
+   must print `RELEASE_KEYS[0]`, the two backup files `RELEASE_KEYS[1]`. Check the two copies are byte-identical
+   to the originals by comparing their `b3sum` hashes.
+3. Encrypt the signing key to the fingerprint on the `GPG` line of `CONTRIBUTORS`
+   (`AA4C66BE276AA0D8D95F003D11705FC643951387`):
+   `gpg --batch -e -r AA4C66BE276AA0D8D95F003D11705FC643951387 -o ~/.release-keys/vitralis-release-signing.key.gpg ~/.release-keys/vitralis-release-signing.key`.
+4. Check the decrypt is byte-identical without writing it to disk, with both GnuPG installs (Git Bash's
+   `/usr/bin/gpg` and Gpg4win's `/c/Program Files (x86)/GnuPG/bin/gpg.exe`):
+   `gpg --batch -q --pinentry-mode error -d ~/.release-keys/vitralis-release-signing.key.gpg | b3sum` must give
+   the same hash as `b3sum ~/.release-keys/vitralis-release-signing.key`. A prompt or an error from either install
+   means its agent can't decrypt unattended: report it and stop before step 5.
+5. Shred the four plain files with `shred -u -z -n 3 <file>` (never `rm`, `del` or the Recycle Bin), then check
+   with `ls` that each one is gone.
+6. Prove the signing pipe end to end on a scratch file:
+   `gpg --batch -q --pinentry-mode error -d ~/.release-keys/vitralis-release-signing.key.gpg | uv run vitralis-sign sign - <scratch file>`,
+   then `uv run vitralis-sign verify <scratch file>` with `VITRALIS_UPDATE_KEY` unset (so it checks against
+   `RELEASE_KEYS`). Delete the scratch file and its `.minisig`.
+7. Update the project memory `reference_release_signing.md`: the `.gpg` path, that it must never be deleted, that
+   the backup lives only in KeePass; drop the "not yet saved" state and update its line in the project
+   `MEMORY.md`.
+
+**Tests:** No code changes. Steps 2, 4 and 6 are the checks; `tests/updates/test_signature.py` (README keys equal
+the app's) and `tests/test_sign.py` already cover the tool.
+
+**Docs:** None: `docs/development.md` already describes this custody. No changelog line, since nothing users see
+changes.
+
+**Done when:**
+- [ ] The user confirmed both keys are in KeePass.
+- [ ] All four files showed the expected public key, and the copies matched the originals by hash.
+- [ ] `~/.release-keys/vitralis-release-signing.key.gpg` exists, and both GnuPG installs decrypt it without a
+      prompt to the same BLAKE3 hash as the plain signing key.
+- [ ] The four plain key files were shredded and `ls` shows none of them.
+- [ ] A scratch file signed through the GPG pipe passes `vitralis-sign verify`.
+- [ ] The project memory records the `.gpg` location.
