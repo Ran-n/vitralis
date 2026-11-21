@@ -2,21 +2,24 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/15 14:24:49.867204
-Revised: 2026/11/15 21:45:42.111787
+Revised: 2026/11/21 18:29:11.603911
 
-``vitralis-sign``: a generated key signs something the updater accepts; the key can be piped in; keygen never
-overwrites a file; files that aren't this version's are refused; wrong inputs give a reason and exit 1.
+``vitralis-sign``: a generated key signs something the updater and an independent minisign accept; the key can
+be piped in; keygen never overwrites a file; ``public`` prints hex then minisign's form and ``keys`` the built-in
+keys; files that aren't this version's are refused; wrong inputs give a reason and exit 1.
 """
 
 import io
 
+import minisign as independent
 import pytest
-from blake3 import blake3
 
 from tests.updates.fakes import OTHER_SECRET, PUBLIC, SECRET
 from vitralis import sign as tool
 from vitralis.updates.rules import parse_version
-from vitralis.updates.signature import public_key, statement, verify
+from vitralis.updates.signature import RELEASE_KEYS, minisign_public, public_key
+from vitralis.updates.signature.hashes import hash_bytes
+from vitralis.updates.signature.minisign import accept, check_file, trusted_comment
 
 VERSION = "1.4.0"
 ASSET = f"vitralis-{VERSION}-windows-x86_64-portable.exe"
@@ -40,7 +43,12 @@ def test_keygen_writes_a_new_key_and_prints_its_public_half(tmp_path, capsys):
     secret = where.read_text(encoding="utf-8").strip()
     assert capsys.readouterr().out.strip() == public_key(secret)
     assert tool.main(["public", str(where)]) == 0
-    assert capsys.readouterr().out.strip() == public_key(secret)
+    assert capsys.readouterr().out.split() == [public_key(secret), minisign_public(public_key(secret))]
+
+
+def test_keys_prints_the_built_in_keys_signing_key_first(capsys):
+    assert tool.main(["keys"]) == 0
+    assert capsys.readouterr().out.split() == [minisign_public(key) for key in RELEASE_KEYS]
 
 
 def test_keygen_never_overwrites_a_file(tmp_path, capsys):
@@ -55,15 +63,19 @@ def test_a_signed_asset_is_what_the_updater_accepts(tmp_path, asset, capsys):
     key = tmp_path / "key.txt"
     key.write_text(SECRET + "\n", encoding="utf-8")
     assert tool.main(["sign", str(key), str(asset)]) == 0
-    signature = (tmp_path / (ASSET + ".sig")).read_text(encoding="ascii")
-    verify(PUBLIC, statement(VERSION, ASSET, blake3(asset.read_bytes()).hexdigest()), signature)
-    assert str(tmp_path / (ASSET + ".sig")) in capsys.readouterr().out
+    signature = (tmp_path / (ASSET + ".minisig")).read_text(encoding="ascii")
+    hashes = hash_bytes(asset.read_bytes())
+    key, parsed = accept((PUBLIC,), signature, trusted_comment(VERSION, ASSET, hashes.blake3))
+    check_file(key, parsed, hashes.blake2b)
+    assert str(tmp_path / (ASSET + ".minisig")) in capsys.readouterr().out
+    independent_key = independent.PublicKey.from_base64(minisign_public(PUBLIC))
+    independent_key.verify(asset.read_bytes(), independent.Signature.from_bytes(signature.encode()))
 
 
 def test_the_key_can_be_piped_in(monkeypatch, asset):
     monkeypatch.setattr("sys.stdin", io.StringIO(SECRET + "\n"))
     assert tool.main(["sign", "-", str(asset)]) == 0
-    assert (asset.parent / (ASSET + ".sig")).exists()
+    assert (asset.parent / (ASSET + ".minisig")).exists()
 
 
 def test_in_a_terminal_the_key_is_pasted_unseen(monkeypatch, asset):
@@ -102,7 +114,7 @@ def test_a_file_of_another_version_is_refused_unsigned(tmp_path, capsys):
     key.write_text(SECRET, encoding="utf-8")
     assert tool.main(["sign", str(key), str(other)]) == 1
     assert "isn't a file of Vitralis 1.4.0" in capsys.readouterr().err
-    assert not (tmp_path / (other.name + ".sig")).exists()
+    assert not (tmp_path / (other.name + ".minisig")).exists()
 
 
 def test_a_secret_that_isnt_one_signs_nothing(tmp_path, asset, capsys):
@@ -110,7 +122,7 @@ def test_a_secret_that_isnt_one_signs_nothing(tmp_path, asset, capsys):
     key.write_text("not a key", encoding="utf-8")
     assert tool.main(["sign", str(key), str(asset)]) == 1
     assert "nothing was signed" in capsys.readouterr().err
-    assert not (asset.parent / (ASSET + ".sig")).exists()
+    assert not (asset.parent / (ASSET + ".minisig")).exists()
 
 
 @pytest.mark.parametrize("arguments", [[], ["sign", "key"], ["verify"], ["keygen"], ["dance"]])
@@ -156,7 +168,7 @@ def test_a_signature_that_cant_be_written_is_said(monkeypatch, tmp_path, asset, 
     real = type(asset).write_text
 
     def refuse(self, *args, **kwargs):
-        if self.suffix == ".sig":
+        if self.suffix == ".minisig":
             raise PermissionError("read-only")
         return real(self, *args, **kwargs)
 

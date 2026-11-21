@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/11/15 16:41:04.658676 )
-[//]: # (+ Revised: 	2026/11/15 22:00:35.292224 )
+[//]: # (+ Revised: 	2026/11/21 18:29:12.721605 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Developing Vitralis
@@ -139,9 +139,12 @@ Windows tells installs apart by it.
 
 ## Releases
 
-A release has four files, each with a BLAKE3 `.b3` and a `.sig`, its
-signature by the release key: twelve files in all. The updater installs
-nothing without a valid `.sig` (see [design-decisions.md](design-decisions.md)).
+A release has four files, each with a BLAKE3 `.b3` and a `.minisig`, its
+signature by the release key in [minisign](https://jedisct1.github.io/minisign/)'s
+format: twelve files in all. The updater installs nothing without a valid
+`.minisig` (see [design-decisions.md](design-decisions.md)), and anyone can
+check one by hand with `minisign -Vm <file> -P <key>` and the keys the README
+publishes.
 
 | Built on | File |
 |----------|------|
@@ -155,38 +158,31 @@ workflow asks `uv run vitralis-asset-name windows-x86_64` instead of
 spelling it out.
 
 Vitralis trusts two release keys, `RELEASE_KEYS` in
-`src/vitralis/updates/signature.py`: the first signs every release, the
-second is a backup. A secret key is one line of hex and lives in a password
-manager, never in the repository, a plain file, CI or a forge: the signing
-key in the KeePass database used for releases, the backup somewhere
-separate, so one loss or theft never takes both.
+`src/vitralis/updates/signature/__init__.py`: the first signs every release,
+the second is a backup. A secret key is one line of hex, never in the
+repository, CI, a forge or a plain file that stays around:
 
-`uv run vitralis-sign` has four commands: `keygen <secret-file>` makes a
+| Key | Where it lives |
+|---|---|
+| Signing key | `~/.release-keys/vitralis-release-signing.key.gpg`, encrypted to the maintainer's GPG key (the `GPG` line of `CONTRIBUTORS`), and a copy in the maintainer's KeePass |
+| Backup key | Only the maintainer's KeePass, apart from the signing key, so one loss or theft never takes both |
+
+`uv run vitralis-sign` has five commands: `keygen <secret-file>` makes a
 key and prints its public half (it never overwrites a file), `public
-<secret-file>` prints it again, `sign <secret-file> <asset>...` writes each
-`<asset>.sig`, and `verify <asset>...` checks each against `RELEASE_KEYS`.
-`<secret-file>` may be `-`: in a terminal you paste the key (it isn't
-shown); otherwise it is read from standard input, for KeePassXC's command
-line:
+<secret-file>` prints it again in hex and in minisign's form, `sign
+<secret-file> <asset>...` writes each `<asset>.minisig`, `verify <asset>...`
+checks each against `RELEASE_KEYS`, and `keys` prints the built-in keys in
+minisign's form, signing key first (a test checks the README shows the same).
+`<secret-file>` may be `-`: in a terminal you paste the key (it isn't shown);
+otherwise it is read from standard input, so the key never rests in a file.
+Sign from Bash (Windows PowerShell 5.1 re-encodes piped text):
 
 ```sh
-keepassxc-cli show -s -a Password <database.kdbx> "Vitralis release key" \
-  | uv run vitralis-sign sign - <asset>...
+gpg --batch -q --pinentry-mode error -d ~/.release-keys/vitralis-release-signing.key.gpg   | uv run vitralis-sign sign - <asset>...
+keepassxc-cli show -s -a Password <database.kdbx> "Vitralis release key"   | uv run vitralis-sign sign - <asset>...      # another maintainer, from KeePassXC
 ```
 
 Assets are signed as the checkout's version, so sign from the tag.
-
-`keygen` writes a file, so it is only for test keys. A release key is made
-inside KeePassXC, so it never exists outside it, and its public half is
-read back through `public -`:
-
-```sh
-keepassxc-cli add -g -L 64 -c 0123456789abcdef <database.kdbx> "Vitralis release key"
-keepassxc-cli show -s -a Password <database.kdbx> "Vitralis release key" \
-  | uv run vitralis-sign public -
-```
-
-The backup key is made the same way, in a separate database.
 
 1. Promote **Unreleased** in the changelog to `## [X.Y.Z]` and set the
    version (`uv version X.Y.Z`); run `uv run pytest --cov`, `-m live` (with
@@ -201,12 +197,12 @@ The backup key is made the same way, in a separate database.
    `gh attestation verify <file> --repo Ran-n/vitralis`. Sign nothing that
    fails either check.
 4. From the tag's checkout, sign the four files (not the `.b3` files) with
-   the key pasted or piped from KeePassXC, check them with
-   `uv run vitralis-sign verify <file>...`, and add the four `.sig` files to
-   the draft (`gh release upload vX.Y.Z *.sig`).
+   the GPG pipe above, check them with `uv run vitralis-sign verify <file>...`
+   (and, if you have it, `minisign -Vm <file> -P <signing key>`), and add the
+   four `.minisig` files to the draft (`gh release upload vX.Y.Z *.minisig`).
 5. Attach the same twelve files to the GitLab release
    (`glab release create vX.Y.Z <files>`) and the Codeberg one. GitLab must
-   have every file, `.b3` and `.sig`: the updater asks it on every check,
+   have every file, `.b3` and `.minisig`: the updater asks it on every check,
    beside GitHub.
 6. Publish the GitHub draft. The updater only sees published releases that
    aren't pre-releases.

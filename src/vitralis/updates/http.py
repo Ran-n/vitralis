@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/15 14:24:48.675269
-Revised: 2026/11/15 14:24:48.675269
+Revised: 2026/11/21 18:29:11.015389
 
 The updater's requests: HTTPS only (unless a test allowed plain HTTP), capped in size, carrying nothing but the
 URL, ``Accept`` and ``User-Agent: Vitralis/<version>``. Every failure comes back as a short ``Failure`` the
@@ -22,7 +22,7 @@ READ_SECONDS = 30.0
 RELEASE_CAP = 1 << 20
 """A release's JSON."""
 SMALL_CAP = 1 << 10
-"""A ``.b3`` or ``.sig``."""
+"""A ``.b3`` or ``.minisig``."""
 USER_AGENT = f"Vitralis/{app_version()}"
 
 

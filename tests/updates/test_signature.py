@@ -1,105 +1,67 @@
 #!/usr/bin/env python3
 """
 Authors: Ran# <ran.hash@proton.me>
-Created: 2026/11/15 14:24:50.920423
-Revised: 2026/11/15 21:45:42.806133
+Created: 2026/11/21 18:28:52.241517
+Revised: 2026/11/21 18:28:52.241517
 
-Release signatures: a signature checks out only over its own statement (version, file name, hash) and with its
-own key; either built-in key is enough; malformed keys and signatures are named; the built-in keys are real
-keys, and distinct.
+Release keys: the built-in keys are two distinct real keys, published in the README in minisign's form; a key's ID
+is the first 8 bytes of its BLAKE3 hash; a generated key's public half is what signs; a secret that isn't one is
+named; and only a copy run from source may trust a test key.
 """
 
-import pytest
-from hypothesis import given
-from hypothesis import strategies as st
+import base64
+import re
+from pathlib import Path
 
-from tests.updates.fakes import OTHER_SECRET, PUBLIC, SECRET
-from vitralis.updates import signature
+import pytest
+from blake3 import blake3
+
+from tests.updates.fakes import PUBLIC, SECRET, minisig
+from vitralis.sign import main as sign_main
 from vitralis.updates.rules import NotSigned
 from vitralis.updates.signature import (
     RELEASE_KEYS,
     UnreadableKey,
-    UnreadableSignature,
     generate,
+    key_id,
+    minisign_public,
     public_key,
     release_keys,
-    sign,
-    statement,
-    verify,
-    verify_any,
 )
+from vitralis.updates.signature.minisign import accept, trusted_comment
 
-HASH = "AF1349B9F5F9A1A6A0404DEA36DCC9499BCB25C9ADC112B7CC9A93CAE41F3262"
-ASSET = "vitralis-1.4.0-windows-x86_64-portable.exe"
-
-
-def test_the_statement_is_four_lines_with_the_hash_lower_case():
-    assert statement("1.4.0", ASSET, HASH) == (f"vitralis-release-v1\n1.4.0\n{ASSET}\n{HASH.lower()}\n".encode())
+README = Path(__file__).parents[2] / "README.md"
 
 
-def test_a_signature_verifies_only_its_own_statement_and_key():
-    signed = statement("1.4.0", ASSET, HASH)
-    text = sign(SECRET, signed)
-    assert len(text) == 129 and text.endswith("\n")
-    verify(PUBLIC, signed, text)
-    for other in (
-        statement("1.3.0", ASSET, HASH),
-        statement("1.4.0", "vitralis-1.4.0-windows-x86_64-setup.exe", HASH),
-        statement("1.4.0", ASSET, "0" * 64),
-    ):
-        with pytest.raises(NotSigned):
-            verify(PUBLIC, other, text)
-    with pytest.raises(NotSigned):
-        verify(public_key(OTHER_SECRET), signed, text)
+def test_a_key_id_is_the_start_of_the_key_s_blake3_hash():
+    public = bytes.fromhex(PUBLIC)
+    assert key_id(public) == blake3(public).digest()[:8]
 
 
-def test_the_hash_case_doesnt_matter_and_the_signature_may_be_upper_case():
-    text = sign(SECRET, statement("1.4.0", ASSET, HASH))
-    verify(PUBLIC, statement("1.4.0", ASSET, HASH.lower()), text.upper())
-
-
-@pytest.mark.parametrize("text", ["", "abc", "z" * 128, "a" * 127, "é" * 128, "a" * 130])
-def test_a_signature_that_isnt_one_is_named(text):
-    with pytest.raises(UnreadableSignature, match="the signature"):
-        verify(PUBLIC, b"x", text)
-    with pytest.raises(UnreadableSignature):
-        verify_any((PUBLIC,), b"x", text)
-
-
-@pytest.mark.parametrize("key", ["", "abc", "z" * 64])
-def test_a_key_that_isnt_one_is_named(key):
-    with pytest.raises(UnreadableKey, match="the release key"):
-        verify(key, b"x", sign(SECRET, b"x"))
-
-
-def test_either_trusted_key_is_enough():
-    text = sign(SECRET, b"x")
-    verify_any((public_key(OTHER_SECRET), PUBLIC), b"x", text)
-    verify_any((PUBLIC, public_key(OTHER_SECRET)), b"x", text)
-
-
-def test_an_unreadable_key_among_good_ones_hides_neither_a_match_nor_a_refusal():
-    text = sign(SECRET, b"x")
-    verify_any(("not a key", PUBLIC), b"x", text)
-    with pytest.raises(NotSigned):
-        verify_any(("not a key", public_key(OTHER_SECRET)), b"x", text)
-    with pytest.raises(UnreadableKey):
-        verify_any(("not a key",), b"x", text)
-
-
-def test_a_key_rotated_out_stops_counting():
-    text = sign(OTHER_SECRET, b"x")
-    with pytest.raises(NotSigned, match="trusts"):
-        verify_any((PUBLIC,), b"x", text)
+def test_a_public_key_in_minisign_s_form_is_ed_the_id_and_the_key():
+    text = minisign_public(PUBLIC)
+    raw = base64.b64decode(text)
+    assert len(text) == 56 and text.startswith("RW")
+    assert raw == b"Ed" + key_id(bytes.fromhex(PUBLIC)) + bytes.fromhex(PUBLIC)
 
 
 def test_the_built_in_keys_are_two_distinct_real_keys():
     assert len(RELEASE_KEYS) == 2 and RELEASE_KEYS[0] != RELEASE_KEYS[1]
+    text = minisig(b"x", SECRET, "1.4.0", "a.exe")
     for key in RELEASE_KEYS:
         assert len(key) == 64 and key == key.lower() and int(key, 16) != 0
         with pytest.raises(NotSigned):  # a real point on the curve: it reads, and refuses a stranger's signature
-            verify(key, b"x", sign(SECRET, b"x"))
+            accept((key,), text, trusted_comment("1.4.0", "a.exe", blake3(b"x").hexdigest()))
     assert PUBLIC not in RELEASE_KEYS
+
+
+def test_the_readme_publishes_the_built_in_keys_signing_key_first(capsys):
+    """Anyone checking a download by hand takes the keys from the README: they can't drift from the app's."""
+    assert sign_main(["keys"]) == 0
+    printed = capsys.readouterr().out.split()
+    published = list(dict.fromkeys(re.findall(r"RW[A-Za-z0-9+/]{54}", README.read_text(encoding="utf-8"))))
+    assert printed == [minisign_public(key) for key in RELEASE_KEYS]
+    assert published == printed  # every key the README shows is a built-in one, in order
 
 
 def test_a_copy_run_from_source_may_trust_a_test_key(monkeypatch):
@@ -110,34 +72,18 @@ def test_a_copy_run_from_source_may_trust_a_test_key(monkeypatch):
     assert release_keys() == RELEASE_KEYS  # the packaged exe ignores every override
 
 
-def test_a_generated_key_signs_what_its_public_half_verifies():
+def test_a_generated_key_is_new_each_time_and_its_public_half_signs():
     secret = generate()
     assert len(secret) == 64 and secret != generate()
-    verify(public_key(secret), b"x", sign(secret, b"x"))
+    text = minisig(b"x", secret, "1.4.0", "a.exe")
+    key, _ = accept((public_key(secret),), text, trusted_comment("1.4.0", "a.exe", blake3(b"x").hexdigest()))
+    assert key == public_key(secret)
 
 
 def test_a_secret_that_isnt_one_is_named():
     with pytest.raises(UnreadableKey, match="the secret key"):
-        sign("nope", b"x")
+        public_key("nope")
     with pytest.raises(UnreadableKey):
         public_key("ab" * 31)
-
-
-@pytest.mark.property
-@given(st.text(max_size=12), st.text(max_size=40), st.integers(0, 3), st.characters())
-def test_changing_any_part_of_the_statement_fails(version, asset, part, extra):
-    parts = ["1.4.0", ASSET, HASH.lower()]
-    text = sign(SECRET, statement(*parts))
-    changed = list(parts)
-    if part < 3:
-        changed[part] = changed[part] + (extra if extra else "x")
-    else:
-        changed = [version or "0", asset or "a", "0" * 64]
-    if changed == parts:
-        return
-    with pytest.raises(NotSigned):
-        verify(PUBLIC, statement(*changed), text)
-
-
-def test_the_statement_names_the_app():
-    assert signature.STATEMENT_TAG == "vitralis-release-v1"
+    with pytest.raises(UnreadableKey, match="the release key"):
+        minisign_public("z" * 64)

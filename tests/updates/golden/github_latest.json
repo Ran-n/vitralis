@@ -110,7 +110,7 @@
       "url": "https://api.github.com/repos/Ran-n/vitralis/releases/assets/736047034",
       "id": 736047034,
       "node_id": "RA_kwDOSN1trM4r3y-4",
-      "name": "vitralis-1.4.0-windows-x86_64-portable.exe.sig",
+      "name": "vitralis-1.4.0-windows-x86_64-portable.exe.minisig",
       "label": "",
       "uploader": {
         "login": "Ran-n",
@@ -139,7 +139,7 @@
       "download_count": 1,
       "created_at": "2026-11-11T15:56:32Z",
       "updated_at": "2026-11-11T15:56:33Z",
-      "browser_download_url": "https://github.com/Ran-n/vitralis/releases/download/v1.4.0/vitralis-1.4.0-windows-x86_64-portable.exe.sig"
+      "browser_download_url": "https://github.com/Ran-n/vitralis/releases/download/v1.4.0/vitralis-1.4.0-windows-x86_64-portable.exe.minisig"
     },
     {
       "url": "https://api.github.com/repos/Ran-n/vitralis/releases/assets/736047035",
@@ -215,7 +215,7 @@
       "url": "https://api.github.com/repos/Ran-n/vitralis/releases/assets/736047037",
       "id": 736047037,
       "node_id": "RA_kwDOSN1trM4r3y-4",
-      "name": "vitralis-1.4.0-windows-x86_64-setup.exe.sig",
+      "name": "vitralis-1.4.0-windows-x86_64-setup.exe.minisig",
       "label": "",
       "uploader": {
         "login": "Ran-n",
@@ -244,7 +244,7 @@
       "download_count": 1,
       "created_at": "2026-11-11T15:56:32Z",
       "updated_at": "2026-11-11T15:56:33Z",
-      "browser_download_url": "https://github.com/Ran-n/vitralis/releases/download/v1.4.0/vitralis-1.4.0-windows-x86_64-setup.exe.sig"
+      "browser_download_url": "https://github.com/Ran-n/vitralis/releases/download/v1.4.0/vitralis-1.4.0-windows-x86_64-setup.exe.minisig"
     },
     {
       "url": "https://api.github.com/repos/Ran-n/vitralis/releases/assets/736047038",
@@ -320,7 +320,7 @@
       "url": "https://api.github.com/repos/Ran-n/vitralis/releases/assets/736047040",
       "id": 736047040,
       "node_id": "RA_kwDOSN1trM4r3y-4",
-      "name": "vitralis-1.4.0-py3-none-any.whl.sig",
+      "name": "vitralis-1.4.0-py3-none-any.whl.minisig",
       "label": "",
       "uploader": {
         "login": "Ran-n",
@@ -349,7 +349,7 @@
       "download_count": 1,
       "created_at": "2026-11-11T15:56:32Z",
       "updated_at": "2026-11-11T15:56:33Z",
-      "browser_download_url": "https://github.com/Ran-n/vitralis/releases/download/v1.4.0/vitralis-1.4.0-py3-none-any.whl.sig"
+      "browser_download_url": "https://github.com/Ran-n/vitralis/releases/download/v1.4.0/vitralis-1.4.0-py3-none-any.whl.minisig"
     },
     {
       "url": "https://api.github.com/repos/Ran-n/vitralis/releases/assets/736047041",
@@ -425,7 +425,7 @@
       "url": "https://api.github.com/repos/Ran-n/vitralis/releases/assets/736047043",
       "id": 736047043,
       "node_id": "RA_kwDOSN1trM4r3y-4",
-      "name": "vitralis-1.4.0.tar.gz.sig",
+      "name": "vitralis-1.4.0.tar.gz.minisig",
       "label": "",
       "uploader": {
         "login": "Ran-n",
@@ -454,7 +454,7 @@
       "download_count": 1,
       "created_at": "2026-11-11T15:56:32Z",
       "updated_at": "2026-11-11T15:56:33Z",
-      "browser_download_url": "https://github.com/Ran-n/vitralis/releases/download/v1.4.0/vitralis-1.4.0.tar.gz.sig"
+      "browser_download_url": "https://github.com/Ran-n/vitralis/releases/download/v1.4.0/vitralis-1.4.0.tar.gz.minisig"
     }
   ],
   "tarball_url": "https://api.github.com/repos/Ran-n/vitralis/tarball/v1.4.0",

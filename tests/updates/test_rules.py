@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:05.981441
-Revised: 2026/11/15 16:45:48.362047
+Revised: 2026/11/21 18:29:11.905457
 
 The updater's rules with no I/O: versions as semantic versioning orders them, the pre-release rule, what a
 check comes to, the newest of several answers, and the checksum format.
@@ -110,7 +110,7 @@ def test_a_newer_release_with_all_three_files_is_available():
     kind, offer = decide(parse_version("1.3.0"), release("1.4.0"), "", ASSET)
     assert kind is CheckKind.AVAILABLE
     assert offer.asset == ASSET and offer.asset_url.endswith(ASSET)
-    assert offer.checksum_url.endswith(ASSET + ".b3") and offer.signature_url.endswith(ASSET + ".sig")
+    assert offer.checksum_url.endswith(ASSET + ".b3") and offer.signature_url.endswith(ASSET + ".minisig")
 
 
 @pytest.mark.parametrize("current", ["1.4.0", "1.5.0"])
@@ -118,7 +118,7 @@ def test_the_same_or_an_older_release_is_up_to_date(current):
     assert decide(parse_version(current), release("1.4.0"), "", ASSET) == (CheckKind.UP_TO_DATE, None)
 
 
-@pytest.mark.parametrize("missing", ["exe", "b3", "sig"])
+@pytest.mark.parametrize("missing", ["exe", "b3", "minisig"])
 def test_a_release_missing_one_of_its_files_has_no_build_and_is_never_offered(missing):
     """A release nobody signed is never offered."""
     assert decide(parse_version("1.3.0"), release("1.4.0", missing=missing), "", ASSET) == (CheckKind.NO_BUILD, None)

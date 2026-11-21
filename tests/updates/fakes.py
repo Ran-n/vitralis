@@ -2,10 +2,10 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:04.824444
-Revised: 2026/11/15 14:27:06.562703
+Revised: 2026/11/21 18:29:11.704811
 
 Stand-ins for the updater's tests: a check that answers what it is told, in-memory update settings, a fixed
-clock, release factories, and a test signing key.
+clock, release factories, a test signing key and the ``.minisig`` it makes for some bytes.
 """
 
 import datetime as dt
@@ -14,6 +14,8 @@ import threading
 from vitralis.updates.check import CheckResult
 from vitralis.updates.rules import Failure, Reason, Release, SourceFailure, parse_version
 from vitralis.updates.signature import public_key
+from vitralis.updates.signature.hashes import hash_bytes
+from vitralis.updates.signature.minisign import sign, trusted_comment
 from vitralis.updates.target import asset_name
 
 NOON = dt.datetime(2026, 11, 13, 12, 34, tzinfo=dt.UTC)
@@ -26,16 +28,24 @@ OTHER_SECRET = bytes(range(32, 64)).hex()
 
 
 def release(text: str, files: bool = True, source: str = "GitHub", missing: str = "") -> Release:
-    """A release as a forge describes it; ``missing`` names one of ``"exe"``, ``"b3"``, ``"sig"`` to leave out."""
+    """A release as a forge describes it; ``missing`` names one of ``"exe"``, ``"b3"``, ``"minisig"`` to leave
+    out."""
     v = parse_version(text)
     base = f"https://github.com/Ran-n/vitralis/releases/download/v{v}"
     exe = asset_name(v, TARGET)
     assets = {}
     if files:
-        for kind, name in (("exe", exe), ("b3", exe + ".b3"), ("sig", exe + ".sig")):
+        for kind, name in (("exe", exe), ("b3", exe + ".b3"), ("minisig", exe + ".minisig")):
             if kind != missing:
                 assets[name] = f"{base}/{name}"
     return Release(v, f"https://github.com/Ran-n/vitralis/releases/tag/v{v}", assets, source)
+
+
+def minisig(data: bytes, secret: str, version: str, asset: str, signed_bytes: bytes | None = None) -> str:
+    """The ``.minisig`` for ``data`` as file ``asset`` of ``version``; ``signed_bytes`` puts a first signature
+    over other bytes under the right trusted comment."""
+    comment = trusted_comment(version, asset, hash_bytes(data).blake3)
+    return sign(secret, hash_bytes(data if signed_bytes is None else signed_bytes).blake2b, comment)
 
 
 FAILED = CheckResult(

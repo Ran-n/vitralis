@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/11/15 14:27:08.591673 )
-[//]: # (+ Revised: 	2026/11/15 22:00:34.726782 )
+[//]: # (+ Revised: 	2026/11/21 18:29:12.851220 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Design decisions
@@ -20,11 +20,13 @@ next to the file proves nothing about who made it.
 
 **Decision.** The updater (`src/vitralis/updates`) asks GitHub and GitLab at the same time for the latest
 release and takes the newest answer, so one forge being down can't hide a release. A release offers the
-portable exe `vitralis-<version>-windows-x86_64-portable.exe` with a `.b3` (BLAKE3) and a `.sig`: an Ed25519 signature
-by the release key over `vitralis-release-v1`, the version, the file name and the hash. Before one byte of
-the exe is asked for, the `.sig` must check out against one of the two public keys built into Vitralis (the
-signing key and a backup kept apart). The exe is then streamed, capped at 200 MiB, 60 s without data and 30
-minutes in all, hashed as it comes, compared with the `.b3`, put at the running exe's path (the running one is
+portable exe `vitralis-<version>-windows-x86_64-portable.exe` with a `.b3` (BLAKE3) and a `.minisig`: a signature by the
+release key in [minisign](https://jedisct1.github.io/minisign/)'s prehashed Ed25519 format, whose trusted
+comment is `vitralis-release-v2`, the version, the file name and the hash. Before one byte of the exe is asked
+for, the trusted comment must be this release's and its signature must check out against one of the two public
+keys built into Vitralis (the signing key and a backup kept apart; the README publishes both). The exe is then
+streamed, capped at 200 MiB, 60 s without data and 30 minutes in all, hashed as it comes (BLAKE3 and
+BLAKE2b-512), compared with the `.b3`, checked against the file signature, put at the running exe's path (the running one is
 moved aside, as Windows allows) and started; Vitralis quits cleanly first. Only release builds, which have
 their target compiled in (`VITRALIS_RELEASE_TARGET` at build time), check at all; a build from source never
 does. Releases are built and attested by CI, and signed by hand from the tag's checkout: the key never goes
@@ -33,7 +35,8 @@ near CI or a forge.
 **Compared with common practice.** Most desktop apps rely on an operating-system code-signing certificate
 (Authenticode) or an update framework with its own signing (Squirrel, WinSparkle, TUF). A code-signing
 certificate costs money every year and proves only who bought it; the frameworks bring an installer format and
-a server layout of their own. Signing the version and the file name along with the hash (as TUF does) stops a
+a server layout of their own. minisign's format is a common, tiny one (used by many open-source releases), so
+anyone can check a download with the stock `minisign` tool and no Vitralis code. Signing the version and the file name along with the hash (as TUF does) stops a
 genuine older build, or another file of the release, being served as the new one, which a hash-only signature
 allows.
 

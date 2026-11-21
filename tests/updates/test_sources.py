@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/15 14:24:51.217424
-Revised: 2026/11/15 21:45:43.619556
+Revised: 2026/11/21 18:29:11.986948
 
 GitHub's and GitLab's answers, from checked-in golden copies of what each forge sends: version, page and files
 are read; bad tags, missing fields, files off HTTPS, oversize answers and error statuses are refused with a
@@ -54,7 +54,7 @@ def test_githubs_answer_is_read(server, http):
     assert release.page_url == "https://github.com/Ran-n/vitralis/releases/tag/v1.4.0"
     name = "vitralis-1.4.0-windows-x86_64-portable.exe"
     assert release.assets[name] == f"https://github.com/Ran-n/vitralis/releases/download/v1.4.0/{name}"
-    assert {name + ".b3", name + ".sig", "vitralis-1.4.0-windows-x86_64-setup.exe"} <= set(release.assets)
+    assert {name + ".b3", name + ".minisig", "vitralis-1.4.0-windows-x86_64-setup.exe"} <= set(release.assets)
 
 
 def test_gitlabs_answer_is_read_preferring_the_direct_url(server, http):

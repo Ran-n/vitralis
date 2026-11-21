@@ -2,18 +2,20 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/15 14:24:48.077286
-Revised: 2026/11/15 14:24:48.077286
+Revised: 2026/11/21 18:29:10.841480
 
-``vitralis-sign``: makes and checks the ``.sig`` files the updater trusts (``vitralis.updates.signature``).
+``vitralis-sign``: makes and checks the ``.minisig`` files the updater trusts (``vitralis.updates.signature``),
+in minisign's format, so anyone can also check one with ``minisign -Vm <file> -P <key>``.
 
     vitralis-sign keygen <secret-file>          a new key in a new file; prints its public half
-    vitralis-sign public <secret-file>          prints the public half again
-    vitralis-sign sign <secret-file> <asset>... writes <asset>.sig next to each
-    vitralis-sign verify <asset>...             checks each .sig against the keys built into Vitralis
+    vitralis-sign public <secret-file>          prints the public half again, in hex and in minisign's form
+    vitralis-sign sign <secret-file> <asset>... writes <asset>.minisig next to each
+    vitralis-sign verify <asset>...             checks each .minisig against the keys built into Vitralis
+    vitralis-sign keys                          prints the built-in keys in minisign's form, signing key first
 
 ``<secret-file>`` may be ``-``: in a terminal the key is then pasted at a prompt that doesn't show it, and
-otherwise read from standard input (``keepassxc-cli show -s -a Password … | vitralis-sign sign - …``), so it
-never rests in a file. Assets are signed as this checkout's version: a file whose name isn't one of that
+otherwise read from standard input (``gpg --batch -q -d <key>.gpg | vitralis-sign sign - …``), so it never
+rests in a file. Assets are signed as this checkout's version: a file whose name isn't one of that
 version's is refused, so sign from the tag's checkout.
 """
 
@@ -21,10 +23,10 @@ import getpass
 import sys
 from pathlib import Path
 
-from blake3 import blake3
-
 from vitralis.updates.rules import NotSigned
-from vitralis.updates.signature import RELEASE_KEYS, Unreadable, generate, public_key, sign, statement, verify_any
+from vitralis.updates.signature import RELEASE_KEYS, Unreadable, generate, minisign_public, public_key
+from vitralis.updates.signature.hashes import FileHashes, hash_file
+from vitralis.updates.signature.minisign import accept, check_file, sign, trusted_comment
 from vitralis.updates.target import current_version, is_asset_of, signature_name
 
 USAGE = """usage:
@@ -32,6 +34,7 @@ USAGE = """usage:
   vitralis-sign public <secret-file>
   vitralis-sign sign <secret-file> <asset>...
   vitralis-sign verify <asset>...
+  vitralis-sign keys
 <secret-file> may be - to paste the key unseen, or to pipe it in."""
 
 
@@ -69,27 +72,26 @@ def _public(secret: str) -> str:
         raise Refused(f"{ex}; nothing was signed") from ex
 
 
-def asset_statement(asset: Path) -> bytes:
+def asset_hashes(asset: Path) -> tuple[str, FileHashes]:
+    """The trusted comment a file of this checkout's version is signed with, and the file's hashes."""
     version = current_version()
     if version is None:
         raise Refused("this checkout's version isn't a version")
     if not is_asset_of(asset.name, version):
         raise Refused(f"{asset.name} isn't a file of Vitralis {version}, the version of this checkout")
-    hasher = blake3()
     try:
-        with asset.open("rb") as file:
-            for chunk in iter(lambda: file.read(1 << 20), b""):
-                hasher.update(chunk)
+        hashes = hash_file(asset)
     except OSError as ex:
         raise Refused(f"{asset} couldn't be read: {ex}") from ex
-    return statement(version, asset.name, hasher.hexdigest())
+    return trusted_comment(version, asset.name, hashes.blake3), hashes
 
 
 def sign_assets(secret: str, assets: list[Path]) -> None:
     _public(secret)  # a key that isn't one is said before anything is written
     for asset in assets:
         path = asset.with_name(signature_name(asset.name))
-        text = sign(secret, asset_statement(asset))
+        comment, hashes = asset_hashes(asset)
+        text = sign(secret, hashes.blake2b, comment)
         try:
             path.write_text(text, encoding="ascii", newline="\n")
         except OSError as ex:
@@ -106,8 +108,10 @@ def verify_assets(assets: list[Path]) -> None:
             signature = path.read_text(encoding="ascii")
         except (OSError, UnicodeDecodeError) as ex:
             raise Refused(f"{path} couldn't be read: {ex}") from ex
+        comment, hashes = asset_hashes(asset)
         try:
-            verify_any(keys, asset_statement(asset), signature)
+            key, minisig = accept(keys, signature, comment)
+            check_file(key, minisig, hashes.blake2b)
         except (NotSigned, Unreadable) as ex:
             raise Refused(f"{asset}: {ex}") from ex
         print(f"{asset}: signed with one of Vitralis's release keys")
@@ -118,11 +122,16 @@ def run(arguments: list[str]) -> None:
         case ["keygen", where]:
             keygen(where)
         case ["public", where]:
-            print(_public(read_secret(where)))
+            public = _public(read_secret(where))
+            print(public)
+            print(minisign_public(public))
         case ["sign", where, *assets] if assets:
             sign_assets(read_secret(where), [Path(asset) for asset in assets])
         case ["verify", *assets] if assets:
             verify_assets([Path(asset) for asset in assets])
+        case ["keys"]:
+            for key in RELEASE_KEYS:
+                print(minisign_public(key))
         case _:
             raise Refused(USAGE)
 

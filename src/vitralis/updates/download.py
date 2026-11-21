@@ -2,12 +2,13 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:10:59.829681
-Revised: 2026/11/15 14:27:02.279221
+Revised: 2026/11/21 18:29:10.933076
 
 Downloads an offered release's exe, proven before a single byte of it is asked for: the ``.b3`` gives the
-hash, the ``.sig`` must be a trusted key's signature over this version, this file name and that hash. Only
-then is the exe streamed, in 64 KiB chunks, into a ``vitralis-update-*`` file in the download folder, hashed
-as it comes. It stops on Cancel, past ``MAX_BYTES``, after ``STALL_SECONDS`` without data or ``TOTAL_SECONDS``
+hash, and the ``.minisig``'s trusted comment must be a trusted key's, for this version, this file name and that
+hash. Only then is the exe streamed, in 64 KiB chunks, into a ``vitralis-update-*`` file in the download
+folder, hashed as it comes; its BLAKE3 hash must match and the signature must hold over its BLAKE2b-512
+hash. It stops on Cancel, past ``MAX_BYTES``, after ``STALL_SECONDS`` without data or ``TOTAL_SECONDS``
 in all; on any failure the file is deleted.
 """
 
@@ -17,10 +18,10 @@ import tempfile
 import threading
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
 
 import httpx
-from blake3 import blake3
 
 from vitralis.updates.http import SMALL_CAP, RequestFailed, check_url, failure_of, get_capped, headers
 from vitralis.updates.rules import (
@@ -34,7 +35,9 @@ from vitralis.updates.rules import (
     UpdateError,
     parse_b3,
 )
-from vitralis.updates.signature import Unreadable, statement, verify_any
+from vitralis.updates.signature import Unreadable
+from vitralis.updates.signature.hashes import FileHashes, hash_file
+from vitralis.updates.signature.minisign import Minisig, accept, check_file, trusted_comment
 
 logger = logging.getLogger("vitralis.updates.download")
 
@@ -51,16 +54,22 @@ Progress = Callable[[int, int | None], None]
 
 
 def file_hash(path: Path) -> str:
-    hasher = blake3()
-    with path.open("rb") as file:
-        for chunk in iter(lambda: file.read(1 << 20), b""):
-            hasher.update(chunk)
-    return hasher.hexdigest()
+    return hash_file(path).blake3
 
 
-def prove(http: httpx.Client, offer: Offer, keys: tuple[str, ...], allow_http: bool = False) -> str:
-    """The exe's expected hash, once its checksum has been read and its signature checked; raises otherwise.
-    Nothing here asks for the exe itself."""
+@dataclass(frozen=True, slots=True)
+class Proof:
+    """What a release file must turn out to be: its BLAKE3 hash, and the signature (by ``key``) its bytes must
+    satisfy."""
+
+    blake3: str
+    key: str
+    minisig: Minisig
+
+
+def prove(http: httpx.Client, offer: Offer, keys: tuple[str, ...], allow_http: bool = False) -> Proof:
+    """The exe's expected hash and signature, once its checksum has been read and the signature's trusted
+    comment checked; raises otherwise. Nothing here asks for the exe itself."""
     try:
         expected = parse_b3(get_capped(http, offer.checksum_url, "text/plain", SMALL_CAP, allow_http).decode())
     except RequestFailed as ex:
@@ -74,10 +83,10 @@ def prove(http: httpx.Client, offer: Offer, keys: tuple[str, ...], allow_http: b
     except UnicodeDecodeError as ex:
         raise NotSigned("the signature can't be read") from ex
     try:
-        verify_any(keys, statement(offer.release.version, offer.asset, expected), signature)
+        key, minisig = accept(keys, signature, trusted_comment(offer.release.version, offer.asset, expected))
     except Unreadable as ex:
         raise NotSigned(str(ex)) from ex
-    return expected
+    return Proof(expected, key, minisig)
 
 
 def download_offer(
@@ -92,7 +101,7 @@ def download_offer(
 ) -> Path:
     """The proven, verified exe in ``folder``; ``UpdateError`` (one of its kinds) with nothing left behind
     otherwise."""
-    expected = prove(http, offer, keys, allow_http)
+    proof = prove(http, offer, keys, allow_http)
     try:
         folder.mkdir(parents=True, exist_ok=True)
         handle, name = tempfile.mkstemp(prefix=TEMP_PREFIX, suffix=".exe", dir=folder)
@@ -104,9 +113,10 @@ def download_offer(
             actual = _stream(http, offer, file, progress, cancel, allow_http, clock)
             file.flush()
             os.fsync(file.fileno())
-        if actual != expected:
-            logger.error("checksum mismatch for %s: expected %s, got %s", offer.asset, expected, actual)
+        if actual.blake3 != proof.blake3:
+            logger.error("checksum mismatch for %s: expected %s, got %s", offer.asset, proof.blake3, actual.blake3)
             raise ChecksumMismatch(f"checksum mismatch for {offer.asset}")
+        check_file(proof.key, proof.minisig, actual.blake2b)
         if cancel.is_set():  # a quit or Cancel during the hash check must not lead to a replace
             raise UpdateCancelled("the download was stopped")
         logger.info("downloaded and verified %s as %s", offer.asset, path)
@@ -116,8 +126,10 @@ def download_offer(
         raise
 
 
-def _stream(http, offer: Offer, file, progress: Progress, cancel: threading.Event, allow_http: bool, clock) -> str:
-    hasher = blake3()
+def _stream(
+    http, offer: Offer, file, progress: Progress, cancel: threading.Event, allow_http: bool, clock
+) -> FileHashes:
+    hasher = FileHashes()
     received = 0
     started = clock()
     timeout = httpx.Timeout(STALL_SECONDS, connect=CONNECT_SECONDS)
@@ -152,7 +164,7 @@ def _stream(http, offer: Offer, file, progress: Progress, cancel: threading.Even
         raise DownloadFailed(failure_of(ex)) from ex
     except OSError as ex:  # the disk, not the network: full, or the folder went away
         raise UpdateError(f"the download couldn't be saved: {ex}") from ex
-    return hasher.hexdigest()
+    return hasher
 
 
 def _delete(path: Path) -> None:

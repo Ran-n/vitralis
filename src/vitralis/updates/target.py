@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/15 14:24:49.546756
-Revised: 2026/11/15 21:45:36.791991
+Revised: 2026/11/21 18:29:11.503219
 
 Which build this is, and what its release files are called.
 
@@ -94,7 +94,7 @@ def checksum_name(asset: str) -> str:
 
 
 def signature_name(asset: str) -> str:
-    return asset + ".sig"
+    return asset + ".minisig"
 
 
 def is_asset_of(name: str, version: Version | str) -> bool:

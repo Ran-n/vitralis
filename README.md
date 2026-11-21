@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/04/27 10:48:03.565778 )
-[//]: # (+ Revised: 	2026/11/15 22:00:33.593724 )
+[//]: # (+ Revised: 	2026/11/21 18:29:12.167582 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 <div align="center">
@@ -118,16 +118,25 @@ and uninstalling too.
 <details>
 <summary><b>Check that a download is genuine</b></summary>
 
-Every file of a release has two files beside it: `<file>.b3`, its BLAKE3 checksum, and `<file>.sig`, its
-signature by Vitralis's release key (the key the in-app updater checks before installing anything).
+Every file of a release has two files beside it: `<file>.b3`, its BLAKE3 checksum, and `<file>.minisig`, its
+signature by Vitralis's release key (the signature the in-app updater checks before installing anything).
 
 ```
 b3sum --check vitralis-<version>-windows-x86_64-setup.exe.b3
+minisign -Vm vitralis-<version>-windows-x86_64-setup.exe -P RWTznxbopCddnGW7bJg4J1HdisbXbwhpTLVL15NOpaFJ1U8BNastzaxb
 gh attestation verify vitralis-<version>-windows-x86_64-setup.exe --repo Ran-n/vitralis
 ```
 
-The second line checks GitHub's record that the file was built by the project's release workflow. To check the
-signature itself, run `uv run vitralis-sign verify <file>` from a copy of the source.
+The second line checks the signature with [minisign](https://jedisct1.github.io/minisign/) and Vitralis's
+release key; its output also shows the trusted comment, which names the version and the file. If a release was
+signed with the backup key instead, check it with that one:
+
+| Release key | |
+|---|---|
+| Signing key | `RWTznxbopCddnGW7bJg4J1HdisbXbwhpTLVL15NOpaFJ1U8BNastzaxb` |
+| Backup key | `RWQdjNahwhlUZDA5Rp75iKxM04xPAqMTos/g4OFWNuoQiRU/uELuToqD` |
+
+The third line checks GitHub's record that the file was built by the project's release workflow.
 </details>
 
 ---

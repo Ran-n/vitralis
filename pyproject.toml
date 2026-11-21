@@ -15,6 +15,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "hypothesis>=6.170.15",
+    "py-minisign>=0.21.1",
     "pyinstaller>=6.0",
     "pytest>=9.2.0",
     "pytest-cov>=7.1.0",

@@ -72,9 +72,9 @@
       },
       {
         "id": 14184264,
-        "name": "vitralis-1.4.0-windows-x86_64-portable.exe.sig",
-        "url": "https://gitlab.com/-/project/85099758/uploads/00000000000000000000000000000002/vitralis-1.4.0-windows-x86_64-portable.exe.sig",
-        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0-windows-x86_64-portable.exe.sig",
+        "name": "vitralis-1.4.0-windows-x86_64-portable.exe.minisig",
+        "url": "https://gitlab.com/-/project/85099758/uploads/00000000000000000000000000000002/vitralis-1.4.0-windows-x86_64-portable.exe.minisig",
+        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0-windows-x86_64-portable.exe.minisig",
         "link_type": "other"
       },
       {
@@ -93,9 +93,9 @@
       },
       {
         "id": 14184267,
-        "name": "vitralis-1.4.0-windows-x86_64-setup.exe.sig",
-        "url": "https://gitlab.com/-/project/85099758/uploads/00000000000000000000000000000005/vitralis-1.4.0-windows-x86_64-setup.exe.sig",
-        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0-windows-x86_64-setup.exe.sig",
+        "name": "vitralis-1.4.0-windows-x86_64-setup.exe.minisig",
+        "url": "https://gitlab.com/-/project/85099758/uploads/00000000000000000000000000000005/vitralis-1.4.0-windows-x86_64-setup.exe.minisig",
+        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0-windows-x86_64-setup.exe.minisig",
         "link_type": "other"
       },
       {
@@ -114,9 +114,9 @@
       },
       {
         "id": 14184270,
-        "name": "vitralis-1.4.0-py3-none-any.whl.sig",
-        "url": "https://gitlab.com/-/project/85099758/uploads/00000000000000000000000000000008/vitralis-1.4.0-py3-none-any.whl.sig",
-        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0-py3-none-any.whl.sig",
+        "name": "vitralis-1.4.0-py3-none-any.whl.minisig",
+        "url": "https://gitlab.com/-/project/85099758/uploads/00000000000000000000000000000008/vitralis-1.4.0-py3-none-any.whl.minisig",
+        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0-py3-none-any.whl.minisig",
         "link_type": "other"
       },
       {
@@ -135,9 +135,9 @@
       },
       {
         "id": 14184273,
-        "name": "vitralis-1.4.0.tar.gz.sig",
-        "url": "https://gitlab.com/-/project/85099758/uploads/0000000000000000000000000000000b/vitralis-1.4.0.tar.gz.sig",
-        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0.tar.gz.sig",
+        "name": "vitralis-1.4.0.tar.gz.minisig",
+        "url": "https://gitlab.com/-/project/85099758/uploads/0000000000000000000000000000000b/vitralis-1.4.0.tar.gz.minisig",
+        "direct_asset_url": "https://gitlab.com/Ran-n/vitralis/-/releases/v1.4.0/downloads/vitralis-1.4.0.tar.gz.minisig",
         "link_type": "other"
       }
     ]

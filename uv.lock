@@ -528,6 +528,19 @@ wheels = [
 ]
 
 [[package]]
+name = "py-minisign"
+version = "0.21.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "cryptography" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/24/b0/41402994b0bd289bc19f6d7b9b0ab0b45ac9fad7c5b9cc5c80f3f4d5a7f7/py_minisign-0.21.1.tar.gz", hash = "sha256:50819ca8e92715bc2d974f49bdb0859085aa540ec0aa8dc3905b28d620f99030", size = 9332, upload-time = "2026-08-18T16:40:06.115Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ce/02/8e5a5ef1503a39c672577c416aa6ecc6c1ddb19b10c058cd1b2f61723944/py_minisign-0.21.1-py3-none-any.whl", hash = "sha256:69fa5bb0f69cec5a9fa6e63ad65db50ff926406f4ce7a54ef23e50dfb8cb221a", size = 13803, upload-time = "2026-08-18T16:40:04.978Z" },
+]
+
+[[package]]
 name = "pycparser"
 version = "3.12"
 source = { registry = "https://pypi.org/simple" }
@@ -3349,6 +3362,7 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "hypothesis" },
+    { name = "py-minisign" },
     { name = "pyinstaller" },
     { name = "pytest" },
     { name = "pytest-cov" },
@@ -3368,6 +3382,7 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "hypothesis", specifier = ">=6.170.15" },
+    { name = "py-minisign", specifier = ">=0.21.1" },
     { name = "pyinstaller", specifier = ">=6.0" },
     { name = "pytest", specifier = ">=9.2.0" },
     { name = "pytest-cov", specifier = ">=7.1.0" },

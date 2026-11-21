@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/15 14:24:51.497372
-Revised: 2026/11/15 21:45:44.237661
+Revised: 2026/11/21 18:29:12.077921
 
 Which build this is and what its files are called: the packaged exe takes its target from ``_release.py`` and
 ignores every override; a copy run from source is a build from source unless a test gives it a target; an
@@ -68,7 +68,7 @@ def test_asset_names_carry_the_version_and_the_target():
     v = parse_version("1.4.0-rc.1")
     assert target.asset_name(v, "windows-x86_64") == "vitralis-1.4.0-rc.1-windows-x86_64-portable.exe"
     assert target.installer_name(v, "windows-x86_64") == "vitralis-1.4.0-rc.1-windows-x86_64-setup.exe"
-    assert target.checksum_name("a.exe") == "a.exe.b3" and target.signature_name("a.exe") == "a.exe.sig"
+    assert target.checksum_name("a.exe") == "a.exe.b3" and target.signature_name("a.exe") == "a.exe.minisig"
 
 
 @pytest.mark.parametrize(

@@ -1,7 +1,7 @@
 [//]: # ( ---------------------------------------------------------------------- )
 [//]: # (+ Authors: 	Ran# <ran.hash@proton.me> )
 [//]: # (+ Created: 	2026/08/04 12:03:36.212196 )
-[//]: # (+ Revised: 	2026/11/15 22:45:12.208290 )
+[//]: # (+ Revised: 	2026/11/21 18:29:12.516459 )
 [//]: # ( ---------------------------------------------------------------------- )
 
 # Changelog
@@ -23,13 +23,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   automatically** turns that off. A failed check says each forge's reason,
   and a pre-release is only offered to a pre-release.
 - Updating from inside Vitralis: **Update and restart** checks that the
-  release is signed with Vitralis's release key (Ed25519, over the version,
-  the file name and its BLAKE3 checksum) before downloading anything, then
+  release is signed with Vitralis's release key (a `.minisig` in
+  minisign's format, whose trusted comment names the version, the file name
+  and its BLAKE3 checksum) before downloading anything, then
   downloads the exe (with **Cancel**), checks the checksum, replaces the
   exe at the same path and starts the new version, going back to the old
   one if anything fails. A build from source never checks or updates.
 - `vitralis-sign`, the release signing tool (`keygen`, `public`, `sign`,
-  `verify`; the key is pasted unseen or piped from KeePassXC), and
+  `verify`, `keys`; the key is pasted unseen or piped from GPG or
+  KeePassXC, never read from a plain file), and
   `vitralis-asset-name`, which names the exe the updater looks for.
 - A release workflow: pushing a `vX.Y.Z` tag builds the exe and the
   installer as release builds, tests the installer for real, adds the
@@ -290,6 +292,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   GHSA-xmj3-9gf7-h52w.
 - The activation id could still reach `vitralis.log` inside the reason of a
   failed license check; the address is now left out of it.
+- Release signatures are in minisign's format, and the README publishes
+  Vitralis's own two release keys, so anyone can check a download with
+  `minisign -Vm` (a test keeps the README's keys equal to the app's).
 - Update checks and downloads refuse any redirect to an address that isn't
   HTTPS (only the first address was checked before).
 

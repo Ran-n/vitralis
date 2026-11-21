@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:10:58.341088
-Revised: 2026/11/15 14:27:03.162537
+Revised: 2026/11/21 18:29:11.391686
 
 The updater's rules, with no I/O and no Qt: versions (semantic versioning, pre-releases included) and how
 they compare, the release a forge describes, what a check comes to (``decide``), the ``b3sum`` checksum
@@ -104,7 +104,7 @@ class CheckKind(enum.Enum):
     UP_TO_DATE = "up_to_date"
     AVAILABLE = "available"
     NO_BUILD = "no_build"
-    """Newer, but its exe, ``.b3`` or ``.sig`` for this system is missing: never offered."""
+    """Newer, but its exe, ``.b3`` or ``.minisig`` for this system is missing: never offered."""
     SKIPPED = "skipped"
     FAILED = "failed"
 
@@ -119,7 +119,7 @@ def decide(current: Version | None, release: Release, skipped: str, asset: str) 
     floor = current if current is not None else Version(0, 0, 0, ("0",))
     if not is_offered_version(floor, release.version):
         return CheckKind.UP_TO_DATE, None
-    urls = [release.assets.get(name) for name in (asset, asset + ".b3", asset + ".sig")]
+    urls = [release.assets.get(name) for name in (asset, asset + ".b3", asset + ".minisig")]
     if any(url is None for url in urls):
         return CheckKind.NO_BUILD, None
     skipped_version = parse_version_or_none(skipped)

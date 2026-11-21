@@ -1,7 +1,7 @@
 # Pushing a vX.Y.Z tag builds the portable exe and the installer as release builds (VITRALIS_RELEASE_TARGET),
 # tests the installer for real, adds the wheel and the sdist, gives each a BLAKE3 `.b3`, attests where every
 # file came from, and attaches them to a draft GitHub release. The exe's name comes from `vitralis-asset-name`,
-# the same rule the in-app updater looks for, so the two can't disagree. The `.sig` files are added by hand
+# the same rule the in-app updater looks for, so the two can't disagree. The `.minisig` files are added by hand
 # afterwards: the release key never comes near CI (CONTRIBUTING.md, Releases).
 name: Release
 

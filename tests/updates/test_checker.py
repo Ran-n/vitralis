@@ -2,7 +2,7 @@
 """
 Authors: Ran# <ran.hash@proton.me>
 Created: 2026/11/13 09:11:08.909997
-Revised: 2026/11/15 22:45:18.331560
+Revised: 2026/11/21 18:29:11.807632
 
 The update checker on the offscreen ``QApplication``: checks run on their own thread and come back as one
 ``UpdateStatus``; the six outcomes; skip and Stop skipping; a failed check never loses a known offer; the
@@ -114,7 +114,7 @@ def test_the_check_runs_on_its_own_named_thread(qapp, make):
     [
         (release("1.3.0"), CheckKind.UP_TO_DATE),
         (release("1.2.0"), CheckKind.UP_TO_DATE),
-        (release("1.4.0", missing="sig"), CheckKind.NO_BUILD),
+        (release("1.4.0", missing="minisig"), CheckKind.NO_BUILD),
         (release("1.4.0-rc.1"), CheckKind.UP_TO_DATE),
     ],
 )
